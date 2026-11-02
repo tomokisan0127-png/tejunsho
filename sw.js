@@ -1,7 +1,8 @@
-/* 作業手順書メーカー：オフライン用（版 dbba4cb1） */
-const CACHE="tejunsho-dbba4cb1";
+/* 作業手順書メーカー：オフライン用（版 2e6a86c8） */
+const CACHE="tejunsho-2e6a86c8";
 const FILES=["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","apple-touch-icon.png"];
-self.addEventListener("install",e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())); });
+const OCR=["tesseract.min.js","tesseract-worker.min.js","tesseract-core-lstm.wasm.js","eng.traineddata.gz"];   // 現品札の文字認識（無くても本体は動く）
+self.addEventListener("install",e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES).then(()=>Promise.all(OCR.map(f=>c.add(f).catch(()=>{}))))).then(()=>self.skipWaiting())); });
 self.addEventListener("activate",e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 /* 電波があれば最新を取りに行き、なければ保存しておいた物を使う */
 self.addEventListener("fetch",e=>{

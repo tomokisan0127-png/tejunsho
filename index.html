@@ -154,6 +154,12 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .msg:empty{display:none}
 #fm .msg.ok{color:var(--ok)} #fm .msg.ng{color:var(--warn)}
 #fm .msg button{margin:6px 0 0;display:block}
+#fm .msg.tagReg{background:#fff;border:2px solid var(--pri,#1f5fae);border-radius:14px;padding:12px;color:var(--ink)}
+#fm .tagReg .trRow{display:flex;align-items:center;gap:8px;margin:8px 0}
+#fm .tagReg .trRow label{width:3em;font-size:13px;color:#667;flex:none}
+#fm .tagReg .trRow input{flex:1;min-width:0;font-size:17px;padding:8px 10px;border:1px solid #c9d1dc;border-radius:10px}
+#fm .tagReg .trRow span{font-size:16px}
+#fm .tagReg .trWarn{font-size:12.5px;color:var(--warn);margin:4px 0;font-weight:normal}
 /* ボタン */
 #fm .pill{min-height:54px;border-radius:14px;font-size:16px;font-weight:bold;background:#fff;border:1.5px solid #cfd7e2;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px}
 #fm .pill.primary{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -3090,35 +3096,113 @@ function renderAiReview(){
 const normPn=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const F={stepId:null,parts:[],hz:[],action:"",photos:[],checks:[],title:"",body:"",tEd:false,bEd:false,ask:null};
 /* 札の文字列 → 部品表の部品（子品番で照合） */
+/* 出庫現品札のQR：「Z＋8桁」のすぐ後ろが品番（例 Z12345678A001234501 → A00-12345-01） */
+function tagQrPn(text){ const m=String(text||"").toUpperCase().match(/Z\d{8}([A-Z]\d{2})(\d{5})(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:""; }
 function matchTag(text){
   const N=normPn(text); if(!N) return {hits:[],codes:[]};
+  const qp=tagQrPn(text);
+  if(qp){ const k=normPn(qp); return {hits:(S.meta.parts||[]).filter(p=>normPn(p.pn)===k), codes:[k]}; }
   const hits=(S.meta.parts||[]).filter(p=>{ const k=normPn(p.pn); return k.length>=6 && N.includes(k); });
   const codes=[...new Set((String(text).toUpperCase().match(/[A-Z][A-Z0-9]{1,2}-?\d{4,5}-?\d{2,3}|[A-Z]{1,2}\d{8,9}/g)||[]).map(normPn))];
   return {hits,codes};
 }
-/* 写真からバーコード・QRを読む（端末の機能 → ダメならZXing） */
+/* 写真からバーコード・QRを読む（端末の機能 → ダメならZXing）。QRの位置は tagGeo に残す（札の文字を読むため） */
+let tagGeo=null;
 async function readCodes(file){
-  const url=URL.createObjectURL(file); const out=new Set();
+  if(tagGeo&&tagGeo.url) URL.revokeObjectURL(tagGeo.url);
+  const url=URL.createObjectURL(file); const out=new Set(); tagGeo=null; let keep=false;
   try{
     const im=await loadImg(url);
+    const geo=(TL,TR,BL)=>{ if(!tagGeo){ tagGeo={im,url,TL,ex:{x:TR.x-TL.x,y:TR.y-TL.y},ey:{x:BL.x-TL.x,y:BL.y-TL.y}}; keep=true; } };
+    // ZXingのQRは「目印の中心」3点（左下・左上・右上）→ 外枠に直す（現品札のQR＝37マス）
+    const zgeo=(r,map)=>{ try{ if(r.getBarcodeFormat()!==ZXing.BarcodeFormat.QR_CODE) return; const P=r.getResultPoints().map(q=>map(q.getX(),q.getY())); if(P.length<3) return;
+      const [BL,TL,TR]=P, K=37/30, ex={x:(TR.x-TL.x)*K,y:(TR.y-TL.y)*K}, ey={x:(BL.x-TL.x)*K,y:(BL.y-TL.y)*K}, o=3.5/37;
+      const T0={x:TL.x-(ex.x+ey.x)*o,y:TL.y-(ex.y+ey.y)*o}; geo(T0,{x:T0.x+ex.x,y:T0.y+ex.y},{x:T0.x+ey.x,y:T0.y+ey.y}); }catch(e){} };
     if("BarcodeDetector" in window){
-      try{ const det=new BarcodeDetector(); (await det.detect(im)).forEach(b=>out.add(b.rawValue)); }catch(e){}
+      try{ const det=new BarcodeDetector(); (await det.detect(im)).forEach(b=>{ out.add(b.rawValue);
+        if(b.format==="qr_code"&&b.cornerPoints&&b.cornerPoints.length===4){ const c=b.cornerPoints; geo(c[0],c[1],c[3]); } }); }catch(e){}
     }
     if(!out.size&&typeof ZXing!=="undefined"){
       const reader=new ZXing.MultiFormatReader(); const hints=new Map(); hints.set(ZXing.DecodeHintType.TRY_HARDER,true); reader.setHints(hints);
+      const dec=c=>reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c))));
       for(const max of [1600,1000,2400]) for(const rot of [0,90]){
         try{
           const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight)); const w=Math.round(im.naturalWidth*s), h=Math.round(im.naturalHeight*s);
           const c=document.createElement("canvas"); c.width=rot?h:w; c.height=rot?w:h; const g=c.getContext("2d");
           if(rot){ g.translate(c.width,0); g.rotate(Math.PI/2); } g.drawImage(im,0,0,w,h);
-          const bmp=new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c)));
-          out.add(reader.decode(bmp).getText());
+          const r=dec(c); out.add(r.getText());
+          zgeo(r,rot?(x,y)=>({x:y/s,y:(c.width-x)/s}):(x,y)=>({x:x/s,y:y/s}));
         }catch(e){}
         if(out.size) break;
       }
+      // 札全体を撮った写真ではQRが小さいので、写真を区切って探す
+      const W=im.naturalWidth, H=im.naturalHeight;
+      for(const n of [3,2,4]){ if(out.size) break; const tw=W*2/(n+1), th=H*2/(n+1);
+        for(let i=0;i<n&&!out.size;i++) for(let j=0;j<n&&!out.size;j++) for(const mx of n===4?[800]:[800,1200]){ if(out.size) break;
+          try{ const sx=i*tw/2, sy=j*th/2, sc=Math.min(1,mx/Math.max(tw,th));
+            const c=document.createElement("canvas"); c.width=Math.round(tw*sc); c.height=Math.round(th*sc);
+            c.getContext("2d").drawImage(im,sx,sy,tw,th,0,0,c.width,c.height);
+            const r=dec(c); out.add(r.getText()); zgeo(r,(x,y)=>({x:sx+x/sc,y:sy+y/sc}));
+          }catch(e){}
+        }
+      }
     }
-  }finally{ URL.revokeObjectURL(url); }
+  }finally{ if(!keep) URL.revokeObjectURL(url); }
   return [...out];
+}
+
+/* ---- 現品札の文字を読む（品名・組図風船）：QRの位置から欄を切り出して文字認識 ---- */
+function tagCrop(g,u0,v0,u1,v1){
+  const qh=Math.hypot(g.ey.x,g.ey.y), k=Math.max(.6,Math.min(3,40/(qh*.24)));
+  const W=Math.round(Math.hypot(g.ex.x,g.ex.y)*(u1-u0)*k), H=Math.round(qh*(v1-v0)*k);
+  const a={x:g.ex.x*(u1-u0)/W,y:g.ex.y*(u1-u0)/W}, b={x:g.ey.x*(v1-v0)/H,y:g.ey.y*(v1-v0)/H};
+  const P0={x:g.TL.x+g.ex.x*u0+g.ey.x*v0,y:g.TL.y+g.ex.y*u0+g.ey.y*v0}, det=a.x*b.y-b.x*a.y;
+  const m11=b.y/det, m21=-b.x/det, m12=-a.y/det, m22=a.x/det;
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d");
+  x.fillStyle="#fff"; x.fillRect(0,0,W,H);
+  x.setTransform(m11,m12,m21,m22,-(m11*P0.x+m21*P0.y),-(m12*P0.x+m22*P0.y)); x.drawImage(g.im,0,0);
+  return c;
+}
+let ocrW=null;
+async function ocrWorker(){
+  if(ocrW) return ocrW;
+  if(!/^https?:$/.test(location.protocol)) throw new Error("このファイルでは文字認識は使えません（アプリ版のみ）");
+  if(typeof Tesseract==="undefined") await new Promise((ok,ng)=>{ const sc=document.createElement("script"); sc.src="tesseract.min.js"; sc.onload=ok; sc.onerror=()=>ng(new Error("文字認識の部品が見つかりません")); document.head.appendChild(sc); });
+  const base=new URL("./",location.href).href;
+  ocrW=await Tesseract.createWorker("eng",1,{workerBlobURL:false,workerPath:base+"tesseract-worker.min.js",corePath:base+"tesseract-core-lstm.wasm.js",langPath:base.replace(/\/$/,""),gzip:true});
+  return ocrW;
+}
+async function ocrTag(g){
+  const w=await ocrWorker(), res={b:"",name:"",kumizu:""};
+  await w.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"});
+  let t=(await w.recognize(tagCrop(g,-4.0,4.2,-0.6,5.2))).data.text.toUpperCase().replace(/ /g,"");
+  let m=t.match(/(?:^|\D)(\d{4})-(\d{1,3})(?!\d)/); if(m){ res.b=m[2]; res.kumizu=m[1]+"-"+m[2]; }      // 組図・風船「X00-0000-123」の最後が風船
+  await w.setParameters({tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ()-/.,&#"});
+  t=(await w.recognize(tagCrop(g,0.45,3.5,2.8,4.5))).data.text.toUpperCase();
+  const runs=(t.match(/[A-Z0-9(][A-Z0-9 ()\-\/.,&#]*[A-Z0-9)]/g)||[]).map(x=>x.replace(/\s+/g," ").trim()).filter(x=>/[A-Z].*[A-Z]/.test(x)&&!/^HINMEI$/.test(x));
+  res.name=(runs.sort((x,y)=>y.length-x.length)[0]||"").replace(/\s+[1IL|]$/,"");      // 枠の縦線が「1」に読める
+  return res;
+}
+/* 部品表にない品番 → 札から品名・風船を読んで、その場で部品表に登録 */
+async function tagRegister(host,pn,f,onDone){
+  const g=tagGeo; let r={b:"",name:""}, note="";
+  host.className="msg"; host.innerHTML=`「${esc(pn)}」は部品表にありません。札から品名・風船番号を読み取っています…`;
+  if(g){ try{ r=await ocrTag(g); }catch(e){ note=e.message||""; } } else note="この札からは品名・風船番号を読めないので、手で入れてください。";
+  const P=S.meta.parts||[], sameB=r.b?P.find(x=>x.b===normB(r.b)):null;
+  host.className="msg tagReg";
+  host.innerHTML=`<b>部品表に登録します</b>（品名・風船番号を確かめてください）
+    <div class="trRow"><label>風船</label><input id="trB" inputmode="numeric" value="${esc(r.b?normB(r.b):"")}" placeholder="例 153"></div>
+    <div class="trRow"><label>品名</label><input id="trName" value="${esc(r.name)}" placeholder="例 NUT PLATE"></div>
+    <div class="trRow"><label>品番</label><span>${esc(pn)}</span></div>
+    ${sameB?`<p class="trWarn">※ 風船${esc(sameB.b)}は部品表に「${esc(pName(sameB)||sameB.pn)}（${esc(sameB.pn||"")}）」があります</p>`:""}
+    ${note?`<p class="trWarn">${esc(note)}</p>`:""}
+    <button class="pill primary wide" id="trOk">✓ 部品表に登録する</button>`;
+  $("#trOk").onclick=()=>{
+    const o={b:normB($("#trB").value),pn,name:$("#trName").value.trim(),jp:"",qty:"1",manual:true};
+    if(!o.name&&!o.b){ $("#trName").focus(); return fmToast("品名か風船番号を入れてください",true); }
+    (S.meta.parts||(S.meta.parts=[])).push(o); sortParts(); persist(); refreshPickers(); updateTabs();
+    onDone(o);
+  };
 }
 
 function fmToken(p){ return p.b?{b:p.b,label:partText(p),name:pName(p)||("風船"+p.b)}:{b:"",label:pName(p)?`${pName(p)}（${p.pn}）`:p.pn,name:pName(p)||p.pn}; }
@@ -3292,7 +3376,9 @@ $("#fqTagIn").onchange=async e=>{
   const codes=await readCodes(f); let tag=null; try{ tag=await fileToPhoto(f); }catch(_){}
   const r=codes.length?matchTag(codes.join(" ")):{hits:[]};
   if(r.hits.length>=1){ Q.p=r.hits[0]; Q.tag=tag; m.style.color="var(--ok)"; m.textContent=`✓ ${Q.p.pn} を読み取りました${r.hits.length>1?"（同じ品番が複数あります。下の一覧から選び直せます）":""}`; fmPrepRender(); return; }
-  m.style.color="var(--warn)"; m.textContent=codes.length?`「${codes[0]}」は部品表にありません。`:"バーコードが読めませんでした。部品を探すか、下の一覧から選んでください。";
+  if(codes.length){ const mm=matchTag(codes.join(" ")), code=mm.codes&&mm.codes[0]?fmtPn(mm.codes[0]):String(codes[0]).trim().toUpperCase();
+    m.style.color=""; await tagRegister(m,code,f,p=>{ Q.p=p; Q.tag=tag; m.className="msg"; m.style.color="var(--ok)"; m.textContent=`✓ 【${p.b||"-"}】${pName(p)} を部品表に登録しました。部品の写真を撮ってください。`; fmPrepRender(); }); return; }
+  m.style.color="var(--warn)"; m.textContent="QRコード・バーコードが読めませんでした。QRコードに近づいて撮り直すか、部品を探してください。";
   $("#fqFindBox").hidden=false; $("#fqQ").focus();
 };
 $("#fqFind").onclick=()=>{ $("#fqFindBox").hidden=!$("#fqFindBox").hidden; if(!$("#fqFindBox").hidden) $("#fqQ").focus(); };
@@ -3402,9 +3488,9 @@ $("#fpTag2In").onchange=async e=>{
     fmInsert(partText(p)); fmRenderStep(); return; }
   msg.className="msg ng";
   if(codes.length){ const code=m.codes&&m.codes[0]?fmtPn(m.codes[0]):String(codes[0]).trim().toUpperCase();
-    msg.innerHTML=`「${esc(code)}」は部品表にありません。<button class="pill wide" id="fpAddCode">＋ この品番を部品表に追加して入れる</button>`;
-    $("#fpAddCode").onclick=()=>fmOpenParts({add:true,pn:code,insert:true}); }
-  else{ msg.innerHTML=`バーコードが読めませんでした。明るい所でバーコードを大きく撮り直すか、部品を一覧から選んでください。<button class="pill wide" id="fpPickAlt">🔍 部品を選ぶ</button>`;
+    await tagRegister(msg,code,f,async p=>{ msg.className="msg ok"; msg.textContent=`✓ 【${p.b||"-"}】${pName(p)}（${p.pn}）を部品表に登録して、文章に入れました`;
+      let tag=null; try{ tag=await fileToPhoto(f); }catch(_){} F.ask={p,tag}; fmInsert(partText(p)); fmRenderStep(); }); }
+  else{ msg.innerHTML=`QRコード・バーコードが読めませんでした。札の右上のQRコードが大きく写るように近づいて撮り直すか、部品を一覧から選んでください。<button class="pill wide" id="fpPickAlt">🔍 部品を選ぶ</button>`;
     $("#fpPickAlt").onclick=fmPickOpen; }
 };
 /* 部品を選ぶ（下から出るシート） */
@@ -3458,8 +3544,9 @@ function fmRefs(){
   const push=(src,p)=>{ if(!out.some(x=>x.p===p)) out.push({src,p}); };
   // 「風船031」「31番」「031」→ まだ【031】SPACER（…）の形になっていなければ候補に出す
   const inLabel=(p,i)=>{ const L=partText(p); if(!L) return false; let k=t.indexOf(L); while(k>=0){ if(i>=k&&i<k+L.length) return true; k=t.indexOf(L,k+1); } return false; };
-  for(const m of t.matchAll(/風船\s*(\d{1,4})|(\d{1,4})\s*番(?!目)|(?<![\d\w【\-])(0\d{2})(?![\d\w】])/g)){
-    const b=normB(m[1]||m[2]||m[3]); P.filter(p=>p.b===b&&!inLabel(p,m.index)).forEach(p=>push(m[0],p)); }
+  for(const m of t.matchAll(/風船\s*(\d{1,4})(?:\s*番(?!目))?|(\d{1,4})\s*番(?!目)|(^|[^\d\w【\-])(0\d{2})(?![\d\w】])/g)){
+    const pre=m[3]||"", at=m.index+pre.length, src=m[0].slice(pre.length);      // 前の1文字は数えない（古いiPhoneでも動く書き方）
+    const b=normB(m[1]||m[2]||m[4]); P.filter(p=>p.b===b&&!inLabel(p,at)).forEach(p=>push(src,p)); }
   const sep="[\\s\\-－・]?";
   // すでに部品になっている所（【001】LIFT PLATE（…）など）は名前の候補探しから外す
   let masked=t; P.forEach(p=>{ const pt=partText(p); if(pt&&masked.includes(pt)) masked=masked.split(pt).join("　"); });
