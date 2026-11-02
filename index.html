@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
+<meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#1f5fae">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -728,7 +729,7 @@ details.fold>summary::before{color:var(--accent)}
       <h2><i class="n">1</i>手順書の情報</h2>
       <div class="grid2">
         <div><label>作業名</label><input data-m="name" placeholder="例）カバーBKT"></div>
-        <div><label>機種名</label><input data-m="model" placeholder="例）L72"></div>
+        <div><label>機種名</label><input data-m="model" placeholder="例）A100"></div>
         <div><label>仕様</label><input data-m="spec" placeholder="例）標準"></div>
         <div><label>主体作業時間</label><div style="display:flex;gap:6px"><input data-m="time" placeholder="例）40分">
           <select data-m="timeAuto" style="width:auto" title="工程ごとの作業時間の合計を使う"><option value="0">手入力</option><option value="1">工程の合計</option></select></div>
@@ -739,7 +740,7 @@ details.fold>summary::before{color:var(--accent)}
       </div>
       <h2 style="margin-top:16px"><i class="n">2</i>作成者</h2>
       <div class="grid3">
-        <div><label>部署</label><input data-m="dept" placeholder="工機製造"></div>
+        <div><label>部署</label><input data-m="dept" placeholder="例）製造課"></div>
         <div><label>氏名</label><input data-m="author" placeholder="例）山田"></div>
         <div><label>作成日</label><input type="date" data-m="adate"></div>
       </div>
@@ -1033,8 +1034,8 @@ details.fold>summary::before{color:var(--accent)}
           <button class="txtBtn" id="fsEdit">✎ 作業名・機種名を変える</button>
         </div>
         <div id="fsEditBox" hidden>
-          <label>作業名</label><input id="fsName" placeholder="例）剣山パレットSA">
-          <div class="two"><div><label>機種名</label><input id="fsModel" placeholder="例）L81"></div><div><label>仕様</label><input id="fsSpec" placeholder="標準"></div></div>
+          <label>作業名</label><input id="fsName" placeholder="例）カバーBKT">
+          <div class="two"><div><label>機種名</label><input id="fsModel" placeholder="例）A100"></div><div><label>仕様</label><input id="fsSpec" placeholder="標準"></div></div>
           <button class="okBtn" id="fsEditDone">✓ これでOK</button>
         </div>
         <div class="stats">
@@ -1320,7 +1321,7 @@ const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.ge
 function blankStep(){ return {id:uid(),title:"",body:"",check:"",tools:"",min:"",photos:[]}; }
 function blankState(){
   return {meta:{name:"",model:"",spec:"標準",time:"",seitei:today(),jisshi:today(),tools:"",no1:"",no2:"",no3mode:"page",
-    dept:"工機製造",author:"",adate:today(),perSheet:"3",divider:"1",revs:[],fitMode:"auto",maxPt:"16",minPt:"9",uniform:"1",torqueOn:"1",timeAuto:"0",prepOn:"1",hzSheet:"1",
+    dept:"",author:"",adate:today(),perSheet:"3",divider:"1",revs:[],fitMode:"auto",maxPt:"16",minPt:"9",uniform:"1",torqueOn:"1",timeAuto:"0",prepOn:"1",hzSheet:"1",
     parts:[],hozai:[],skipParts:[],partLabel:"name_pn",plv:1,bFmt:"kakko",partList:"0",bPad:"3",hzPer:"0"},
     steps:[blankStep(),blankStep(),blankStep()]};
 }
@@ -3850,7 +3851,7 @@ function load(d){
 }
 function sample(){
   const st=(title,body,check,tools)=>Object.assign(blankStep(),{title,body,check,tools});
-  return {meta:Object.assign(blankState().meta,{name:"カバーBKT",model:"L72",spec:"標準",time:"40分",tools:"",dept:"工機製造",author:"",no1:"",no2:"",
+  return {meta:Object.assign(blankState().meta,{name:"カバーBKT",model:"A100",spec:"標準",time:"40分",tools:"",dept:"",author:"",no1:"",no2:"",
     parts:[["052","S00-10009-00","BRACKET-2","ブラケット-2"],["053","S00-10010-00","BRACKET-3","ブラケット-3"],["059","S00-10003-00","DUCT COVER","ダクトカバー"],["060","S00-10004-00","DUCT BKT","ダクトブラケット"],["404","S00-10002-00","DUCT","ダクト"],["413","S00-10001-00","COVER","カバー"],["457","S00-10007-00","COVER","カバー"],["458","S00-10008-00","WASHER","ワッシャー","2"],["459","S00-10005-00","PLATE","プレート"],["460","S00-10006-00","COVER","カバー"]].map(([b,pn,name,jp,qty])=>({b,pn,name,jp,qty:qty||"1"})),
     hozai:[["HC M8X15","4","052"],["Zr φ8","4","052"],["HC M8X12","4","053"],["HC M6X12","4","059"],["Zr φ6","4","059"],["HC M6X8","2","060"],["HC M6X12","3","404"],["Zr φ6","4","404"],["HC M6X12","4","413"],["HC M6X10","2","457"],["HC M6X12","2","459"]].map(([name,qty,b])=>({name,qty,b}))}),
   steps:[
