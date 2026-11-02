@@ -3715,9 +3715,9 @@ setInterval(guideTick,250);
 /* 「次へ」：この案内を飛ばして次の案内へ（1回だけの説明は、もう出さない） */
 $("#gdTip .ga").onclick=()=>{ const st=gCur; if(st){ if(st.once) gSeen(st.k); else st.sk[st.k]=1; } gKey=""; guideTick(); };
 function uiToast(t,ng){ if(!$("#fm").hidden) return fmToast(t,ng); const el=$("#pcToast"); el.textContent=t; el.className=ng?"ng":""; el.hidden=false; clearTimeout(el._t); el._t=setTimeout(()=>el.hidden=true,2600); }
-$("#gdTip .gx").onclick=()=>{ G.on=false; gSave(); gUI(); guideTick(); uiToast("ガイドは「🧭 ガイド」でまた表示できます"); };
+$("#gdTip .gx").onclick=()=>{ G.on=false; gForce=false; gSave(); gUI(); guideTick(); uiToast("ガイドは「🧭 ガイド」でまた表示できます"); };
 function gUI(){ $("#fmGuideB").classList.toggle("on",G.on); $("#bGuidePC").classList.toggle("on",G.on); $("#fpGuideB").textContent=G.on?"🧭 ガイドを消す":"🧭 ガイドを表示する"; }
-function gToggle(){ G.on=!G.on; if(G.on){ G.seen={}; gSkipS={}; F.gSkip={}; } gSave(); gUI(); gKey=""; $("#fpMenu").hidden=true; guideTick(); uiToast(G.on?"ガイドを表示します":"ガイドを消しました"); }
+function gToggle(){ G.on=!G.on; if(!G.on) gForce=false; if(G.on){ G.seen={}; gSkipS={}; F.gSkip={}; } gSave(); gUI(); gKey=""; $("#fpMenu").hidden=true; guideTick(); uiToast(G.on?"ガイドを表示します":"ガイドを消しました"); }
 $("#fmGuideB").onclick=gToggle; $("#fpGuideB").onclick=gToggle; $("#bGuidePC").onclick=gToggle;
 gUI();
 /* ---- アプリとして入れる（PWA。Webページとして開いたときだけ） ---- */
