@@ -159,6 +159,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .tagReg .trRow label{width:3em;font-size:13px;color:#667;flex:none}
 #fm .tagReg .trRow input{flex:1;min-width:0;font-size:17px;padding:8px 10px;border:1px solid #c9d1dc;border-radius:10px}
 #fm .tagReg .trRow span{font-size:16px}
+#fm .tagReg .trStat{font-size:13px;color:var(--ok,#2e7d4f);margin:6px 0;font-weight:normal;white-space:pre-line} #fm .tagReg .trStat.ng{color:var(--warn)}
 #fm .tagReg .trWarn{font-size:12.5px;color:var(--warn);margin:4px 0;font-weight:normal}
 /* ボタン */
 #fm .pill{min-height:54px;border-radius:14px;font-size:16px;font-weight:bold;background:#fff;border:1.5px solid #cfd7e2;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px}
@@ -3369,6 +3370,8 @@ $("#scanX").onclick=scanClose;
 $("#scanPhoto").onclick=()=>{ const fb=SC.fb; scanClose(); fb&&fb(); };
 $("#scanTorch").onclick=async()=>{ const b=$("#scanTorch"), on=!b.classList.contains("on"); try{ await SC.stream.getVideoTracks()[0].applyConstraints({advanced:[{torch:on}]}); b.classList.toggle("on",on); }catch(_){ b.hidden=true; } };
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&SC.stream) scanClose(); });
+/* 現品札の読み取りでエラーが出ても、黙って止まらないように画面に出す */
+async function tagSafe(box,fn){ try{ await fn(); }catch(e){ const m=$(box); if(m){ m.className="msg ng"; m.style.color=""; m.textContent="読み取りの途中でエラーが出ました："+(e&&e.message||e)+"　もう一度読むか、部品を一覧から選んでください。"; } } }
 /* 出庫現品札のQR：「Z＋8桁」のすぐ後ろが品番（例 Z12345678A001234501 → A00-12345-01） */
 function tagQrPn(text){ const m=String(text||"").toUpperCase().match(/Z\d{8}([A-Z]\d{2})(\d{5})(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:""; }
 function matchTag(text){
@@ -3445,9 +3448,14 @@ async function ocrWorker(){
   if(!/^https?:$/.test(location.protocol)) throw new Error("このファイルでは文字認識は使えません（アプリ版のみ）");
   if(typeof Tesseract==="undefined") await new Promise((ok,ng)=>{ const sc=document.createElement("script"); sc.src="tesseract.min.js"; sc.onload=ok; sc.onerror=()=>ng(new Error("文字認識の部品が見つかりません")); document.head.appendChild(sc); });
   const base=new URL("./",location.href).href;
-  ocrW=await Tesseract.createWorker("eng",1,{workerBlobURL:false,workerPath:base+"tesseract-worker.min.js",corePath:base+"tesseract-core-lstm.wasm.js",langPath:base.replace(/\/$/,""),gzip:true});
+  let fail=null; const failed=new Promise((_,ng)=>fail=ng);
+  const mk=Tesseract.createWorker("eng",1,{workerBlobURL:false,workerPath:base+"tesseract-worker.min.js",corePath:base+"tesseract-core-lstm.wasm.js",langPath:base.replace(/\/$/,""),gzip:true,
+    errorHandler:e=>fail(new Error("文字認識でエラー："+(e&&e.message||e)))});
+  try{ ocrW=await Promise.race([mk,failed,timeLimit(45000,"文字認識の準備に時間がかかりすぎました（電波の良い所で、もう一度試してください）")]); }
+  catch(e){ ocrW=null; mk.then(w=>{ try{ w.terminate(); }catch(_){} }).catch(()=>{}); throw e; }
   return ocrW;
 }
+function timeLimit(ms,msg){ return new Promise((_,ng)=>setTimeout(()=>ng(new Error(msg)),ms)); }
 async function ocrTag(g){
   const w=await ocrWorker(), res={b:"",name:"",kumizu:""};
   await w.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"});
@@ -3461,24 +3469,32 @@ async function ocrTag(g){
 }
 /* 部品表にない品番 → 札から品名・風船を読んで、その場で部品表に登録 */
 async function tagRegister(host,pn,f,onDone){
-  const g=tagGeo; let r={b:"",name:""}, note="";
-  host.className="msg"; host.innerHTML=`「${esc(pn)}」は部品表にありません。札から品名・風船番号を読み取っています…`;
-  if(g){ try{ r=await ocrTag(g); }catch(e){ note=e.message||""; } } else note="この札からは品名・風船番号を読めないので、手で入れてください。";
-  const P=S.meta.parts||[], sameB=r.b?P.find(x=>x.b===normB(r.b)):null;
+  const g=tagGeo, P=S.meta.parts||[];
   host.className="msg tagReg";
   host.innerHTML=`<b>部品表に登録します</b>（品名・風船番号を確かめてください）
-    <div class="trRow"><label>風船</label><input id="trB" inputmode="numeric" value="${esc(r.b?normB(r.b):"")}" placeholder="例 153"></div>
-    <div class="trRow"><label>品名</label><input id="trName" value="${esc(r.name)}" placeholder="例 NUT PLATE"></div>
     <div class="trRow"><label>品番</label><span>${esc(pn)}</span></div>
-    ${sameB?`<p class="trWarn">※ 風船${esc(sameB.b)}は部品表に「${esc(pName(sameB)||sameB.pn)}（${esc(sameB.pn||"")}）」があります</p>`:""}
-    ${note?`<p class="trWarn">${esc(note)}</p>`:""}
+    <div class="trRow"><label>風船</label><input id="trB" inputmode="numeric" placeholder="例 153"></div>
+    <div class="trRow"><label>品名</label><input id="trName" placeholder="例 NUT PLATE"></div>
+    <p class="trStat" id="trStat"></p>
     <button class="pill primary wide" id="trOk">✓ 部品表に登録する</button>`;
-  $("#trOk").onclick=()=>{
-    const o={b:normB($("#trB").value),pn,name:$("#trName").value.trim(),jp:"",qty:"1",manual:true};
-    if(!o.name&&!o.b){ $("#trName").focus(); return fmToast("品名か風船番号を入れてください",true); }
+  const stat=(t,ng)=>{ const el=$("#trStat",host); if(el){ el.textContent=t; el.className="trStat"+(ng?" ng":""); } };
+  $("#trOk",host).onclick=()=>{
+    const o={b:normB($("#trB",host).value),pn,name:$("#trName",host).value.trim(),jp:"",qty:"1",manual:true};
+    if(!o.name&&!o.b){ $("#trName",host).focus(); return fmToast("品名か風船番号を入れてください",true); }
     (S.meta.parts||(S.meta.parts=[])).push(o); sortParts(); persist(); refreshPickers(); updateTabs();
     onDone(o);
   };
+  if(!g){ stat("この札からは品名・風船番号を読めないので、手で入れてください。",true); return; }
+  stat(ocrW?"🔎 札から品名・風船番号を読んでいます…":"🔎 札から品名・風船番号を読んでいます…（初めての時は準備に少し時間がかかります）");
+  try{
+    const r=await Promise.race([ocrTag(g),timeLimit(ocrW?20000:60000,"品名・風船番号の読み取りに時間がかかりすぎました")]);
+    if(!host.isConnected||!$("#trB",host)) return;
+    const bi=$("#trB",host), ni=$("#trName",host);
+    if(r.b&&!bi.value) bi.value=normB(r.b); if(r.name&&!ni.value) ni.value=r.name;
+    const sameB=r.b?P.find(x=>x.b===normB(r.b)):null;
+    if(!r.b&&!r.name) stat("品名・風船番号は読めませんでした。手で入れてください。",true);
+    else stat((r.b&&r.name?"✓ 札から読み取りました。合っているか確かめてください。":"一部だけ読めました。足りない所を手で入れてください。")+(sameB?`\n※ 風船${sameB.b}は部品表に「${pName(sameB)||sameB.pn}（${sameB.pn||""}）」があります`:""),!(r.b&&r.name)||!!sameB);
+  }catch(e){ stat((e&&e.message||"文字認識でエラーが出ました")+"　品名・風船番号は手で入れてください。",true); }
 }
 
 function fmToken(p){ return p.b?{b:p.b,label:partText(p),name:pName(p)||("風船"+p.b)}:{b:"",label:pName(p)?`${pName(p)}（${p.pn}）`:p.pn,name:pName(p)||p.pn}; }
@@ -3650,7 +3666,8 @@ function fmPrepRender(){
 }
 function fqAfter(){ const m=$("#fqMsg"); m.style.color="var(--ok)"; m.textContent=`✓ 【${Q.p.b||"-"}】${pName(Q.p)} の写真を登録しました。次の現品札を読んでください。`; Q.tag=null; fmPrepRender(); }
 $("#fqTag").onclick=()=>scanOpen(f=>$("#fqTagIn").onchange({target:{files:[f],value:""}}),()=>$("#fqTagIn").click());
-$("#fqTagIn").onchange=async e=>{
+$("#fqTagIn").onchange=e=>tagSafe("#fqMsg",()=>tagIn_fqTagIn(e));
+const tagIn_fqTagIn=async e=>{
   const f=e.target.files[0]; e.target.value=""; if(!f) return;
   const m=$("#fqMsg"); m.style.color=""; m.textContent="読み取り中…";
   const codes=await readCodes(f); let tag=null; try{ tag=await fileToPhoto(f); }catch(_){}
@@ -3858,7 +3875,8 @@ function bindHz(root){ $$("[data-hz]",root).forEach(c=>c.onchange=()=>{ F.hz[+c.
   $$("[data-hq]",root).forEach(c=>c.oninput=()=>{ F.hz[+c.dataset.hq].qty=c.value; fmCompose(); }); }
 /* 現品札を読む → 部品を文章に入れる */
 $("#fpTag2").onclick=()=>scanOpen(f=>$("#fpTag2In").onchange({target:{files:[f],value:""}}),()=>$("#fpTag2In").click());
-$("#fpTag2In").onchange=async e=>{
+$("#fpTag2In").onchange=e=>tagSafe("#fpTag2Msg",()=>tagIn_fpTag2In(e));
+const tagIn_fpTag2In=async e=>{
   const f=e.target.files[0]; e.target.value=""; if(!f) return;
   const msg=$("#fpTag2Msg"); msg.className="msg"; msg.textContent="読み取り中…";
   const codes=await readCodes(f), m=codes.length?matchTag(codes.join(" ")):{hits:[],codes:[]};
