@@ -258,6 +258,15 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 #fm .chipRow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
 #fm .chipRow .hint{align-self:center;margin:0}
+#fm .hHint{font-size:12.5px;color:var(--sub);margin:2px 2px 8px}
+#fm #fhList{overflow:auto;max-height:60vh}
+#fm .hItem{display:block;width:100%;text-align:left;background:#fff;border:1.5px solid #d3dae4;border-radius:14px;padding:10px 12px;margin:0 0 8px}
+#fm .hT{font-size:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#fm .hT .hBadge{font-size:12px;border-radius:999px;padding:2px 8px;background:#eef4fc;color:var(--accent);width:auto;height:auto;display:inline-block}
+#fm .hT .hBadge.tx{background:#f1f3f6;color:#667}
+#fm .hB{margin-top:4px;font-weight:bold;font-size:14.5px} #fm .hB small{display:block;font-weight:normal;color:#667;font-size:12.5px;margin-top:2px}
+#fm .hP{display:flex;gap:6px;margin-top:6px} #fm .hP i{width:64px;height:48px;border-radius:8px;background:#e9edf2 center/cover no-repeat}
+#fm .storeInfo{font-size:12px;color:var(--sub);text-align:center;margin:10px 0 0}
 #fm .ckEdH,#fm .ckLibH{font-size:12.5px;color:var(--sub);margin:12px 2px 6px;font-weight:bold}
 #fm .ckEd{display:flex;align-items:center;gap:6px;margin:6px 0}
 #fm .ckEd span{color:var(--sub);flex:none}
@@ -1119,6 +1128,7 @@ details.fold>summary::before{color:var(--accent)}
         <button id="fmDocs2"><i>📚</i><span>手順書を切り替える<small>このスマホに保存されている手順書</small></span></button>
         <button id="fsNewDoc"><i>＋</i><span>新しい手順書を作る</span></button>
       </div>
+      <p class="storeInfo" id="fsStore"></p>
     </div>
   </section>
 
@@ -1142,6 +1152,7 @@ details.fold>summary::before{color:var(--accent)}
       <button id="fpPl">📋 部品表を開く（追加・削除）</button>
       <button id="fpFin">✅ 仕上げ・AIで文章チェック</button>
       <button id="fpGuideB">🧭 ガイドを表示する</button>
+      <button id="fpHist">↩ 前の状態に戻す</button>
       <button id="fpDone">🏠 保存してホームへ</button>
     </div>
     <div class="wrap">
@@ -1181,6 +1192,13 @@ details.fold>summary::before{color:var(--accent)}
     <input id="fpInsQ" type="search" autocomplete="off" placeholder="🔍 風船番号・品名・品番の一部">
     <div class="pickList" id="fpIns"></div>
     <button class="pill wide" id="fkAdd">＋ 部品表にない部品を追加する</button>
+  </div></div>
+
+  <!-- ===== 前の状態に戻す（下から出るシート） ===== -->
+  <div class="sheet" id="fmHist" hidden><div class="sheetBox">
+    <div class="sheetHead"><b>前の状態に戻す</b><small>上書きされる前の状態</small><span class="sp"></span><button class="barBtn" id="fhClose">閉じる</button></div>
+    <p class="hHint">文章は5回前まで、写真は直前の1回分だけ戻せます。</p>
+    <div id="fhList"></div>
   </div></div>
 
   <!-- ===== 手順書プレビュー ===== -->
@@ -1451,7 +1469,7 @@ async function renderDocs(){
   $$("[data-open]",$("#dBody")).forEach(b=>b.onclick=async()=>{ await openDoc(b.dataset.open); $("#docs").classList.remove("show"); });
   $$("[data-del]",$("#dBody")).forEach(b=>b.onclick=async()=>{
     const x=idx.find(y=>y.id===b.dataset.del); if(!confirm(`「${x.name||"（無題）"} ${x.model||""}」を削除します。元に戻せません。よろしいですか？`)) return;
-    const rest=(await getIndex()).filter(y=>y.id!==x.id); await DB.set("docIndex",JSON.stringify(rest)); await DB.set("doc:"+x.id,"");
+    const rest=(await getIndex()).filter(y=>y.id!==x.id); await DB.set("docIndex",JSON.stringify(rest)); await DB.set("doc:"+x.id,""); try{ await DB.set("hist:"+x.id,""); }catch(_){}
     if(x.id===docId){ if(rest.length) await openDoc(rest.sort((a,b)=>b.updated-a.updated)[0].id); else await newDoc(); }
     renderDocs(); });
   $$("[data-base]",$("#dBody")).forEach(b=>b.onclick=async()=>{
@@ -2135,9 +2153,10 @@ const iw=()=>E.base.naturalWidth||E.base.width, ih=()=>E.base.naturalHeight||E.b
 const unit=()=>Math.max(3,Math.max(iw(),ih())/220);
 async function openEditor(st,j,done,tool){
   E.st=st;E.j=j;E.done=done||null;
-  const im=await loadImg(st.photos[j].data);
-  Object.assign(E,{bases:[im],bi:0,base:im,adj:{b:0,c:0},shapes:[],sel:null,hist:[],fut:[],crop:null,adjC:null,adjK:"",drag:null});
-  $("#eBri").value=0; $("#eCon").value=0; $("#eSubAdj").classList.remove("show"); $("#eAdjBtn").classList.remove("on");
+  const ph=st.photos[j], re=!!(ph.src&&ph.ed);      // 元の写真＋書き込みが残っていれば、動かせる状態で開く
+  const im=await loadImg(re?ph.src:ph.data);
+  Object.assign(E,{bases:[im],bi:0,base:im,adj:re?{b:+ph.ed.adj?.b||0,c:+ph.ed.adj?.c||0}:{b:0,c:0},shapes:re?JSON.parse(JSON.stringify(ph.ed.shapes||[])):[],sel:null,hist:[],fut:[],crop:null,adjC:null,adjK:"",drag:null});
+  $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; $("#eSubAdj").classList.remove("show"); $("#eAdjBtn").classList.remove("on");
   $("#ed").classList.add("show"); setTool(tool||"arrow"); edSize(); edDraw(); edUI();
 }
 /* ---- 履歴 ---- */
@@ -2340,7 +2359,19 @@ function bake(){ const cv=document.createElement("canvas"); cv.width=iw(); cv.he
 function edClose(){ $("#ed").classList.remove("show"); closeText(false); }
 $("#eCancel").onclick=()=>{ if(E.hist.length&&!confirm("編集をやめますか？（変更は保存されません）")) return; edClose(); };
 $("#eOk").onclick=()=>{ if(E.crop&&confirm("切り抜きの範囲を確定して保存しますか？\n（いいえ＝切り抜かずに保存）")) doCrop(); E.crop=null;
-  const c=bake(); const p=E.st.photos[E.j]; Object.assign(p,toJpeg(c,c.width,c.height)); edClose(); if(E.done) E.done(p); else afterPhoto(E.st); };
+  const c=bake(), p=E.st.photos[E.j];
+  const src=E.bi===0?(p.src||p.data):toJpeg(E.base,iw(),ih()).data;      // 書き込み前の写真（切り抜き後）
+  const clean=!E.shapes.length&&!E.adj.b&&!E.adj.c;
+  if(clean&&E.bi===0){ Object.assign(p,{data:src,w:iw(),h:ih()}); delete p.src; delete p.ed; }      // 書き込みを全部消した → 元の写真に戻す
+  else{ Object.assign(p,toJpeg(c,c.width,c.height));
+    if(clean){ delete p.src; delete p.ed; }
+    else{ p.src=src; p.ed={adj:{...E.adj},shapes:JSON.parse(JSON.stringify(E.shapes,(k,v)=>k==="_bb"?undefined:v))}; } }
+  edClose(); if(E.done) E.done(p); else afterPhoto(E.st); };
+/* 写真編集を開かずに、元の写真＋書き込みから1枚の画像を作る（AIの風船を付けるとき） */
+function bakeWith(base,adj,shapes){ const sv={base:E.base,adj:E.adj,bi:E.bi,adjK:E.adjK,adjC:E.adjC,bases:E.bases};
+  Object.assign(E,{base,adj:adj||{b:0,c:0},bi:-1,adjK:"",adjC:null,bases:[base]});
+  try{ const cv=document.createElement("canvas"); cv.width=iw(); cv.height=ih(); const g=cv.getContext("2d"); g.drawImage(adjBase(),0,0); shapes.forEach(x=>drawShape(g,x)); return cv; }
+  finally{ Object.assign(E,sv); } }
 document.addEventListener("keydown",e=>{ if(!$("#ed").classList.contains("show")) return; if(document.activeElement===$("#eTextIn")) return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){ e.preventDefault(); e.shiftKey?$("#eRedo").click():$("#eUndo").click(); }
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){ e.preventDefault(); $("#eRedo").click(); }
@@ -3193,20 +3224,23 @@ async function balRender(){
     <div class="balList">${Gs.map((g,k)=>`<div class="balCard${g.ph._balDone?" done":""}"><div class="balH">工程${stepNo(g.i+1)}・写真${g.j+1}　${g.items.map(it=>`【${esc(it.b)}】${it.conf?`<small>${esc(it.conf)}</small>`:""}`).join(" ")}</div>
       <canvas data-bc="${k}"></canvas>${g.ph._balDone?`<div class="balDone">✓ 付けました</div>`:`<div class="balBtns"><button data-be="${k}">✏️ 確かめて付ける</button><button class="primary" data-ba="${k}">✓ このまま付ける</button></div>`}</div>`).join("")}</div>
     ${cm.length?`<div class="balCm"><b>AIからのコメント</b>${cm.map(c=>`<div>${c.no?`工程${stepNo(+c.no)}：`:""}${esc(c.text||"")}</div>`).join("")}</div>`:""}`;
-  for(const [k,g] of Gs.entries()){ try{ const im=await loadImg(g.ph.data), W=im.naturalWidth,H=im.naturalHeight, c=$(`canvas[data-bc="${k}"]`); if(!c) continue;
+  for(const [k,g] of Gs.entries()){ try{ const im=await loadImg(g.ph.data), W=im.naturalWidth,H=im.naturalHeight, c=$(`canvas[data-bc="${k}"]`); if(!c) continue;      // 写真の大きさは、元の写真と同じ
     c.width=W; c.height=H; const x=c.getContext("2d"); x.drawImage(im,0,0); if(!g.ph._balDone) balShapes(W,H,g.items).forEach(sh=>drawShape(x,sh)); }catch(_){} }
   $$("[data-ba]",box).forEach(b=>b.onclick=()=>balApply([Gs[+b.dataset.ba]]));
   $$("[data-be]",box).forEach(b=>b.onclick=async()=>{ const g=Gs[+b.dataset.be];
-    await openEditor(g.st,g.j,()=>{ g.ph._balDone=true; balSaved(); },"select");
-    E.shapes=balShapes(iw(),ih(),g.items).map(x=>{ delete x.conf; return x; }); E.sel=null; edDraw(); edUI(); });
+    const b4=stepSnap(g.st);
+    await openEditor(g.st,g.j,()=>{ g.ph._balDone=true; histPush(g.st,b4); balSaved(); },"select");
+    E.shapes=E.shapes.concat(balShapes(iw(),ih(),g.items).map(x=>{ delete x.conf; return x; })); E.sel=null; edDraw(); edUI(); });
   const all=$("#balAll"); if(all) all.onclick=()=>balApply(Gs.filter(g=>!g.ph._balDone));
-  const un=$("#balUndo"); if(un) un.onclick=()=>{ BAL.undo.forEach(u=>{ Object.assign(u.ph,{data:u.data,w:u.w,h:u.h}); delete u.ph._balDone; }); BAL.undo=[]; balSaved(); fmToast?.("風船を付ける前に戻しました"); };
+  const un=$("#balUndo"); if(un) un.onclick=()=>{ BAL.undo.forEach(u=>{ Object.assign(u.ph,{data:u.data,w:u.w,h:u.h}); if(u.src) u.ph.src=u.src; else delete u.ph.src; if(u.ed) u.ph.ed=u.ed; else delete u.ph.ed; delete u.ph._balDone; }); BAL.undo=[]; balSaved(); fmToast?.("風船を付ける前に戻しました"); };
 }
 async function balApply(list){
   BAL.undo=BAL.undo||[];
-  for(const g of list){ try{ const im=await loadImg(g.ph.data), c=document.createElement("canvas"); c.width=im.naturalWidth; c.height=im.naturalHeight; const x=c.getContext("2d");
-    x.drawImage(im,0,0); balShapes(c.width,c.height,g.items).forEach(sh=>drawShape(x,sh));
-    BAL.undo.push({ph:g.ph,data:g.ph.data,w:g.ph.w,h:g.ph.h}); Object.assign(g.ph,toJpeg(c,c.width,c.height)); g.ph._balDone=true; }catch(_){} }
+  for(const g of list){ try{ const p=g.ph, re=!!(p.src&&p.ed), base=await loadImg(re?p.src:p.data), b4=stepSnap(g.st);
+    const adj=re?p.ed.adj:{b:0,c:0}, old=re?p.ed.shapes:[], add=balShapes(base.naturalWidth,base.naturalHeight,g.items).map(x=>{ delete x.conf; return x; });
+    BAL.undo.push({ph:p,data:p.data,w:p.w,h:p.h,src:p.src,ed:p.ed});
+    const cv=bakeWith(base,adj,old.concat(add)); const src=re?p.src:p.data;
+    Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(old.concat(add)))}}); p._balDone=true; histPush(g.st,b4); }catch(_){} }
   balSaved();
 }
 function balSaved(){ persist(); try{ renderSteps(); }catch(_){} schedulePreview(); if(!$("#fm").hidden&&!$("#fmStep").hidden) try{ fmRenderStep(); }catch(_){} balRender(); }
@@ -3274,7 +3308,7 @@ function renderAiReview(){
   $("#aiApply").onclick=()=>{
     const sel=$$("[data-ai]",box).filter(c=>c.checked).map(c=>+c.dataset.ai); if(!sel.length) return alert("反映する工程にチェックを入れてください");
     aiUndo=sel.map(i=>{ const st=S.steps[i]; return {id:st.id,title:st.title,body:st.body,check:st.check}; });
-    sel.forEach(i=>{ const st=S.steps[i], r=AI.steps.find(x=>+x.no===i+1); if(!r) return;
+    sel.forEach(i=>{ const st=S.steps[i], r=AI.steps.find(x=>+x.no===i+1); if(!r) return; const b4=stepSnap(st); queueMicrotask(()=>histPush(st,b4));
       if(r.title!=null) st.title=String(r.title); if(r.body!=null) st.body=String(r.body); if(r.check!=null) st.check=String(r.check); });
     renderSteps(); persist(); renderAiReview();
     alert(`${sel.length}工程に反映しました。プレビューで確認してください。`);
@@ -3456,7 +3490,7 @@ function fmShow(id){
   if(from) fmScroll[from]=$("#fm").scrollTop;
   if(!FM_OVER.includes(id)) fmCur=id;
   FM_SCR.forEach(x=>$("#"+x).hidden=x!==id);
-  $("#fpMenu").hidden=true; $("#fmPick").hidden=true;
+  $("#fpMenu").hidden=true; $("#fmPick").hidden=true; $("#fmHist").hidden=true;
   if(id==="fmStart") fmStartInfo();
   if(id==="fmListS") fmList();
   const back=fmCur==="fmStep"?`✏️ ${$("#fpNo").textContent}の入力に戻る`:fmCur==="fmPrep"?"← 部品写真に戻る":fmCur==="fmListS"?"← 工程の一覧に戻る":"← ホームに戻る";
@@ -3547,7 +3581,11 @@ function fmOpen(){ $("#fm").hidden=false; fmShow("fmStart"); }
 let fsEditing=false;
 function fmGoLabel(){ const done=S.steps.filter(x=>!stEmpty(x)).length, gap=S.steps.findIndex(stEmpty), lastI=S.steps.reduce((m,x,i)=>stEmpty(x)?m:i,-1);
   return !done?`工程${stepNo(1)}から作り始める`:(gap>=0&&gap<lastI?`空いている工程${stepNo(gap+1)}を作る`:`工程${stepNo(lastI+2)}を作る（続き）`); }
+function fmStoreInfo(){ const el=$("#fsStore"); if(!el||!navigator.storage||!navigator.storage.estimate) return;
+  navigator.storage.estimate().then(e=>{ const mb=v=>v>=1e9?(v/1e9).toFixed(1)+"GB":Math.max(1,Math.round(v/1e6))+"MB"; el.textContent=`このスマホで使っている容量：約${mb(e.usage||0)}${e.quota?`（使える量の目安 ${mb(e.quota)}）`:""}`; }).catch(()=>{}); }
+try{ if(navigator.storage&&navigator.storage.persist&&/^https?:$/.test(location.protocol)) navigator.storage.persist().catch(()=>{}); }catch(_){}      // データを消さないようお願い
 function fmStartInfo(){
+  fmStoreInfo();
   $("#fsName").value=S.meta.name||""; $("#fsModel").value=S.meta.model||""; $("#fsSpec").value=S.meta.spec||"";
   const nm=S.meta.name||"", sub=[S.meta.model,S.meta.spec].filter(Boolean).join("・");
   $("#fsTitle").textContent=nm||"（作業名がまだありません）"; $("#fsSub").textContent=sub?`機種 ${sub}`:"";
@@ -3677,6 +3715,59 @@ function fmDragInit(){
     };
   });
 }
+/* ---- 工程の履歴：上書きされる前の状態を残す（文章は5回分・写真は直前1回分・写真は全体で10MBまで） ---- */
+let HIST=null, histDoc=null, histT=0;
+function stepSnap(st){ const cl=o=>o==null?o:JSON.parse(JSON.stringify(o));
+  return {t:Date.now(),title:st.title||"",body:st.body||"",check:st.check||"",tools:st.tools||"",as:cl(st.as),fa:cl(st.fa),_genBody:st._genBody,_genTools:st._genTools,
+    photos:(st.photos||[]).map(p=>{ const q=Object.assign({},p); delete q._balDone; return q; })}; }
+const snapSig=v=>JSON.stringify([v.title,v.body,v.check,v.tools])+"|"+(v.photos?v.photos.map(p=>p.id+":"+(p.data||"").length+":"+(p.data||"").slice(-48)+":"+(p.ed?JSON.stringify(p.ed).length:0)).join(","):"-");
+async function histLoad(){
+  if(HIST&&histDoc===docId) return HIST; histDoc=docId; HIST={};
+  try{ const raw=DB.db&&await DB.get("hist:"+docId); if(raw){ const o=JSON.parse(raw);
+    Object.entries(o).forEach(([sid,L])=>{ const st=S.steps.find(x=>x.id===sid); if(!st) return;
+      L.forEach(v=>{ if(v.photos){ const ps=v.photos.map(p=>p.same?st.photos.find(q=>q.id===p.id)&&Object.assign({},st.photos.find(q=>q.id===p.id)):p); v.photos=ps.every(Boolean)?ps:null; } });
+      HIST[sid]=L; }); } }catch(e){}
+  return HIST;
+}
+function histSave(){ clearTimeout(histT); histT=setTimeout(async()=>{
+  if(!HIST||histDoc!==docId) return;
+  const cur=sid=>{ const st=S.steps.find(x=>x.id===sid); return st?st.photos:[]; }, same=(sid,p)=>cur(sid).some(q=>q.id===p.id&&q.data===p.data&&q.src===p.src);
+  const ent=[]; Object.entries(HIST).forEach(([sid,L])=>L.forEach((v,k)=>{ if(k>0) v.photos=null; if(v.photos) ent.push({sid,v}); }));
+  ent.sort((a,b)=>b.v.t-a.v.t); let tot=0;
+  ent.forEach(e=>{ tot+=e.v.photos.reduce((n,p)=>n+(same(e.sid,p)?0:(p.data||"").length+(p.src||"").length),0); if(tot>10e6) e.v.photos=null; });      // 写真は全体で10MBまで（古い方から外す）
+  const out={}; Object.entries(HIST).forEach(([sid,L])=>{ if(!S.steps.some(x=>x.id===sid)||!L.length) return;
+    out[sid]=L.map(v=>Object.assign({},v,{photos:v.photos?v.photos.map(p=>same(sid,p)?{id:p.id,same:1}:p):null})); });      // 今と同じ写真は使い回す（保存しない）
+  try{ await DB.set("hist:"+docId,JSON.stringify(out)); }catch(e){}
+},600); }
+async function histPush(st,snap){
+  if(!st||!snap) return; const sig=snapSig(snap); if(sig===snapSig(stepSnap(st))) return;      // 何も変わっていない
+  await histLoad(); const L=HIST[st.id]||(HIST[st.id]=[]); if(L[0]&&snapSig(L[0])===sig) return;
+  L.unshift(snap); L.length=Math.min(L.length,5); L.forEach((v,k)=>{ if(k>0) v.photos=null; }); histSave();
+}
+const histTime=t=>{ const d=new Date(t), n=new Date(), hm=`${d.getHours()}:${String(d.getMinutes()).padStart(2,"0")}`; return d.toDateString()===n.toDateString()?`今日 ${hm}`:`${d.getMonth()+1}/${d.getDate()} ${hm}`; };
+async function fmHistOpen(){
+  $("#fpMenu").hidden=true;
+  const st=fmKeepEditing()||(F.stepId&&S.steps.find(x=>x.id===F.stepId));
+  if(!st) return fmToast("この工程はまだ保存されていません",true);
+  await histLoad(); const L=HIST[st.id]||[];
+  const psig=ps=>snapSig({title:"",body:"",check:"",tools:"",photos:ps||[]}), phd=v=>v.photos&&psig(v.photos)!==psig(st.photos);      // 写真が今と違うときだけ「写真も戻ります」
+  $("#fhList").innerHTML=L.length?L.map((v,k)=>`<button class="hItem" data-h="${k}"><div class="hT"><b>${histTime(v.t)}</b> の状態<span class="hBadge${phd(v)?"":" tx"}">${phd(v)?"📷 写真も戻ります":"📝 文章が戻ります（写真は今のまま）"}</span></div>
+      <div class="hB">${esc(v.title||"（タイトルなし）")}<small>${esc(String(v.body||"").split("\n").filter(Boolean).slice(0,2).join(" ／ ").slice(0,60))}</small></div>
+      ${phd(v)&&v.photos.length?`<div class="hP">${v.photos.map(p=>`<i style="background-image:url(${p.data})"></i>`).join("")}</div>`:""}</button>`).join("")
+    :`<p class="lead" style="text-align:center;padding:16px 0">まだ前の状態はありません。<br>この工程を直して保存すると、上書きされる前の状態がここに残ります。</p>`;
+  $$("#fhList [data-h]").forEach(b=>b.onclick=()=>fmHistRestore(st,+b.dataset.h));
+  $("#fmHist").hidden=false;
+}
+function fmHistRestore(st,k){
+  const v=HIST[st.id]&&HIST[st.id][k]; if(!v) return;
+  if(!confirm(`${histTime(v.t)} の状態に戻しますか？${v.photos?"":"\n（写真は今のままです）"}\n今の状態も残すので、あとでまた戻せます。`)) return;
+  const now=stepSnap(st);
+  Object.assign(st,{title:v.title,body:v.body,check:v.check,tools:v.tools,as:v.as,fa:v.fa,_genBody:v._genBody,_genTools:v._genTools});
+  if(v.photos) st.photos=v.photos.map(p=>Object.assign({},p));
+  HIST[st.id].splice(k,1); HIST[st.id].unshift(now); HIST[st.id].length=Math.min(HIST[st.id].length,5); HIST[st.id].forEach((x,i)=>{ if(i>0) x.photos=null; }); histSave();
+  persist(); try{ renderSteps(); }catch(_){} schedulePreview();
+  $("#fmHist").hidden=true; fmLoadStep(st.id); fmToast(`↩ ${histTime(v.t)} の状態に戻しました（戻す前の状態も履歴にあります）`);
+}
 /* 抜けていた工程を差し込む：idx の位置に空の工程を作って開く */
 function fmInsertAt(idx){
   fmKeepEditing();
@@ -3709,6 +3800,7 @@ function fmLoadStep(id){
     if(!stEmpty(st)){ F.gHz=1; F.gResult=1; }            // 作成済みの工程を直すときは、ガイドは最小限
   }
   fmTxtPrev(); $("#fpAct").value=F.action; $("#fpInsQ").value=""; const tm=$("#fpTag2Msg"); tm.className="msg"; tm.innerHTML=""; $("#fpCkD").open=F.checks.length>0;
+  F.snap=st?stepSnap(st):null;      // 履歴用：開いた時点の状態
   fmRenderStep();
 }
 function fmRenderStep(){
@@ -3753,6 +3845,9 @@ function fmRenderStep(){
 function fmCkAdd(){ const el=$("#fpCkNew"), v=el.value.trim(); if(!v) return el.focus(); if(!F.checks.includes(v)) F.checks.push(v); el.value=""; fmRenderStep(); fmToast("✓ 確認ポイントを追加しました"); }
 $("#fpCkAdd").onclick=fmCkAdd;
 $("#fpCkNew").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); fmCkAdd(); } });
+$("#fpHist").onclick=fmHistOpen;
+$("#fhClose").onclick=()=>$("#fmHist").hidden=true;
+$("#fmHist").onclick=e=>{ if(e.target.id==="fmHist") $("#fmHist").hidden=true; };
 /* 部品の追加（現品札・検索） */
 /* 補材：①の部品の分（最初からチェック）＋文章に出てくる部品の分（最初はチェックなし） */
 function fmSyncHz(){ const ment=fmMentioned(), old=F.hz||[];
@@ -3956,7 +4051,7 @@ function fmSaveStep(){
   Object.assign(st,{title:F.title,body:F.body,check:F.checks.join("\n"),photos:F.photos.slice(0,3),
     as:{target:"",parts:F.parts.map(fmToken),verb:"",hz:F.hz,checks:F.checks,note:""},fa:{action:F.action,tEd:F.tEd,bEd:false}});
   const t=toolsFromHz(hz); if(t&&(!st.tools||st.tools===st._genTools)){ st.tools=t; st._genTools=t; }
-  st._genBody=st.body; F.stepId=st.id; persist(); return st;
+  st._genBody=st.body; F.stepId=st.id; histPush(st,F.snap); F.snap=stepSnap(st); persist(); return st;
 }
 $("#fpNext").onclick=()=>{
   if(!fmHasContent()) return fmToast("「これをどうする？」か写真を入れてください",true);
@@ -4056,7 +4151,7 @@ function guideTick(){
   const ring=$("#gdRing"), tip=$("#gdTip"), fm=$("#fm");
   const ae=document.activeElement;
   const pc=fm.hidden;
-  const blocked=!$("#scan").hidden||!(G.on||(gForce&&!$("#fmFinS").hidden))||(!pc&&(fm.classList.contains("typing")||!$("#fmPick").hidden||!$("#fpMenu").hidden))||!!document.querySelector(".modal.show,#map.show,#batch.show")||$("#ed").classList.contains("show")
+  const blocked=!$("#scan").hidden||!(G.on||(gForce&&!$("#fmFinS").hidden))||(!pc&&(fm.classList.contains("typing")||!$("#fmPick").hidden||!$("#fmHist").hidden||!$("#fpMenu").hidden))||!!document.querySelector(".modal.show,#map.show,#batch.show")||$("#ed").classList.contains("show")
     ||(pc&&(!$("#fileMenu").hidden||!$("#pMenu").hidden||!$("#stepMenu").hidden||$("#sug").style.display==="block"||innerWidth<700))
     ||(ae&&ae.closest&&ae.closest("#fm,#editor")&&ae.matches("textarea,input:not([type=checkbox]):not([type=file])"));
   let st=blocked?null:guideStep(), el=null;
