@@ -603,7 +603,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
   .page .tb.sel,.page .tb:hover{outline:none!important}
 }
 /* AIチェック：文章だけ／写真もいっしょに */
-.aiMode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}
+.aiMode{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:10px 0 12px}
 .aiMode label{display:flex;flex-direction:column;gap:2px;margin:0;padding:10px 12px;border:2px solid #d3dae4;border-radius:12px;background:#fff;cursor:pointer;font-size:14px;line-height:1.35}
 .aiMode label input{position:absolute;opacity:0;pointer-events:none}
 .aiMode label small{color:#667;font-size:12px;display:block;font-weight:normal}
@@ -611,9 +611,29 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #aiCard .aiMode label b{display:block;font-size:15px}
 .aiMode label.on{border-color:var(--accent);background:#eef4fc}
 @media (max-width:520px){ .aiMode{grid-template-columns:1fr} }
+.balList{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:8px 0}
+.balCard{border:1px solid #d6dee8;border-radius:12px;padding:8px;background:#fff}
+.balCard.done{opacity:.75}
+.balCard canvas{width:100%;height:auto;border-radius:8px;display:block;margin:6px 0;background:#eef1f5}
+.balH{font-size:13px;font-weight:bold} .balH small{font-weight:normal;color:#667;margin-left:2px}
+.balBtns{display:flex;gap:6px} .balBtns button{flex:1;font-size:13px;padding:8px 6px}
+.balDone{color:var(--ok,#2e7d4f);font-weight:bold;font-size:13px}
+.balCm{margin-top:8px;padding:8px 10px;background:#fff8e6;border-radius:10px;font-size:13px}
 #aiImgBox{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f4f8fd;border:1px solid #d6e2f2}
 .aiImgNote{margin:0 0 8px;font-size:13.5px}
 .aiImgBtns{display:flex;flex-wrap:wrap;gap:8px}
+/* 現品札：カメラを向けるだけで読む */
+#scan{position:fixed;inset:0;z-index:140;background:#000;color:#fff}
+#scanV{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#scanF{position:absolute;left:50%;top:47%;width:min(92vw,68vh);aspect-ratio:1/1;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:18px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45);pointer-events:none}
+#scanF .qr{position:absolute;right:6%;top:5%;width:24%;aspect-ratio:1/1;border:2px dashed #ffd24d;border-radius:8px;color:#ffd24d;font-style:normal;font-weight:bold;font-size:14px;display:flex;align-items:center;justify-content:center}
+#scanF.hit{border-color:#3ddc84;box-shadow:0 0 0 100vmax rgba(0,40,10,.55)}
+.scanTop{position:absolute;left:0;right:0;top:0;padding:calc(14px + env(safe-area-inset-top)) 16px 12px;background:linear-gradient(rgba(0,0,0,.65),transparent);display:flex;flex-direction:column;gap:4px;font-size:15px}
+.scanTop b{font-size:18px}
+.scanBot{position:absolute;left:0;right:0;bottom:0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center;background:linear-gradient(transparent,rgba(0,0,0,.7))}
+.scanBot button{font-size:16px;padding:12px 16px;border-radius:14px;border:0;background:rgba(255,255,255,.92);color:#123;font-weight:bold}
+.scanBot #scanX{background:#1f5fae;color:#fff}
+.scanBot #scanTorch.on{background:#ffd24d}
 /* ================= PC画面（現場モードと同じデザイン） ================= */
 html,body{background:#f2f4f7}
 body{font-size:14.5px}
@@ -943,6 +963,7 @@ details.fold>summary::before{color:var(--accent)}
       <div class="aiMode">
         <label class="on"><input type="radio" name="aiMode" value="text" checked><b>📝 文章だけチェック</b><small>誤字・表現・枠に収まるか</small></label>
         <label><input type="radio" name="aiMode" value="photo"><b>📷 写真もいっしょにチェック</b><small>写真と文章が合っているかも見る（画像を一緒に送ります）</small></label>
+        <label><input type="radio" name="aiMode" value="balloon"><b>📍 写真に風船を付けてもらう</b><small>AIが部品の場所を答え、アプリが写真に風船を描きます</small></label>
       </div>
       <div class="aistep"><span class="badge">1</span><div>
         <div class="opts">
@@ -1207,6 +1228,12 @@ details.fold>summary::before{color:var(--accent)}
   <div class="toast" id="fmToast" hidden></div>
 </div>
 <!-- ガイド（次に押す所）：PC・現場モード共通 -->
+<div id="scan" hidden>
+  <video id="scanV" playsinline muted autoplay></video>
+  <div id="scanF"><i class="qr">QR</i></div>
+  <div class="scanTop"><b>📷 現品札を読む</b><span id="scanMsg"></span></div>
+  <div class="scanBot"><button id="scanTorch" hidden>💡 ライト</button><button id="scanPhoto">📸 写真で撮る</button><button id="scanX">閉じる</button></div>
+</div>
 <div id="gdRing" hidden></div>
 <div id="gdTip" hidden><i class="ar"></i><div class="gl">🧭 ガイド</div><div class="gt"></div><div class="gs"></div>
   <div class="gb"><button class="gx">ガイドを消す</button><span class="sp"></span><button class="ga primary">次へ ›</button></div></div>
@@ -3050,6 +3077,10 @@ async function copyText(t){
     let ok=false; try{ ok=document.execCommand("copy"); }catch(_){} ta.remove(); return ok; }
 }
 $("#bAiCopy").onclick=async()=>{
+  if(aiMode()==="balloon"){
+    if(!balTargets().length) return alert("写真があって、文章に風船番号の部品（【052】など）が入っている工程がありません。");
+    const ok=await copyText(aiBalloonPrompt()); $("#aiCopied").textContent=ok?"✓ 依頼文をコピーしました。続けて写真の画像を用意します…":"依頼文をコピーできませんでした";
+    return aiMakeImages(true); }
   if(!S.steps.some(s=>s.body||s.title)) return alert("先に工程の文章を入れてください");
   // 枠が小さすぎると、AIは確認ポイントを削るしかなくなるので先に知らせる
   if($("#aiFit").checked){ renderPreview(); const caps=S.steps.map((st,i)=>st._fit&&st._fit.over?stepCapacity(st,i).lines:99); const mn=Math.min(...caps);
@@ -3061,20 +3092,21 @@ $("#bAiCopy").onclick=async()=>{
 };
 /* ---- AIチェック：写真もいっしょに ---- */
 function aiMode(){ const r=document.querySelector('input[name="aiMode"]:checked'); return r?r.value:"text"; }
-function aiModeUI(){ const ph=aiMode()==="photo";
+function aiModeUI(){ const md=aiMode(), ph=md!=="text"; const o=$("#aiCard .opts"); if(o) o.style.display=md==="balloon"?"none":"";
   $$(".aiMode label").forEach(l=>l.classList.toggle("on",l.querySelector("input").checked));
   $("#aiStep2").innerHTML=ph?"AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。":"AIの画面に貼り付けて（Ctrl+V）送信します。";
   $("#bAiCopy").textContent=ph?"AIへの依頼文をコピー＋写真の画像を作る":"AIへの依頼文をコピー";
+  if(md==="balloon") $("#aiStep2").innerHTML="AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIは部品の場所だけを答えます（写真はアプリが描きます）。";
   $("#aiImgBox").hidden=true; $("#aiCopied").textContent=""; }
 $$('input[name="aiMode"]').forEach(r=>r.onchange=aiModeUI);
 let aiFiles=[];
 /* 写真のある工程を、見出し「工程①　タイトル」付きで1枚の画像に並べる（1枚に6工程まで） */
-async function aiMakeImages(){
-  const L=S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length);
+async function aiMakeImages(bal){
+  const L=bal?balTargets():S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length);
   const box=$("#aiImgBox"); box.hidden=false;
   if(!L.length){ aiFiles=[]; box.innerHTML=`<p class="aiImgNote">写真のある工程がありません。文章だけでチェックされます。</p>`; return; }
   box.innerHTML=`<p class="aiImgNote">画像を作っています…</p>`;
-  const W=1500, PER=6, HEAD=64, PH=440, GAP=24, name=(S.meta.name||"手順書").replace(/[\\/:*?"<>|\s]+/g,"_");
+  const W=1500, PER=bal?4:6, HEAD=64, PH=bal?760:440, GAP=24, name=(S.meta.name||"手順書").replace(/[\\/:*?"<>|\s]+/g,"_");
   aiFiles=[];
   for(let k=0;k<L.length;k+=PER){
     const part=L.slice(k,k+PER), c=document.createElement("canvas"); c.width=W; c.height=part.length*(HEAD+PH+GAP)+20;
@@ -3088,9 +3120,12 @@ async function aiMakeImages(){
       const n=s.photos.length, bw=(W-20-(n-1)*12)/Math.max(n,1)>900?900:(W-20-(n-1)*12)/n;
       let x=10;
       for(const ph of s.photos.slice(0,3)){
-        try{ const im=await loadImg(ph.data); const sc=Math.min(bw/im.naturalWidth,PH/im.naturalHeight), w=im.naturalWidth*sc, h=im.naturalHeight*sc;
-          g.drawImage(im,x+(bw-w)/2,y+HEAD+(PH-h)/2,w,h); }catch(_){}
-        g.strokeStyle="#c9d1dc"; g.lineWidth=2; g.strokeRect(x,y+HEAD,bw,PH); x+=bw+12;
+        try{ const im=await loadImg(ph.data); const sc=Math.min(bw/im.naturalWidth,PH/im.naturalHeight), w=im.naturalWidth*sc, h=im.naturalHeight*sc, px=x+(bw-w)/2, py=y+HEAD+(PH-h)/2;
+          g.drawImage(im,px,py,w,h);
+          if(bal){ g.strokeStyle="#888"; g.lineWidth=2; g.strokeRect(px,py,w,h); const lb=`${stepNo(i+1)}-${s.photos.indexOf(ph)+1}`;
+            g.font="bold 30px sans-serif"; const tw=g.measureText(lb).width+20; g.fillStyle="#1f5fae"; g.fillRect(px,py,tw,42); g.fillStyle="#fff"; g.textBaseline="middle"; g.fillText(lb,px+10,py+22); }
+        }catch(_){}
+        if(!bal){ g.strokeStyle="#c9d1dc"; g.lineWidth=2; g.strokeRect(x,y+HEAD,bw,PH); } x+=bw+12;
       }
       y+=HEAD+PH+GAP;
     }
@@ -3105,12 +3140,82 @@ async function aiMakeImages(){
   $("#aiSave").onclick=()=>aiFiles.forEach((f,j)=>setTimeout(()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); },j*400));
   $("#aiView").onclick=()=>{ const u=URL.createObjectURL(aiFiles[0]); window.open(u,"_blank"); };
 }
+/* ---- 写真に風船を付けてもらう：AIは場所（%）だけ答える → アプリが元の写真に描く ---- */
+function balParts(st){ return partsInStep(st).filter(p=>p.b); }
+function balTargets(){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&balParts(x.s).length); }
+function aiBalloonPrompt(){
+  const L=balTargets();
+  return `あなたは製造現場（機械組立）の作業手順書の写真に、部品の風船番号を付ける担当です。
+添付した画像には、各工程の写真が並んでいます。写真の左上に「③-1」のような［工程番号-写真番号］のラベルがあり、写真のまわりに灰色の枠があります。
+下の【工程と部品】を見て、それぞれの写真の中で、その部品がどこに写っているかを探してください。
+
+【ルール】
+1. 位置は、その写真の灰色の枠の左上を 0、右下を 100 とした x（横の%）と y（縦の%）で、部品の上の1点（部品の真ん中あたり）を答えてください。
+2. 写っていない部品、どれのことか分からない部品は、無理に答えずに comments に書いてください。推測で適当な場所を答えないでください。
+3. 1枚の写真に同じ部品が何個も写っている場合は、いちばん分かりやすい1か所だけにしてください。
+4. 同じ工程に写真が何枚かあるときは、その部品がいちばんよく見える写真を選んでください（同じ部品を何枚にも付けなくてよい）。
+5. 自信の度合いを conf に「高」「中」「低」で書いてください。
+6. 写真や文章の内容は変えません。答えるのは位置だけです。
+
+【返し方】
+次の形式の JSON だけを \`\`\`json のコードブロック1つで返してください（説明文は不要です）。
+no は工程番号（数字）、photo は写真番号（数字）、b は風船番号（文字）です。
+{"balloons":[{"no":3,"photo":1,"b":"052","x":40,"y":60,"conf":"高"}],"comments":[{"no":3,"text":"気になる点"}]}
+
+【工程と部品】
+${L.map(({s,i})=>`工程${i+1}（${stepNo(i+1)}・写真${s.photos.length}枚）${s.title?"「"+s.title+"」":""}：${balParts(s).map(p=>`【${p.b}】${pName(p)||p.pn}`).join("、")}`).join("\n")}`;
+}
+let BAL=null;
+/* AIの位置 → 写真編集の「風船」と同じ形（部品の点 x1,y1／丸 x2,y2） */
+function balShapes(W,H,items){
+  const M=Math.max(W,H), fs=Math.max(18,M/26), r=fs*.85, off=M*.13, out=[];
+  items.forEach(it=>{
+    const x1=Math.max(0,Math.min(100,+it.x||0))/100*W, y1=Math.max(0,Math.min(100,+it.y||0))/100*H;
+    let dir=x1<W/2?-1:1, x2=x1+dir*off; if(x2<r+6||x2>W-r-6){ dir=-dir; x2=x1+dir*off; }
+    x2=Math.max(r+6,Math.min(W-r-6,x2)); let y2=Math.max(r+6,Math.min(H-r-6,y1-off*.45));
+    for(let t=0;t<12&&out.some(o=>Math.hypot(o.x2-x2,o.y2-y2)<r*2.3);t++) y2=Math.max(r+6,Math.min(H-r-6,y2+r*2.4*(t%2?-1:1)*(1+t/2)));
+    out.push({type:"balloon",x1,y1,x2,y2,color:"#ff1a1a",w:Math.max(3,M/220),fs,text:String(it.b),conf:it.conf||""});
+  });
+  return out;
+}
+function balGroups(){
+  const G=new Map();
+  (BAL.balloons||[]).forEach(it=>{ const st=S.steps[(+it.no||0)-1]; if(!st) return; const ph=st.photos[(+it.photo||1)-1]; if(!ph) return;
+    const k=st.id+"|"+ph.id; if(!G.has(k)) G.set(k,{st,i:+it.no-1,j:(+it.photo||1)-1,ph,items:[]}); if(it.b!=null&&it.x!=null&&it.y!=null) G.get(k).items.push(it); });
+  return [...G.values()].filter(g=>g.items.length);
+}
+async function balRender(){
+  const box=$("#aiReview"), Gs=balGroups(), cm=BAL.comments||[];
+  if(!Gs.length){ box.innerHTML=`<p class="hint">AIの返事に、風船の位置がありませんでした。</p>`; return; }
+  box.innerHTML=`<div class="aiTop"><b>AIが付けた風船（写真${Gs.length}枚）</b><span style="flex:1"></span>
+    <button class="primary sm" id="balAll">まだの写真に全部このまま付ける</button>${BAL.undo&&BAL.undo.length?`<button class="sm" id="balUndo">付けた風船を元に戻す</button>`:""}</div>
+    <p class="hint">赤い丸の位置がずれていたら「✏️ 確かめて付ける」で、写真編集の中で指で動かして直せます。</p>
+    <div class="balList">${Gs.map((g,k)=>`<div class="balCard${g.ph._balDone?" done":""}"><div class="balH">工程${stepNo(g.i+1)}・写真${g.j+1}　${g.items.map(it=>`【${esc(it.b)}】${it.conf?`<small>${esc(it.conf)}</small>`:""}`).join(" ")}</div>
+      <canvas data-bc="${k}"></canvas>${g.ph._balDone?`<div class="balDone">✓ 付けました</div>`:`<div class="balBtns"><button data-be="${k}">✏️ 確かめて付ける</button><button class="primary" data-ba="${k}">✓ このまま付ける</button></div>`}</div>`).join("")}</div>
+    ${cm.length?`<div class="balCm"><b>AIからのコメント</b>${cm.map(c=>`<div>${c.no?`工程${stepNo(+c.no)}：`:""}${esc(c.text||"")}</div>`).join("")}</div>`:""}`;
+  for(const [k,g] of Gs.entries()){ try{ const im=await loadImg(g.ph.data), W=im.naturalWidth,H=im.naturalHeight, c=$(`canvas[data-bc="${k}"]`); if(!c) continue;
+    c.width=W; c.height=H; const x=c.getContext("2d"); x.drawImage(im,0,0); if(!g.ph._balDone) balShapes(W,H,g.items).forEach(sh=>drawShape(x,sh)); }catch(_){} }
+  $$("[data-ba]",box).forEach(b=>b.onclick=()=>balApply([Gs[+b.dataset.ba]]));
+  $$("[data-be]",box).forEach(b=>b.onclick=async()=>{ const g=Gs[+b.dataset.be];
+    await openEditor(g.st,g.j,()=>{ g.ph._balDone=true; balSaved(); },"select");
+    E.shapes=balShapes(iw(),ih(),g.items).map(x=>{ delete x.conf; return x; }); E.sel=null; edDraw(); edUI(); });
+  const all=$("#balAll"); if(all) all.onclick=()=>balApply(Gs.filter(g=>!g.ph._balDone));
+  const un=$("#balUndo"); if(un) un.onclick=()=>{ BAL.undo.forEach(u=>{ Object.assign(u.ph,{data:u.data,w:u.w,h:u.h}); delete u.ph._balDone; }); BAL.undo=[]; balSaved(); fmToast?.("風船を付ける前に戻しました"); };
+}
+async function balApply(list){
+  BAL.undo=BAL.undo||[];
+  for(const g of list){ try{ const im=await loadImg(g.ph.data), c=document.createElement("canvas"); c.width=im.naturalWidth; c.height=im.naturalHeight; const x=c.getContext("2d");
+    x.drawImage(im,0,0); balShapes(c.width,c.height,g.items).forEach(sh=>drawShape(x,sh));
+    BAL.undo.push({ph:g.ph,data:g.ph.data,w:g.ph.w,h:g.ph.h}); Object.assign(g.ph,toJpeg(c,c.width,c.height)); g.ph._balDone=true; }catch(_){} }
+  balSaved();
+}
+function balSaved(){ persist(); try{ renderSteps(); }catch(_){} schedulePreview(); if(!$("#fm").hidden&&!$("#fmStep").hidden) try{ fmRenderStep(); }catch(_){} balRender(); }
 function parseAi(text){
   let t=String(text||"").trim();
   const m=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(m) t=m[1];
   const i=t.indexOf("{"), j=t.lastIndexOf("}"); if(i<0||j<i) throw new Error("JSONが見つかりません");
   const d=JSON.parse(t.slice(i,j+1));
-  if(!Array.isArray(d.steps)) throw new Error("steps がありません");
+  if(!Array.isArray(d.steps)&&!Array.isArray(d.balloons)) throw new Error("steps がありません");
   return d;
 }
 /* 行単位の差分（LCS） */
@@ -3127,8 +3232,9 @@ function lineDiff(a,b){
 function keyTokens(s){ return (String(s||"").match(/風船\s*\d+|【\d+】|[A-Za-z]{1,4}\s*M\d+\s*[xX×]\s*\d+|M\d+|φ\s*\d+|\d+(?:\.\d+)?\s*(?:本|個|mm|N・m|Nm|kgf)/g)||[]).map(x=>x.replace(/\s+/g,"")); }
 let AI=null, aiUndo=null;
 $("#bAiRead").onclick=()=>{
-  try{ AI=parseAi($("#aiIn").value); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーして貼り付けてください。"); }
-  renderAiReview();
+  let d; try{ d=parseAi($("#aiIn").value); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーして貼り付けてください。"); }
+  if(Array.isArray(d.balloons)&&!Array.isArray(d.steps)){ AI=null; BAL=d; return balRender(); }
+  AI=d; BAL=null; renderAiReview();
 };
 function renderAiReview(){
   const box=$("#aiReview"); if(!AI){ box.innerHTML=""; return; }
@@ -3180,6 +3286,55 @@ function renderAiReview(){
 const normPn=v=>String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const F={stepId:null,parts:[],hz:[],action:"",photos:[],checks:[],title:"",body:"",tEd:false,bEd:false,ask:null};
 /* 札の文字列 → 部品表の部品（子品番で照合） */
+/* ---- 現品札：カメラ映像からそのまま読む（写真を撮らなくてよい） ---- */
+const SC={stream:null,busy:false,cb:null,fb:null,det:null,reader:null,n:0,to:0};
+const scanOK=()=>!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.isSecureContext);
+async function scanOpen(cb,fb){
+  if(!scanOK()) return fb();
+  Object.assign(SC,{cb,fb,n:0,busy:false}); $("#scan").hidden=false; $("#scanF").classList.remove("hit"); $("#scanMsg").textContent="カメラを起動しています…"; $("#scanTorch").hidden=true;
+  try{ SC.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:2560},height:{ideal:1440}}}); }
+  catch(e){ $("#scanMsg").textContent="カメラを使えませんでした。下の「📸 写真で撮る」を押してください。"; return; }
+  if($("#scan").hidden){ SC.stream.getTracks().forEach(t=>t.stop()); SC.stream=null; return; }      // 起動中に閉じられた
+  const v=$("#scanV"); v.srcObject=SC.stream; try{ await v.play(); }catch(_){}
+  try{ const tr=SC.stream.getVideoTracks()[0], cap=tr.getCapabilities?tr.getCapabilities():{}; $("#scanTorch").hidden=!cap.torch; $("#scanTorch").classList.remove("on"); }catch(_){}
+  SC.det=null; if("BarcodeDetector" in window){ try{ SC.det=new BarcodeDetector(); }catch(_){} }
+  SC.reader=null;
+  if(!SC.det&&typeof ZXing!=="undefined"){ SC.reader=new ZXing.MultiFormatReader(); const h=new Map(); h.set(ZXing.DecodeHintType.TRY_HARDER,true); SC.reader.setHints(h); }
+  $("#scanMsg").textContent="札全体を白い枠に入れてください。右上のQRコードが読めると自動で進みます。";
+  scanLoop();
+}
+function scanClose(){ clearTimeout(SC.to); if(SC.stream) SC.stream.getTracks().forEach(t=>t.stop()); SC.stream=null; $("#scanV").srcObject=null; $("#scan").hidden=true; }
+/* 画面の白い枠 → カメラ映像の中の範囲 */
+function scanBox(W,H){ const v=$("#scanV").getBoundingClientRect(), f=$("#scanF").getBoundingClientRect(), k=Math.max(v.width/W,v.height/H);
+  const ox=v.left+(v.width-W*k)/2, oy=v.top+(v.height-H*k)/2;
+  let x=Math.max(0,(f.left-ox)/k), y=Math.max(0,(f.top-oy)/k); return {x,y,w:Math.min(W-x,f.width/k),h:Math.min(H-y,f.height/k)}; }
+async function scanLoop(){
+  if(!SC.stream) return; const v=$("#scanV");
+  if(v.readyState>=2&&v.videoWidth&&!SC.busy){ SC.busy=true; let txt=null;
+    try{
+      var geo=null;
+      if(SC.det){ const r=await SC.det.detect(v); if(r.length){ txt=r[0].rawValue; const c=r[0].cornerPoints; if(r[0].format==="qr_code"&&c&&c.length===4) geo=geoCorners(c[0],c[1],c[3]); } }
+      else if(SC.reader){      // ZXing：枠の右上（QRの所）と枠全体を交互に
+        const W=v.videoWidth,H=v.videoHeight,b=scanBox(W,H), c=SC.c||(SC.c=document.createElement("canvas")), g=c.getContext("2d");
+        const m=SC.n++%11, tw=W/2, th=H/2, ti=m-2;      // 枠の右上 → 枠全体 → 映像を9つに区切って順番に（QRが小さくても見つける）
+        const [sx,sy,sw,sh]=m===0?[b.x+b.w*.5,b.y,b.w*.5,b.h*.45]:m===1?[b.x,b.y,b.w,b.h]:[(ti%3)*tw/2,Math.floor(ti/3)*th/2,tw,th];
+        const k=Math.min(1,(m<2?1400:1000)/Math.max(sw,sh)); c.width=Math.max(1,Math.round(sw*k)); c.height=Math.max(1,Math.round(sh*k)); g.drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);
+        try{ const r=SC.reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c)))); txt=r.getText(); geo=geoZX(r,(x,y)=>({x:sx+x/k,y:sy+y/k})); }catch(_){}
+      }
+    }catch(_){}
+    if(txt&&SC.stream){      // 読めた瞬間の画面を写真にして、いつもの処理（品名・風船の読み取りも）へ
+      $("#scanF").classList.add("hit"); $("#scanMsg").textContent="✓ 読めました";
+      const c=document.createElement("canvas"); c.width=v.videoWidth; c.height=v.videoHeight; c.getContext("2d").drawImage(v,0,0);
+      const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.92)); try{ navigator.vibrate&&navigator.vibrate(60); }catch(_){}
+      const f=new File([blob],"tag.jpg",{type:"image/jpeg"}); f._scan={text:txt,geo,canvas:c};
+      const cb=SC.cb; SC.busy=false; setTimeout(()=>{ scanClose(); cb(f); },250); return; }
+    SC.busy=false; }
+  SC.to=setTimeout(scanLoop,110);
+}
+$("#scanX").onclick=scanClose;
+$("#scanPhoto").onclick=()=>{ const fb=SC.fb; scanClose(); fb&&fb(); };
+$("#scanTorch").onclick=async()=>{ const b=$("#scanTorch"), on=!b.classList.contains("on"); try{ await SC.stream.getVideoTracks()[0].applyConstraints({advanced:[{torch:on}]}); b.classList.toggle("on",on); }catch(_){ b.hidden=true; } };
+document.addEventListener("visibilitychange",()=>{ if(document.hidden&&SC.stream) scanClose(); });
 /* 出庫現品札のQR：「Z＋8桁」のすぐ後ろが品番（例 Z12345678A001234501 → A00-12345-01） */
 function tagQrPn(text){ const m=String(text||"").toUpperCase().match(/Z\d{8}([A-Z]\d{2})(\d{5})(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:""; }
 function matchTag(text){
@@ -3192,16 +3347,19 @@ function matchTag(text){
 }
 /* 写真からバーコード・QRを読む（端末の機能 → ダメならZXing）。QRの位置は tagGeo に残す（札の文字を読むため） */
 let tagGeo=null;
+/* QRの位置 → 札の座標（外枠の左上 TL・横 ex・縦 ey） */
+function geoCorners(TL,TR,BL){ return {TL,ex:{x:TR.x-TL.x,y:TR.y-TL.y},ey:{x:BL.x-TL.x,y:BL.y-TL.y}}; }
+function geoZX(r,map){ try{ if(r.getBarcodeFormat()!==ZXing.BarcodeFormat.QR_CODE) return null; const P=r.getResultPoints().map(q=>map(q.getX(),q.getY())); if(P.length<3) return null;
+  const [BL,TL,TR]=P, K=37/30, ex={x:(TR.x-TL.x)*K,y:(TR.y-TL.y)*K}, ey={x:(BL.x-TL.x)*K,y:(BL.y-TL.y)*K}, o=3.5/37;      // 目印の中心3点 → 外枠（現品札のQR＝37マス）
+  return {TL:{x:TL.x-(ex.x+ey.x)*o,y:TL.y-(ex.y+ey.y)*o},ex,ey}; }catch(e){ return null; } }
 async function readCodes(file){
+  if(file&&file._scan){ if(tagGeo&&tagGeo.url) URL.revokeObjectURL(tagGeo.url); const sc=file._scan; tagGeo=sc.geo?Object.assign({im:sc.canvas,url:null},sc.geo):null; return [sc.text]; }      // カメラ映像で読めた分はそのまま使う
   if(tagGeo&&tagGeo.url) URL.revokeObjectURL(tagGeo.url);
   const url=URL.createObjectURL(file); const out=new Set(); tagGeo=null; let keep=false;
   try{
     const im=await loadImg(url);
-    const geo=(TL,TR,BL)=>{ if(!tagGeo){ tagGeo={im,url,TL,ex:{x:TR.x-TL.x,y:TR.y-TL.y},ey:{x:BL.x-TL.x,y:BL.y-TL.y}}; keep=true; } };
-    // ZXingのQRは「目印の中心」3点（左下・左上・右上）→ 外枠に直す（現品札のQR＝37マス）
-    const zgeo=(r,map)=>{ try{ if(r.getBarcodeFormat()!==ZXing.BarcodeFormat.QR_CODE) return; const P=r.getResultPoints().map(q=>map(q.getX(),q.getY())); if(P.length<3) return;
-      const [BL,TL,TR]=P, K=37/30, ex={x:(TR.x-TL.x)*K,y:(TR.y-TL.y)*K}, ey={x:(BL.x-TL.x)*K,y:(BL.y-TL.y)*K}, o=3.5/37;
-      const T0={x:TL.x-(ex.x+ey.x)*o,y:TL.y-(ex.y+ey.y)*o}; geo(T0,{x:T0.x+ex.x,y:T0.y+ex.y},{x:T0.x+ey.x,y:T0.y+ey.y}); }catch(e){} };
+    const geo=(TL,TR,BL)=>{ if(!tagGeo){ tagGeo=Object.assign({im,url},geoCorners(TL,TR,BL)); keep=true; } };
+    const zgeo=(r,map)=>{ const g=geoZX(r,map); if(g&&!tagGeo){ tagGeo=Object.assign({im,url},g); keep=true; } };
     if("BarcodeDetector" in window){
       try{ const det=new BarcodeDetector(); (await det.detect(im)).forEach(b=>{ out.add(b.rawValue);
         if(b.format==="qr_code"&&b.cornerPoints&&b.cornerPoints.length===4){ const c=b.cornerPoints; geo(c[0],c[1],c[3]); } }); }catch(e){}
@@ -3453,7 +3611,7 @@ function fmPrepRender(){
   $$("#fqLeft [data-k],#fqDone [data-k]").forEach(b=>b.onclick=()=>{ Q.p=T.find(x=>pKey(x)===b.dataset.k); Q.tag=null; $("#fqMsg").textContent=""; fmPrepRender(); $("#fm").scrollTop=0; });
 }
 function fqAfter(){ const m=$("#fqMsg"); m.style.color="var(--ok)"; m.textContent=`✓ 【${Q.p.b||"-"}】${pName(Q.p)} の写真を登録しました。次の現品札を読んでください。`; Q.tag=null; fmPrepRender(); }
-$("#fqTag").onclick=()=>$("#fqTagIn").click();
+$("#fqTag").onclick=()=>scanOpen(f=>$("#fqTagIn").onchange({target:{files:[f],value:""}}),()=>$("#fqTagIn").click());
 $("#fqTagIn").onchange=async e=>{
   const f=e.target.files[0]; e.target.value=""; if(!f) return;
   const m=$("#fqMsg"); m.style.color=""; m.textContent="読み取り中…";
@@ -3604,7 +3762,7 @@ function hzBoxes(list){ return list.map(h=>{ const i=F.hz.indexOf(h); return `<l
 function bindHz(root){ $$("[data-hz]",root).forEach(c=>c.onchange=()=>{ F.hz[+c.dataset.hz].on=c.checked; fmCompose(); });
   $$("[data-hq]",root).forEach(c=>c.oninput=()=>{ F.hz[+c.dataset.hq].qty=c.value; fmCompose(); }); }
 /* 現品札を読む → 部品を文章に入れる */
-$("#fpTag2").onclick=()=>$("#fpTag2In").click();
+$("#fpTag2").onclick=()=>scanOpen(f=>$("#fpTag2In").onchange({target:{files:[f],value:""}}),()=>$("#fpTag2In").click());
 $("#fpTag2In").onchange=async e=>{
   const f=e.target.files[0]; e.target.value=""; if(!f) return;
   const msg=$("#fpTag2Msg"); msg.className="msg"; msg.textContent="読み取り中…";
@@ -3898,7 +4056,7 @@ function guideTick(){
   const ring=$("#gdRing"), tip=$("#gdTip"), fm=$("#fm");
   const ae=document.activeElement;
   const pc=fm.hidden;
-  const blocked=!(G.on||(gForce&&!$("#fmFinS").hidden))||(!pc&&(fm.classList.contains("typing")||!$("#fmPick").hidden||!$("#fpMenu").hidden))||!!document.querySelector(".modal.show,#map.show,#batch.show")||$("#ed").classList.contains("show")
+  const blocked=!$("#scan").hidden||!(G.on||(gForce&&!$("#fmFinS").hidden))||(!pc&&(fm.classList.contains("typing")||!$("#fmPick").hidden||!$("#fpMenu").hidden))||!!document.querySelector(".modal.show,#map.show,#batch.show")||$("#ed").classList.contains("show")
     ||(pc&&(!$("#fileMenu").hidden||!$("#pMenu").hidden||!$("#stepMenu").hidden||$("#sug").style.display==="block"||innerWidth<700))
     ||(ae&&ae.closest&&ae.closest("#fm,#editor")&&ae.matches("textarea,input:not([type=checkbox]):not([type=file])"));
   let st=blocked?null:guideStep(), el=null;
