@@ -577,8 +577,9 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 @media print{
   /* 1シート＝A4 1枚。ページの大きさをmmで固定し、中身を縮小して必ず収める */
   @page{size:A4 portrait;margin:0}
-  html,body{height:auto!important;background:#fff}
-  header,#editor,.pgLabel,#ed,#fm,.modal,#sug,#map,#batch{display:none!important}
+  html,body,main,#previewWrap,#pages,.pgOuter{height:auto;background:#fff!important}
+  html,body{height:auto!important}
+  header,#editor,.pgLabel,#ed,#fm,.modal,#sug,#map,#batch,#gdRing,#gdTip,#pcToast,.toast{display:none!important}   /* ガイドの枠・影は印刷しない */
   main{display:block!important;height:auto!important}
   #previewWrap{padding:0!important;background:#fff;overflow:visible!important}
   #pages{margin:0}
