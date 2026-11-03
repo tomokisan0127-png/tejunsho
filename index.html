@@ -215,6 +215,11 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .fmList .it{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 10px;margin-bottom:8px;box-shadow:0 1px 5px rgba(20,30,50,.06);cursor:pointer;min-height:64px}
 #fm .fmList .it i{width:60px;height:45px;border-radius:8px;background:#e9edf2 center/cover no-repeat;flex:none;display:flex;align-items:center;justify-content:center;font-style:normal;color:#a6b0bd;font-size:18px}
 #fm .fmList .it .no{font-size:18px;font-weight:bold;color:var(--accent);min-width:34px;text-align:center;flex:none}
+#fm .fmList .it .grip{flex:none;touch-action:none;font-size:24px;line-height:1;color:#9aa6b5;padding:12px 4px 12px 8px;margin-right:-4px;cursor:grab;user-select:none;-webkit-user-select:none}
+#fm .fmList .it.drag{box-shadow:0 10px 28px rgba(20,30,50,.28);opacity:.96;pointer-events:none}
+#fm .fmList .it.ph{background:#e6eef9;border:2px dashed #9db8dc;box-shadow:none;min-height:0;width:100%;box-sizing:border-box;align-self:stretch}
+#fm .fmList .it.moved{outline:3px solid #ffb020;transition:outline .3s}
+#fm .gripI{color:#9aa6b5}
 #fm .fmList .it .tx{flex:1;min-width:0;font-size:15px;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 #fm .fmList .it.cur{outline:2.5px solid var(--accent)}
 #fm .fmList .it.blank{background:#fff8e1;border:1.5px dashed #e5c56a;box-shadow:none}
@@ -253,6 +258,14 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 #fm .chipRow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
 #fm .chipRow .hint{align-self:center;margin:0}
+#fm .ckEdH,#fm .ckLibH{font-size:12.5px;color:var(--sub);margin:12px 2px 6px;font-weight:bold}
+#fm .ckEd{display:flex;align-items:center;gap:6px;margin:6px 0}
+#fm .ckEd span{color:var(--sub);flex:none}
+#fm .ckEd input{flex:1;min-width:0;font-size:16px;padding:9px 10px;border:1.5px solid #c9d6e6;border-radius:10px;background:#f7faff}
+#fm .ckEd button{flex:none;width:40px;height:40px;border-radius:10px;border:1px solid #e3c4c4;background:#fff;color:#b44}
+#fm .ckNew{display:flex;gap:6px;margin:10px 0 0}
+#fm .ckNew input{flex:1;min-width:0;font-size:16px;padding:9px 10px;border:1.5px dashed #b9c6d6;border-radius:10px}
+#fm .ckNew .pill{flex:none;margin:0}
 #fm .refs{background:#fff8e1;border:1px solid #f0d78c;border-radius:12px;padding:10px;margin:10px 0 0;font-size:14px}
 #fm .refs .chip{background:#fff;border-color:#e5c56a;white-space:normal;text-align:left}
 #fm .refs .chipRow{margin-top:6px}
@@ -589,6 +602,18 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
   .page .tb.over{background:none}
   .page .tb.sel,.page .tb:hover{outline:none!important}
 }
+/* AIチェック：文章だけ／写真もいっしょに */
+.aiMode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px}
+.aiMode label{display:flex;flex-direction:column;gap:2px;margin:0;padding:10px 12px;border:2px solid #d3dae4;border-radius:12px;background:#fff;cursor:pointer;font-size:14px;line-height:1.35}
+.aiMode label input{position:absolute;opacity:0;pointer-events:none}
+.aiMode label small{color:#667;font-size:12px;display:block;font-weight:normal}
+#aiCard .aiMode label{display:flex!important;flex-direction:column!important;align-items:flex-start!important;position:relative}
+#aiCard .aiMode label b{display:block;font-size:15px}
+.aiMode label.on{border-color:var(--accent);background:#eef4fc}
+@media (max-width:520px){ .aiMode{grid-template-columns:1fr} }
+#aiImgBox{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f4f8fd;border:1px solid #d6e2f2}
+.aiImgNote{margin:0 0 8px;font-size:13.5px}
+.aiImgBtns{display:flex;flex-wrap:wrap;gap:8px}
 /* ================= PC画面（現場モードと同じデザイン） ================= */
 html,body{background:#f2f4f7}
 body{font-size:14.5px}
@@ -915,6 +940,10 @@ details.fold>summary::before{color:var(--accent)}
     <div class="card" id="aiCard">
       <h2>AIで文章チェック・整理</h2>
       <p class="hint">社内で使っているAI（Claudeなど）に、表現の統一・誤字・分かりにくい所のチェックを頼めます。風船番号・品番・本数は変えないように指示します。</p>
+      <div class="aiMode">
+        <label class="on"><input type="radio" name="aiMode" value="text" checked><b>📝 文章だけチェック</b><small>誤字・表現・枠に収まるか</small></label>
+        <label><input type="radio" name="aiMode" value="photo"><b>📷 写真もいっしょにチェック</b><small>写真と文章が合っているかも見る（画像を一緒に送ります）</small></label>
+      </div>
       <div class="aistep"><span class="badge">1</span><div>
         <div class="opts">
           <label><input type="checkbox" id="aiStyle" checked>文体を「〜する。」にそろえる</label>
@@ -924,8 +953,9 @@ details.fold>summary::before{color:var(--accent)}
         </div>
         <button class="primary" id="bAiCopy">AIへの依頼文をコピー</button>
         <span class="hint" id="aiCopied"></span>
+        <div id="aiImgBox" hidden></div>
       </div></div>
-      <div class="aistep"><span class="badge">2</span><div>AIの画面に貼り付けて（Ctrl+V）送信します。</div></div>
+      <div class="aistep"><span class="badge">2</span><div id="aiStep2">AIの画面に貼り付けて（Ctrl+V）送信します。</div></div>
       <div class="aistep"><span class="badge">3</span><div style="flex:1">
         返ってきた答えを<b>全部コピー</b>して、ここに貼り付けます。
         <textarea id="aiIn" rows="4" placeholder="AIの返事をそのまま貼り付け"></textarea>
@@ -1075,7 +1105,7 @@ details.fold>summary::before{color:var(--accent)}
   <section id="fmListS" class="scr" hidden>
     <div class="bar"><button class="back" id="flBack">‹ ホーム</button><b class="ttl">工程の一覧</b><span class="sp"></span><span class="barInfo" id="fmCount"></span></div>
     <div class="wrap">
-      <p class="lead">タップすると開いて直せます。<b class="plus">＋</b> を押すと、その後ろに工程を差し込めます。</p>
+      <p class="lead">タップすると開いて直せます。<b class="plus">＋</b> でその後ろに工程を差し込み、<b class="gripI">⠿</b> を指で引っ張ると順番を入れ替えられます。</p>
       <div class="fmList" id="fmList"></div>
       <div class="spacer"></div>
     </div>
@@ -1117,7 +1147,7 @@ details.fold>summary::before{color:var(--accent)}
         <h3><i>3</i>できあがりを確認</h3>
         <div class="txPrev" id="fpTxtV"><div class="tt" id="fpTitleV"></div><div class="bd" id="fpBodyV"></div></div>
         <div class="chipRow" id="fpTitleC"></div>
-        <details id="fpCkD"><summary>＋ 確認ポイントを付ける <b id="fpCkN"></b></summary><div class="chipRow" id="fpChecks"></div></details>
+        <details id="fpCkD"><summary>＋ 確認ポイントを付ける・書く <b id="fpCkN"></b></summary><div id="fpCkEd"></div><div class="ckNew"><input id="fpCkNew" placeholder="自分で書く（例：ホースがねじれていないか）"><button class="pill" id="fpCkAdd">追加</button></div><div class="ckLibH">よく使う確認ポイント（タップで付ける・外す）</div><div class="chipRow" id="fpChecks"></div></details>
       </div>
       <div class="spacer"></div>
     </div>
@@ -2976,8 +3006,10 @@ function aiPrompt(){
   renderPreview();
   const fitOn=$("#aiFit").checked;
   const overNos=[];
+  const photoMode=aiMode()==="photo", phNos=S.steps.map((s,i)=>s.photos&&s.photos.length?i+1:0).filter(Boolean);
   const data={work:S.meta.name||"",model:S.meta.model||"",steps:S.steps.map((s,i)=>{
     const o={no:i+1,title:s.title||"",body:s.body||"",check:s.check||"",tools:s.tools||""};
+    if(photoMode) o.photos=s.photos?s.photos.length:0;
     if(fitOn&&s._fit&&s._fit.over){ const c=stepCapacity(s,i); o.limit={maxLines:c.lines,maxChars:c.cols}; overNos.push(i+1); }
     return o; })};
   const rules=[
@@ -2991,10 +3023,13 @@ function aiPrompt(){
     "確認ポイントは1行に1項目で、語尾を「〜か」などにそろえてください。",
     chk?"安全・品質の面で確認ポイントを追加した方がよい場合は追加してかまいません。追加した場合は comments にその理由を書いてください。":"確認ポイントは新しく増やさないでください（必要そうなら comments で提案してください）。",
     "工程の数と順番は変えないでください。tools はそのまま返してください。",
+    photoMode?`工程の写真を画像で添付しています。画像の中の「工程①」などの見出しの下に、その工程の写真が並んでいます（写真がある工程：${phNos.map(n=>stepNo(n)).join("・")||"なし"}）。写真と本文・確認ポイントを見比べて、食い違い（部品の種類・数・向き・取り付け位置・ボルトの本数・使っている工具など）や、写真に写っている大事な作業が文章に書かれていない点があれば、comments に「写真では〜に見えます」の形で書いてください。`:null,
+    photoMode?"写真から推測した内容を本文に書き足さないでください（提案は comments に書いてください）。写真が不鮮明で判断できないときは、そのことを comments に書いてください。":null,
+    photoMode?"画像が添付されていない場合は文章だけでチェックし、comments の最初に「画像が見つかりませんでした」と書いてください。":null,
     overNos.length?`limit が付いている工程（${overNos.join("・")}）は、手順書の枠に文字が入りきっていません。次の条件に必ず収まるように短くまとめてください：「本文の行数」＋「確認ポイントの項目数」＋2（確認ポイントの見出しと空行の分。確認ポイントが無ければ0）が maxLines 以下、1行の長さは全角 maxChars 文字まで（それより長い行は2行と数える。半角英数字は0.5文字）。短くするときは、重複（本文と確認ポイントで同じ内容など）をまとめる、言い回しを簡潔にする、を優先し、数字・番号・必要な注意は消さないでください。どうしても収まらない場合は、工程を分ける提案を comments に書いてください。`:null
   ].filter(Boolean);
   return `あなたは製造現場（機械組立）の作業手順書をチェックする編集担当です。
-以下は組立作業手順書の各工程のデータ（JSON）です。次のルールで文章をチェック・整理してください。
+以下は組立作業手順書の各工程のデータ（JSON）です。${photoMode?"あわせて各工程の写真の画像を添付しています。":""}次のルールで文章をチェック・整理してください。
 
 【ルール】
 ${rules.map((r,i)=>`${i+1}. ${r}`).join("\n")}
@@ -3020,8 +3055,56 @@ $("#bAiCopy").onclick=async()=>{
   if($("#aiFit").checked){ renderPreview(); const caps=S.steps.map((st,i)=>st._fit&&st._fit.over?stepCapacity(st,i).lines:99); const mn=Math.min(...caps);
     if(mn<6&&perSheet()>3&&!confirm(`今の設定（1シート${perSheet()}工程）だと、枠に入るのは1工程あたり${mn}行ほどです。\nこのままだとAIが確認ポイントを削らないと収まりません。\n\n先に「基本情報 → レイアウト」で1シート3工程にするのがおすすめです。\nこのままコピーしますか？`)) return; }
   const ok=await copyText(aiPrompt());
-  $("#aiCopied").textContent=ok?"✓ コピーしました。AIの画面に貼り付けて送信してください。":"コピーできませんでした";
+  if(aiMode()!=="photo"){ $("#aiCopied").textContent=ok?"✓ コピーしました。AIの画面に貼り付けて送信してください。":"コピーできませんでした"; return; }
+  $("#aiCopied").textContent=ok?"✓ 依頼文をコピーしました。続けて写真の画像を用意します…":"依頼文をコピーできませんでした";
+  await aiMakeImages();
 };
+/* ---- AIチェック：写真もいっしょに ---- */
+function aiMode(){ const r=document.querySelector('input[name="aiMode"]:checked'); return r?r.value:"text"; }
+function aiModeUI(){ const ph=aiMode()==="photo";
+  $$(".aiMode label").forEach(l=>l.classList.toggle("on",l.querySelector("input").checked));
+  $("#aiStep2").innerHTML=ph?"AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。":"AIの画面に貼り付けて（Ctrl+V）送信します。";
+  $("#bAiCopy").textContent=ph?"AIへの依頼文をコピー＋写真の画像を作る":"AIへの依頼文をコピー";
+  $("#aiImgBox").hidden=true; $("#aiCopied").textContent=""; }
+$$('input[name="aiMode"]').forEach(r=>r.onchange=aiModeUI);
+let aiFiles=[];
+/* 写真のある工程を、見出し「工程①　タイトル」付きで1枚の画像に並べる（1枚に6工程まで） */
+async function aiMakeImages(){
+  const L=S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length);
+  const box=$("#aiImgBox"); box.hidden=false;
+  if(!L.length){ aiFiles=[]; box.innerHTML=`<p class="aiImgNote">写真のある工程がありません。文章だけでチェックされます。</p>`; return; }
+  box.innerHTML=`<p class="aiImgNote">画像を作っています…</p>`;
+  const W=1500, PER=6, HEAD=64, PH=440, GAP=24, name=(S.meta.name||"手順書").replace(/[\\/:*?"<>|\s]+/g,"_");
+  aiFiles=[];
+  for(let k=0;k<L.length;k+=PER){
+    const part=L.slice(k,k+PER), c=document.createElement("canvas"); c.width=W; c.height=part.length*(HEAD+PH+GAP)+20;
+    const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height);
+    let y=10;
+    for(const {s,i} of part){
+      g.fillStyle="#1f5fae"; g.fillRect(10,y,W-20,HEAD-8);
+      g.fillStyle="#fff"; g.font="bold 36px sans-serif"; g.textBaseline="middle";
+      let t=`工程${stepNo(i+1)}　${s.title||String(s.body||"").split("\n")[0]||""}`; while(g.measureText(t).width>W-60&&t.length>4) t=t.slice(0,-2)+"…";
+      g.fillText(t,28,y+(HEAD-8)/2);
+      const n=s.photos.length, bw=(W-20-(n-1)*12)/Math.max(n,1)>900?900:(W-20-(n-1)*12)/n;
+      let x=10;
+      for(const ph of s.photos.slice(0,3)){
+        try{ const im=await loadImg(ph.data); const sc=Math.min(bw/im.naturalWidth,PH/im.naturalHeight), w=im.naturalWidth*sc, h=im.naturalHeight*sc;
+          g.drawImage(im,x+(bw-w)/2,y+HEAD+(PH-h)/2,w,h); }catch(_){}
+        g.strokeStyle="#c9d1dc"; g.lineWidth=2; g.strokeRect(x,y+HEAD,bw,PH); x+=bw+12;
+      }
+      y+=HEAD+PH+GAP;
+    }
+    const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.85));
+    aiFiles.push(new File([blob],`${name}_写真${aiFiles.length+1}.jpg`,{type:"image/jpeg"}));
+  }
+  const canShare=!!(navigator.canShare&&navigator.canShare({files:aiFiles}));
+  box.innerHTML=`<p class="aiImgNote">✓ 写真の画像が<b>${aiFiles.length}枚</b>できました（写真のある工程：${L.length}件）。${aiFiles.length>10?"<br>※ AIによっては一度に送れる画像は10枚くらいまでです。多いときは2回に分けて送ってください。":""}</p>
+    <div class="aiImgBtns">${canShare?`<button class="primary" id="aiShare">📤 画像をAIアプリに送る</button>`:""}<button id="aiSave">💾 画像を保存する</button><button id="aiView">👁 画像を見る</button></div>
+    <p class="hint">${canShare?"「送る」でAIアプリ（ChatGPT・Claudeなど）を選ぶと画像が添付されます。メッセージ欄に依頼文を貼り付けて送信してください。":"保存した画像を、AIの画面に添付（ドラッグ）して、依頼文と一緒に送信してください。"}</p>`;
+  const sh=$("#aiShare"); if(sh) sh.onclick=async()=>{ try{ await navigator.share({files:aiFiles,title:"手順書の写真"}); }catch(e){ if(e.name!=="AbortError") alert("送れませんでした。「画像を保存する」から保存して添付してください。"); } };
+  $("#aiSave").onclick=()=>aiFiles.forEach((f,j)=>setTimeout(()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); },j*400));
+  $("#aiView").onclick=()=>{ const u=URL.createObjectURL(aiFiles[0]); window.open(u,"_blank"); };
+}
 function parseAi(text){
   let t=String(text||"").trim();
   const m=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(m) t=m[1];
@@ -3396,11 +3479,45 @@ function fmList(){
   const L=S.steps.map((s,i)=>({s,i})).filter(x=>!stEmpty(x.s)||x.i<last);
   let h="", sh=-1;
   L.forEach(({s,i})=>{ const k=Math.floor(i/per); if(k!==sh){ sh=k; h+=`<div class="sh">シート${k+1}</div>`; }
-    h+=`<div class="it${s.id===cur?" cur":""}${stEmpty(s)?" blank":""}" data-i="${i}"><span class="no">${stepNo(i+1)}</span><i style="${s.photos[0]?`background-image:url(${s.photos[0].data})`:""}">${s.photos[0]?"":"📷"}</i><span class="tx">${stEmpty(s)?"空き工程（タップして作る）":esc(s.title||String(s.body||"").split("\n")[0]||"（タイトルなし）")}</span><button class="insB" data-ins="${i}" title="この後に工程を差し込む">＋</button></div>`; });
+    h+=`<div class="it${s.id===cur?" cur":""}${stEmpty(s)?" blank":""}" data-i="${i}"><span class="no">${stepNo(i+1)}</span><i style="${s.photos[0]?`background-image:url(${s.photos[0].data})`:""}">${s.photos[0]?"":"📷"}</i><span class="tx">${stEmpty(s)?"空き工程（タップして作る）":esc(s.title||String(s.body||"").split("\n")[0]||"（タイトルなし）")}</span><button class="insB" data-ins="${i}" title="この後に工程を差し込む">＋</button><span class="grip" data-grip title="引っ張って並べ替え">⠿</span></div>`; });
   $("#fmList").innerHTML=h||`<p class="lead" style="text-align:center;padding:30px 0">まだ工程がありません。<br>下のボタンから作り始めましょう。</p>`;
-  $$("#fmList .it").forEach(el=>el.onclick=e=>{ if(e.target.closest("[data-ins]")) return; fmLoadStep(S.steps[+el.dataset.i].id); fmShow("fmStep"); });
+  $$("#fmList .it").forEach(el=>el.onclick=e=>{ if(e.target.closest("[data-ins],[data-grip]")||Date.now()-fmDragEnd<400) return; fmLoadStep(S.steps[+el.dataset.i].id); fmShow("fmStep"); });
+  fmDragInit();
   $$("#fmList [data-ins]").forEach(b=>b.onclick=()=>fmInsertAt(+b.dataset.ins+1));
   $("#flNew").textContent="＋ "+fmGoLabel();
+}
+/* 工程の一覧：⠿ を指で引っ張って並べ替え */
+let fmDragEnd=0;
+function fmDragInit(){
+  $$("#fmList [data-grip]").forEach(g=>g.onpointerdown=e=>{
+    if(e.button>0) return; e.preventDefault(); e.stopPropagation();
+    const row=g.closest(".it"), fm=$("#fm"), rows=[...$$("#fmList .it")], r0=row.getBoundingClientRect(), dy0=e.clientY-r0.top;
+    const ph=document.createElement("div"); ph.className="it ph"; ph.style.height=r0.height+"px"; row.parentNode.insertBefore(ph,row);
+    row.classList.add("drag"); Object.assign(row.style,{position:"fixed",left:r0.left+"px",top:r0.top+"px",width:r0.width+"px",zIndex:60});
+    try{ g.setPointerCapture(e.pointerId); }catch(_){}
+    let y=e.clientY, raf=0;
+    const tick=()=>{ row.style.top=(y-dy0)+"px";
+      const others=rows.filter(x=>x!==row); let before=null;
+      for(const x of others){ const b=x.getBoundingClientRect(); if(y<b.top+b.height/2){ before=x; break; } }
+      if(before){ if(ph.nextElementSibling!==before) before.parentNode.insertBefore(ph,before); }
+      else{ const last=others[others.length-1]; if(last&&last.nextElementSibling!==ph) last.parentNode.insertBefore(ph,last.nextSibling); }
+      if(y<110) fm.scrollTop-=14; else if(y>innerHeight-150) fm.scrollTop+=14;      // 端に近づいたら自動でスクロール
+      raf=requestAnimationFrame(tick); };
+    raf=requestAnimationFrame(tick);
+    g.onpointermove=ev=>{ y=ev.clientY; };
+    g.onpointerup=g.onpointercancel=()=>{
+      cancelAnimationFrame(raf); g.onpointermove=g.onpointerup=g.onpointercancel=null; fmDragEnd=Date.now();
+      const sib=(el,dir)=>{ let x=el[dir]; while(x&&(!x.classList.contains("it")||x===row||x.classList.contains("ph"))) x=x[dir]; return x; };
+      const nx=sib(ph,"nextElementSibling"), pv=sib(ph,"previousElementSibling");
+      ph.remove(); row.removeAttribute("style"); row.classList.remove("drag");
+      const from=+row.dataset.i, st=S.steps[from];
+      if(nx&&+nx.dataset.i!==from+1&&+nx.dataset.i!==from) moveStep(st.id,S.steps[+nx.dataset.i].id,false);
+      else if(!nx&&pv&&+pv.dataset.i!==from-1&&+pv.dataset.i!==from) moveStep(st.id,S.steps[+pv.dataset.i].id,true);
+      else return fmList();
+      const to=S.steps.indexOf(st); fmList(); fmToast(`工程${stepNo(from+1)}を${stepNo(to+1)}に移しました（番号は自動で付け直します）`);
+      const el=$(`#fmList .it[data-i="${to}"]`); if(el){ el.classList.add("moved"); setTimeout(()=>el.classList.remove("moved"),1200); }
+    };
+  });
 }
 /* 抜けていた工程を差し込む：idx の位置に空の工程を作って開く */
 function fmInsertAt(idx){
@@ -3468,8 +3585,16 @@ function fmRenderStep(){
   $("#fpChecks").innerHTML=checkLib.map((c,i)=>`<button class="chip${F.checks.includes(c)?" on":""}" data-ck="${i}">${F.checks.includes(c)?"✓ ":""}${bolt&&/ボルト|締め|合いマーク/.test(c)?"★":""}${esc(c)}</button>`).join("");
   $$("#fpChecks [data-ck]").forEach(b=>b.onclick=()=>{ const c=checkLib[+b.dataset.ck]; F.checks=F.checks.includes(c)?F.checks.filter(x=>x!==c):F.checks.concat([c]); fmRenderStep(); });
   $("#fpCkN").textContent=F.checks.length?`（${F.checks.length}）`:"";
+  // 付けた確認ポイント（書き直し・外す）。PCで書いた独自の文も、ここに出る
+  $("#fpCkEd").innerHTML=F.checks.length?`<div class="ckEdH">この工程の確認ポイント（文字をタップして直せます）</div>`+F.checks.map((c,i)=>`<div class="ckEd"><span>※</span><input data-ce="${i}" value="${esc(c)}"><button data-cx="${i}" title="外す">✕</button></div>`).join(""):"";
+  $$("#fpCkEd [data-ce]").forEach(el=>{ el.oninput=()=>{ F.checks[+el.dataset.ce]=el.value; fmTxtPrev(); };
+    el.onchange=()=>{ const v=el.value.trim(); if(v) F.checks[+el.dataset.ce]=v; else F.checks.splice(+el.dataset.ce,1); fmRenderStep(); }; });
+  $$("#fpCkEd [data-cx]").forEach(b=>b.onclick=()=>{ F.checks.splice(+b.dataset.cx,1); fmRenderStep(); });
   fmCompose();
 }
+function fmCkAdd(){ const el=$("#fpCkNew"), v=el.value.trim(); if(!v) return el.focus(); if(!F.checks.includes(v)) F.checks.push(v); el.value=""; fmRenderStep(); fmToast("✓ 確認ポイントを追加しました"); }
+$("#fpCkAdd").onclick=fmCkAdd;
+$("#fpCkNew").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); fmCkAdd(); } });
 /* 部品の追加（現品札・検索） */
 /* 補材：①の部品の分（最初からチェック）＋文章に出てくる部品の分（最初はチェックなし） */
 function fmSyncHz(){ const ment=fmMentioned(), old=F.hz||[];
