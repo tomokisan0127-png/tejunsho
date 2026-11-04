@@ -639,7 +639,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #scanF .qr{position:absolute;right:6%;top:5%;width:24%;aspect-ratio:1/1;border:2px dashed #ffd24d;border-radius:8px;color:#ffd24d;font-style:normal;font-weight:bold;font-size:14px;display:flex;align-items:center;justify-content:center}
 #scanF.hit{border-color:#3ddc84;box-shadow:0 0 0 100vmax rgba(0,40,10,.55)}
 .scanTop{position:absolute;left:0;right:0;top:0;padding:calc(14px + env(safe-area-inset-top)) 16px 12px;background:linear-gradient(rgba(0,0,0,.65),transparent);display:flex;flex-direction:column;gap:4px;font-size:15px}
-.scanTop b{font-size:18px}
+.scanTop b{font-size:18px} .scanTop small{font-size:11px;opacity:.6}
 .scanBot{position:absolute;left:0;right:0;bottom:0;padding:14px 16px calc(18px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center;background:linear-gradient(transparent,rgba(0,0,0,.7))}
 .scanBot button{font-size:16px;padding:12px 16px;border-radius:14px;border:0;background:rgba(255,255,255,.92);color:#123;font-weight:bold}
 .scanBot #scanX{background:#1f5fae;color:#fff}
@@ -1250,7 +1250,7 @@ details.fold>summary::before{color:var(--accent)}
 <div id="scan" hidden>
   <video id="scanV" playsinline muted autoplay></video>
   <div id="scanF"><i class="qr">QR</i></div>
-  <div class="scanTop"><b>📷 現品札を読む</b><span id="scanMsg"></span></div>
+  <div class="scanTop"><b>📷 現品札を読む</b><span id="scanMsg"></span><small id="scanInfo"></small></div>
   <div class="scanBot"><button id="scanTorch" hidden>💡 ライト</button><button id="scanPhoto">📸 写真で撮る</button><button id="scanX">閉じる</button></div>
 </div>
 <div id="gdRing" hidden></div>
@@ -3332,10 +3332,12 @@ async function scanOpen(cb,fb){
   if($("#scan").hidden){ SC.stream.getTracks().forEach(t=>t.stop()); SC.stream=null; return; }      // 起動中に閉じられた
   const v=$("#scanV"); v.srcObject=SC.stream; try{ await v.play(); }catch(_){}
   try{ const tr=SC.stream.getVideoTracks()[0], cap=tr.getCapabilities?tr.getCapabilities():{}; $("#scanTorch").hidden=!cap.torch; $("#scanTorch").classList.remove("on"); }catch(_){}
-  SC.det=null; if("BarcodeDetector" in window){ try{ SC.det=new BarcodeDetector(); }catch(_){} }
+  SC.det=null; if("BarcodeDetector" in window){ try{ const f=await BarcodeDetector.getSupportedFormats(); SC.det=new BarcodeDetector({formats:["qr_code","code_128"].filter(x=>f.includes(x))}); }catch(_){ try{ SC.det=new BarcodeDetector(); }catch(__){} } }
   SC.reader=null;
-  if(!SC.det&&typeof ZXing!=="undefined"){ SC.reader=new ZXing.MultiFormatReader(); const h=new Map(); h.set(ZXing.DecodeHintType.TRY_HARDER,true); SC.reader.setHints(h); }
-  $("#scanMsg").textContent="札全体を白い枠に入れてください。右上のQRコードが読めると自動で進みます。";
+  if(!SC.det&&typeof ZXing!=="undefined"){ SC.reader=new ZXing.MultiFormatReader(); const h=new Map(); h.set(ZXing.DecodeHintType.TRY_HARDER,true);
+    h.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.QR_CODE,ZXing.BarcodeFormat.CODE_128]); SC.reader.setHints(h); }      // 探すのはQRとバーコードだけ（速くなる）
+  SC.t0=Date.now(); SC.tip=false; const vv=$("#scanV"); $("#scanInfo").textContent=`${SC.det?"端末の読み取り機能":"アプリの読み取り"}・${vv.videoWidth}×${vv.videoHeight}`;
+  $("#scanMsg").textContent="札が白い枠いっぱいになるまで近づけてください。右上のQRコードが読めると自動で進みます。";
   scanLoop();
 }
 function scanClose(){ clearTimeout(SC.to); if(SC.stream) SC.stream.getTracks().forEach(t=>t.stop()); SC.stream=null; $("#scanV").srcObject=null; $("#scan").hidden=true; }
@@ -3345,26 +3347,30 @@ function scanBox(W,H){ const v=$("#scanV").getBoundingClientRect(), f=$("#scanF"
   let x=Math.max(0,(f.left-ox)/k), y=Math.max(0,(f.top-oy)/k); return {x,y,w:Math.min(W-x,f.width/k),h:Math.min(H-y,f.height/k)}; }
 async function scanLoop(){
   if(!SC.stream) return; const v=$("#scanV");
+  const t0=Date.now();
   if(v.readyState>=2&&v.videoWidth&&!SC.busy){ SC.busy=true; let txt=null;
     try{
       var geo=null;
       if(SC.det){ const r=await SC.det.detect(v); if(r.length){ txt=r[0].rawValue; const c=r[0].cornerPoints; if(r[0].format==="qr_code"&&c&&c.length===4) geo=geoCorners(c[0],c[1],c[3]); } }
       else if(SC.reader){      // ZXing：枠の右上（QRの所）と枠全体を交互に
         const W=v.videoWidth,H=v.videoHeight,b=scanBox(W,H), c=SC.c||(SC.c=document.createElement("canvas")), g=c.getContext("2d");
-        const m=SC.n++%11, tw=W/2, th=H/2, ti=m-2;      // 枠の右上 → 枠全体 → 映像を9つに区切って順番に（QRが小さくても見つける）
-        const [sx,sy,sw,sh]=m===0?[b.x+b.w*.5,b.y,b.w*.5,b.h*.45]:m===1?[b.x,b.y,b.w,b.h]:[(ti%3)*tw/2,Math.floor(ti/3)*th/2,tw,th];
-        const k=Math.min(1,(m<2?1400:1000)/Math.max(sw,sh)); c.width=Math.max(1,Math.round(sw*k)); c.height=Math.max(1,Math.round(sh*k)); g.drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);
+        const n=SC.n++, m=n%2===0?0:1+((n>>1)%19), tw=W/2, th=H/2, ti=(m-2)%9, up=m>=11, cv=(n>>1)%4;      // 1回おきに枠の右上（QRの所）、その間に枠全体 → 映像を9つに区切って順番に
+        const CR=[[.5,0,.5,.45,1],[.45,0,.55,.5,1],[.5,0,.5,.45,1.7],[.4,0,.6,.55,1.4]][cv];      // 右上は、範囲と拡大を少しずつ変えて試す（ZXingは切り方で読めたり読めなかったりする）
+        const [sx,sy,sw,sh]=m===0?[b.x+b.w*CR[0],b.y+b.h*CR[1],b.w*CR[2],b.h*CR[3]]:m===1?[b.x,b.y,b.w,b.h]:[(ti%3)*tw/2,Math.floor(ti/3)*th/2,tw,th];
+        const k=m===0?Math.min(CR[4],1300/Math.max(sw,sh)):Math.min(up?1.9:1,(up?1100:800)/Math.max(sw,sh)); /* 区切った映像は拡大しても探す（札が遠くてQRが小さいとき） */ c.width=Math.max(1,Math.round(sw*k)); c.height=Math.max(1,Math.round(sh*k)); g.drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);
         try{ const r=SC.reader.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(c)))); txt=r.getText(); geo=geoZX(r,(x,y)=>({x:sx+x/k,y:sy+y/k})); }catch(_){}
       }
     }catch(_){}
     if(txt&&SC.stream){      // 読めた瞬間の画面を写真にして、いつもの処理（品名・風船の読み取りも）へ
       $("#scanF").classList.add("hit"); $("#scanMsg").textContent="✓ 読めました";
       const c=document.createElement("canvas"); c.width=v.videoWidth; c.height=v.videoHeight; c.getContext("2d").drawImage(v,0,0);
-      const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.92)); try{ navigator.vibrate&&navigator.vibrate(60); }catch(_){}
+      try{ navigator.vibrate&&navigator.vibrate(60); }catch(_){}
+      const blob=await Promise.race([new Promise(ok=>c.toBlob(ok,"image/jpeg",.9)),new Promise(ok=>setTimeout(()=>ok(null),3000))])||await (await fetch(c.toDataURL("image/jpeg",.9))).blob();
       const f=new File([blob],"tag.jpg",{type:"image/jpeg"}); f._scan={text:txt,geo,canvas:c};
       const cb=SC.cb; SC.busy=false; setTimeout(()=>{ scanClose(); cb(f); },250); return; }
-    SC.busy=false; }
-  SC.to=setTimeout(scanLoop,110);
+    SC.busy=false; SC.cost=Date.now()-t0; }
+  if(!SC.tip&&Date.now()-SC.t0>7000){ SC.tip=true; $("#scanMsg").textContent="まだ読めていません。札が枠いっぱいになるまで近づけて、右上のQRコードを大きく・明るく写してください。読めないときは「📸 写真で撮る」へ。"; }
+  SC.to=setTimeout(scanLoop,Math.max(120,Math.min(600,(SC.cost||0)*1.2)));      // 重い端末では間をあけて、画面が止まらないように
 }
 $("#scanX").onclick=scanClose;
 $("#scanPhoto").onclick=()=>{ const fb=SC.fb; scanClose(); fb&&fb(); };
@@ -3440,6 +3446,12 @@ function tagCrop(g,u0,v0,u1,v1){
   const c=document.createElement("canvas"); c.width=W; c.height=H; const x=c.getContext("2d");
   x.fillStyle="#fff"; x.fillRect(0,0,W,H);
   x.setTransform(m11,m12,m21,m22,-(m11*P0.x+m21*P0.y),-(m12*P0.x+m22*P0.y)); x.drawImage(g.im,0,0);
+  x.setTransform(1,0,0,1,0,0);
+  try{ const d=x.getImageData(0,0,W,H), a=d.data, n=W*H, v=new Uint8Array(n), h=new Uint32Array(256);
+    for(let i=0;i<n;i++){ const m=Math.max(a[i*4],a[i*4+1],a[i*4+2]); v[i]=m; h[m]++; }      // いちばん明るい色を使う → 緑や青のテープは白くなる
+    let lo=0,hi=255,acc=0; for(let k=0;k<256;k++){ acc+=h[k]; if(acc>=n*.02){ lo=k; break; } } acc=0; for(let k=0;k<256;k++){ acc+=h[k]; if(acc>=n*.90){ hi=k; break; } }
+    const r=255/Math.max(1,hi-lo); for(let i=0;i<n;i++){ const y=Math.max(0,Math.min(255,(v[i]-lo)*r)); a[i*4]=a[i*4+1]=a[i*4+2]=y; }
+    x.putImageData(d,0,0); }catch(_){}
   return c;
 }
 let ocrW=null;
