@@ -625,7 +625,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
   #pages{margin:0}
   .pgOuter{width:210mm!important;height:296mm!important;margin:0!important;overflow:hidden;position:relative;break-after:page;page-break-after:always}
   .pgOuter:last-child{break-after:auto;page-break-after:auto}
-  .page{position:absolute!important;left:10mm;top:9mm;transform:none!important;zoom:.89;box-shadow:none!important}   /* transformだと印刷の改ページ計算で下が切れるのでzoom */
+  .page{position:absolute!important;left:6mm;top:5mm;transform:none!important;zoom:.915;box-shadow:none!important}   /* transformだと印刷の改ページ計算で下が切れるのでzoom */
   .page .tb.over{background:none}
   .page .tb.sel,.page .tb:hover{outline:none!important}
 }
@@ -1430,7 +1430,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 <script>
 "use strict";
 /* ================= 定数・書式ジオメトリ ================= */
-const NCOL = 51, COLPX = 16, COLW = 2.26;
+const NCOL = 51, COLPX = 16, COLW = 1.94;      // 日本語版Excel（ＭＳ Ｐゴシック／游ゴシック基準）で1列＝16px。2.26だと18pxになり横長→縮んで印刷されていた
 const ROWPT = {1:14,2:14.25,3:15,57:16.5,58:14.25,59:14.25,60:14.25,61:15};
 for(let r=4;r<=10;r++) ROWPT[r]=18;
 for(let r=11;r<=56;r++) ROWPT[r]=14;
@@ -1670,7 +1670,7 @@ function fitSize(step,num,r1,r2,capB){
   if(capB) maxB=Math.min(maxB,capB);
   const list = mode==="fixed" ? [[14,12]] : sizeList(maxB,Math.min(minB,maxB));
   const m=$("#measure");
-  m.style.width=((TX_C2-TX_C1+1)*COLPX-12)+"px";              // Excelのセル余白ぶん少し狭く測る
+  m.style.width=((TX_C2-TX_C1+1)*COLPX-28)+"px";              // Excelのセル余白・フォントの差のぶん少し狭く測る（列幅を印刷にぴったり合わせたので余裕を持たせる）
   const h=(rowY(r2+1)-rowY(r1)-2)*0.9;                       // Excelとの行間の差に余裕をみる
   const L=stepLines(step,num);
   // 行の高さが外枠の文字サイズに引っぱられないよう、外枠も本文サイズにする
@@ -4368,8 +4368,8 @@ async function exportXlsx(){
     P.forEach((sh,pi)=>{
       const steps=sh.steps||[], num=sh.startNum||1;
       const ws=wb.addWorksheet(sh.label,{
-        pageSetup:{paperSize:9,orientation:"portrait",fitToPage:true,fitToWidth:1,fitToHeight:1,horizontalCentered:true,
-          margins:{left:0.31,right:0.22,top:0.6,bottom:0.5,header:0.3,footer:0.3},printArea:"A1:AY61"},
+        pageSetup:{paperSize:9,orientation:"portrait",fitToPage:true,fitToWidth:1,fitToHeight:1,horizontalCentered:true,verticalCentered:true,
+          margins:{left:0.2,right:0.2,top:0.25,bottom:0.25,header:0.1,footer:0.1},printArea:"A1:AY61"},      // A4いっぱいに（余白5〜6mm）
         views:[{showGridLines:false,zoomScale:85}],
         properties:{defaultRowHeight:14}
       });
