@@ -637,6 +637,8 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #scanV{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #scanF{position:absolute;left:50%;top:47%;width:min(92vw,68vh);aspect-ratio:1/1;transform:translate(-50%,-50%);border:3px solid #fff;border-radius:18px;box-shadow:0 0 0 100vmax rgba(0,0,0,.45);pointer-events:none}
 #scanF .qr{position:absolute;right:6%;top:5%;width:24%;aspect-ratio:1/1;border:2px dashed #ffd24d;border-radius:8px;color:#ffd24d;font-style:normal;font-weight:bold;font-size:14px;display:flex;align-items:center;justify-content:center}
+#scanF .qr{color:transparent}
+#scanF .qr::before{content:"QRをここに";position:absolute;top:-22px;right:0;color:#ffd24d;font-size:12px;white-space:nowrap}
 #scanF.hit{border-color:#3ddc84;box-shadow:0 0 0 100vmax rgba(0,40,10,.55)}
 .scanTop{position:absolute;left:0;right:0;top:0;padding:calc(14px + env(safe-area-inset-top)) 16px 12px;background:linear-gradient(rgba(0,0,0,.65),transparent);display:flex;flex-direction:column;gap:4px;font-size:15px}
 .scanTop b{font-size:18px} .scanTop small{font-size:11px;opacity:.6}
@@ -3333,10 +3335,10 @@ async function scanOpen(cb,fb){
   const v=$("#scanV"); v.srcObject=SC.stream; try{ await v.play(); }catch(_){}
   try{ const tr=SC.stream.getVideoTracks()[0], cap=tr.getCapabilities?tr.getCapabilities():{}; $("#scanTorch").hidden=!cap.torch; $("#scanTorch").classList.remove("on"); }catch(_){}
   SC.det=null; if("BarcodeDetector" in window){ try{ const f=await BarcodeDetector.getSupportedFormats(); SC.det=new BarcodeDetector({formats:["qr_code","code_128"].filter(x=>f.includes(x))}); }catch(_){ try{ SC.det=new BarcodeDetector(); }catch(__){} } }
-  SC.reader=null;
-  if(!SC.det&&typeof ZXing!=="undefined"){ SC.reader=new ZXing.MultiFormatReader(); const h=new Map(); h.set(ZXing.DecodeHintType.TRY_HARDER,true);
+  SC.reader=null; SC.detOK=false;
+  if(typeof ZXing!=="undefined"){ SC.reader=new ZXing.MultiFormatReader(); const h=new Map(); h.set(ZXing.DecodeHintType.TRY_HARDER,true);
     h.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[ZXing.BarcodeFormat.QR_CODE,ZXing.BarcodeFormat.CODE_128]); SC.reader.setHints(h); }      // 探すのはQRとバーコードだけ（速くなる）
-  SC.t0=Date.now(); SC.tip=false; const vv=$("#scanV"); $("#scanInfo").textContent=`${SC.det?"端末の読み取り機能":"アプリの読み取り"}・${vv.videoWidth}×${vv.videoHeight}`;
+  SC.t0=Date.now(); SC.tip=false; const vv=$("#scanV"); $("#scanInfo").textContent=`${SC.det?"端末＋アプリの読み取り":"アプリの読み取り"}・${vv.videoWidth}×${vv.videoHeight}`;
   $("#scanMsg").textContent="札が白い枠いっぱいになるまで近づけてください。右上のQRコードが読めると自動で進みます。";
   scanLoop();
 }
@@ -3351,8 +3353,10 @@ async function scanLoop(){
   if(v.readyState>=2&&v.videoWidth&&!SC.busy){ SC.busy=true; let txt=null;
     try{
       var geo=null;
-      if(SC.det){ const r=await SC.det.detect(v); if(r.length){ txt=r[0].rawValue; const c=r[0].cornerPoints; if(r[0].format==="qr_code"&&c&&c.length===4) geo=geoCorners(c[0],c[1],c[3]); } }
-      else if(SC.reader){      // ZXing：枠の右上（QRの所）と枠全体を交互に
+      // ① 端末の読み取り機能（映像全体）
+      if(SC.det&&SC.n%2===0){ try{ const r=await SC.det.detect(v); if(r.length){ txt=r[0].rawValue; const c=r[0].cornerPoints; if(r[0].format==="qr_code"&&c&&c.length===4) geo=geoCorners(c[0],c[1],c[3]); SC.detOK=true; } }catch(_){} }
+      // ② アプリの読み取り（ZXing）も必ず試す：端末の機能があっても中身が動かない機種がある
+      if(!txt&&SC.reader){      // ZXing：枠の右上（QRの所）と枠全体を交互に
         const W=v.videoWidth,H=v.videoHeight,b=scanBox(W,H), c=SC.c||(SC.c=document.createElement("canvas")), g=c.getContext("2d");
         const n=SC.n++, m=n%2===0?0:1+((n>>1)%19), tw=W/2, th=H/2, ti=(m-2)%9, up=m>=11, cv=(n>>1)%4;      // 1回おきに枠の右上（QRの所）、その間に枠全体 → 映像を9つに区切って順番に
         const CR=[[.5,0,.5,.45,1],[.45,0,.55,.5,1],[.5,0,.5,.45,1.7],[.4,0,.6,.55,1.4]][cv];      // 右上は、範囲と拡大を少しずつ変えて試す（ZXingは切り方で読めたり読めなかったりする）
