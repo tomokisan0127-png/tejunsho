@@ -274,6 +274,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .setSec label{display:block;font-size:12.5px;color:var(--sub);margin:8px 0 4px}
 #fm .setSec .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #fm .setSec .two label{margin-top:0}
+#fm .stampPv{display:flex;gap:14px;margin-top:8px} #fm .stampPv span{display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--sub)} #fm .stampPv img{width:56px;height:56px}
 #fm .setEx{font-size:13px;background:#f4f8fd;border-radius:10px;padding:8px 10px;margin:10px 0}
 #fm .setSec .chipRow .chip{font-size:13.5px;padding:6px 10px}
 #fm .hHint{font-size:12.5px;color:var(--sub);margin:2px 2px 8px}
@@ -824,8 +825,8 @@ details.fold>summary::before{color:var(--accent)}
       <h2 style="margin-top:16px"><i class="n">2</i>作成者</h2>
       <div class="grid3">
         <div><label>部署</label><input data-m="dept" placeholder="例）製造課"></div>
-        <div><label>氏名</label><input data-m="author" placeholder="例）山田"></div>
-        <div><label>作成日</label><input type="date" data-m="adate"></div>
+        <div><label>作成者（電子印）</label><input data-m="author" placeholder="例）山田"></div>
+        <div><label>検印（電子印）</label><input data-m="checker" placeholder="例）佐藤"></div>
       </div>
     </div>
     <details class="card fold"><summary>その他（No・共通の工具・改訂履歴）</summary>
@@ -1227,8 +1228,10 @@ details.fold>summary::before{color:var(--accent)}
         <div class="chipRow" id="fsetTools"></div></div>
       <div class="setSec"><h4>⏱ 主体作業時間</h4>
         <div class="two"><input data-m="time" placeholder="例）40分"><select data-m="timeAuto"><option value="0">手入力</option><option value="1">工程の合計</option></select></div></div>
-      <div class="setSec"><h4>👤 作成者</h4>
-        <div class="two"><div><label>部署</label><input data-m="dept" placeholder="例）製造課"></div><div><label>氏名</label><input data-m="author" placeholder="例）山田"></div></div></div>
+      <div class="setSec"><h4>🔴 電子印（作成者・検印）</h4>
+        <div class="two"><div><label>作成者</label><input data-m="author" placeholder="例）山田"></div><div><label>検印</label><input data-m="checker" placeholder="例）佐藤"></div></div>
+        <div class="stampPv" id="fsetStamp"></div>
+        <p class="hint" style="margin:6px 0 0">名前を入れると、手順書の「作成者」「検印」欄に名前の丸い印が入ります（日付なし）。</p></div>
       <div class="setSec"><h4>📅 日付</h4>
         <div class="two"><div><label>制定日</label><input type="date" data-m="seitei"></div><div><label>実施日</label><input type="date" data-m="jisshi"></div></div>
         <button class="txtBtn" id="fsetToday">今日の日付にする</button></div>
@@ -1453,7 +1456,7 @@ const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.ge
 function blankStep(){ return {id:uid(),title:"",body:"",check:"",tools:"",min:"",photos:[]}; }
 function blankState(){
   return {meta:{name:"",model:"",spec:"標準",time:"",seitei:today(),jisshi:today(),tools:"",no1:"",no2:"",no3mode:"page",
-    dept:"",author:"",adate:today(),perSheet:"3",divider:"1",revs:[],fitMode:"auto",maxPt:"16",minPt:"9",uniform:"1",torqueOn:"1",timeAuto:"0",prepOn:"1",hzSheet:"1",
+    dept:"",author:"",checker:"",adate:today(),perSheet:"3",divider:"1",revs:[],fitMode:"auto",maxPt:"16",minPt:"9",uniform:"1",torqueOn:"1",timeAuto:"0",prepOn:"1",hzSheet:"1",
     parts:[],hozai:[],skipParts:[],partLabel:"name_pn",plv:1,bFmt:"kakko",partList:"1",bPad:"3",hzPer:"0"},
     steps:[blankStep(),blankStep(),blankStep()]};
 }
@@ -1810,9 +1813,37 @@ function sheetSpec(pi,steps,startNum,totalPages,prep){
     });
   }
   add(58,44,61,47,{v:"",b:{b:MD,r:T}});
-  const ad=M.adate?M.adate.split("-").map(Number).join("."):"";
-  add(58,48,61,51,{v:[M.dept,ad,M.author].filter(Boolean).join("\n"),sz:9,h:"center",color:"FFC00000",wrap:true,b:{b:MD,r:MD}});
+  // 作成者・検印：名前を入れると電子印（名前だけ・日付なし）
+  add(58,48,61,51,{v:String(M.author||"").trim()?"":(M.dept||""),sz:9,h:"center",color:"FFC00000",wrap:true,b:{b:MD,r:MD}});
+  [[44,47,M.checker],[48,51,M.author]].forEach(([c1,c2,nm])=>{ const o=stampBox(58,c1,61,c2,nm); if(o) imgs.push(o); });
   return {R,texts,imgs};
+}
+
+/* ================= 電子印（名前だけの丸い印） ================= */
+const _stamps=new Map();
+function stampImg(name){
+  name=String(name||"").trim(); if(!name) return null;
+  if(_stamps.has(name)) return _stamps.get(name);
+  const S2=240, c=document.createElement("canvas"); c.width=c.height=S2; const g=c.getContext("2d"), R=S2/2-8, red="#d4202a";
+  g.strokeStyle=red; g.fillStyle=red; g.lineWidth=9; g.beginPath(); g.arc(S2/2,S2/2,R,0,Math.PI*2); g.stroke();
+  const font=sz=>`bold ${sz}px "Yu Mincho","YuMincho","Hiragino Mincho ProN","MS Mincho","Noto Serif JP",serif`;
+  const nm=name.replace(/\s+/g,""), cjk=/[\u3000-\u9fff\uff00-\uffef]/.test(nm);
+  g.textAlign="center"; g.textBaseline="middle";
+  if(cjk&&nm.length>=2){      // 漢字・かなは縦書き（はんこと同じ）
+    const n=Math.min(nm.length,5), inner=R*1.62, sz=Math.min(inner/n*1.02, nm.length<=2?R*.95:R*.8);
+    g.font=font(sz); const step=Math.min(sz*1.02,inner/n), y0=S2/2-step*(n-1)/2;
+    [...nm].slice(0,5).forEach((ch,i)=>g.fillText(ch,S2/2,y0+step*i+sz*.04));
+  }else{      // 1文字・英字は横書き
+    let sz=R*1.1; g.font=font(sz); while(g.measureText(nm).width>R*1.6&&sz>20){ sz-=4; g.font=font(sz); }
+    g.fillText(nm,S2/2,S2/2+sz*.04);
+  }
+  const d=c.toDataURL("image/png"); _stamps.set(name,d); return d;
+}
+/* 印を押す欄（作成者・検印）に、正方形の印を置く */
+function stampBox(r1,c1,r2,c2,name){
+  const d=stampImg(name); if(!d) return null;
+  const x=colX(c1), y=rowY(r1), w=(c2-c1+1)*COLPX, h=rowY(r2+1)-rowY(r1), z=Math.min(w,h)*.86;
+  return {p:{data:d},png:true,x:x+(w-z)/2,y:y+(h-z)/2,w:z,h:z,sid:null};
 }
 
 /* ================= プレビュー描画 ================= */
@@ -3989,6 +4020,7 @@ function fmSetFill(){
   const have=String(S.meta.tools||"").split(/[、,，\s]+/).filter(Boolean), cand=[...new Set(S.steps.flatMap(st=>String(st.tools||"").split(/[、,，\n]+/)).map(x=>x.trim()).filter(Boolean))].filter(x=>!have.includes(x));
   $("#fsetTools").innerHTML=cand.length?`<span class="hint">工程で使った工具：</span>`+cand.map((t,i)=>`<button class="chip" data-tl="${i}">＋ ${esc(t)}</button>`).join(""):"";
   $$("#fsetTools [data-tl]").forEach(b=>b.onclick=()=>{ const t=cand[+b.dataset.tl]; S.meta.tools=[S.meta.tools,t].filter(Boolean).join("、"); persist(); schedulePreview(); fmSetFill(); });
+  $("#fsetStamp").innerHTML=[["作成者",S.meta.author],["検印",S.meta.checker]].map(([l,n])=>stampImg(n)?`<span><img src="${stampImg(n)}"><small>${l}</small></span>`:"").join("");
   const p=(S.meta.parts||[]).find(x=>x.b&&x.pn&&x.name)||{b:"052",pn:"A00-00000-00",name:"BRACKET-2",jp:""};
   $("#fsetEx").innerHTML=`例）<b>${esc(partText(p))}</b> を取り付ける。`+(S.meta.partList==="1"?`<br>【使用部品】・${esc(partListLine(p))}`:"");
 }
@@ -3998,6 +4030,7 @@ $("#fsSet").onclick=fmSetOpen;
 $("#fsetClose").onclick=fmSetClose;
 $("#fmSet").onclick=e=>{ if(e.target.id==="fmSet") fmSetClose(); };
 $("#fmSet").addEventListener("change",()=>setTimeout(fmSetFill,0));
+$$('#fmSet [data-m="author"],#fmSet [data-m="checker"]').forEach(el=>el.addEventListener("input",()=>{ S.meta[el.dataset.m]=el.value; $("#fsetStamp").innerHTML=[["作成者",S.meta.author],["検印",S.meta.checker]].map(([l,n])=>stampImg(n)?`<span><img src="${stampImg(n)}"><small>${l}</small></span>`:"").join(""); }));
 $("#fsetToday").onclick=()=>{ S.meta.seitei=S.meta.jisshi=today(); persist(); schedulePreview(); fmSetFill(); fmToast("制定日・実施日を今日にしました"); };
 $("#fsetConv").onclick=()=>convertParts(true);
 $("#fhClose").onclick=()=>$("#fmHist").hidden=true;
@@ -4417,7 +4450,7 @@ async function exportXlsx(){
       const anchorAt=(x,y)=>{ const c=Math.floor(x/COLPX); let r=1; while(r<61 && ROWY[r+1]<=y) r++;
         return {nativeCol:c,nativeColOff:Math.round((x-c*COLPX)*XLCOLPX/COLPX*EMU),nativeRow:r-1,nativeRowOff:Math.round((y-ROWY[r])*EMU)}; };
       spec.imgs.forEach(o=>{
-        const id=wb.addImage({base64:o.p.data,extension:"jpeg"});
+        const id=wb.addImage({base64:o.p.data,extension:o.png?"png":"jpeg"});
         const m=Math.max(2,Math.round(Math.min(o.w,o.h)*.02));      // 少しすき間をあける
         const k=COLPX/XLCOLPX, w2=(o.w-2*m)*k, x2=o.x+m+((o.w-2*m)-w2)/2;      // Excelは列が少し広いので、写真が横に伸びないよう幅を補正して中央に
         ws.addImage(id,{tl:anchorAt(x2,o.y+m),br:anchorAt(x2+w2,o.y+o.h-m),editAs:"oneCell"});
