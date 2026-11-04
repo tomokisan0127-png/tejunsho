@@ -2508,13 +2508,13 @@ function normHz(text,D){
   t=t.replace(/[Ａ-Ｚａ-ｚ０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));      // 全角の英数字 → 半角
   HZ_KANA.forEach(([k,v])=>{ t=t.split(k).join(v); });      // 音声入力のカタカナ → 記号
   const keys=Object.keys(D).sort((a,b)=>b.length-a.length); if(!keys.length) return t;
-  const T=keys.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|"), sp="[ 　]*", X="(?:[xX×✕＊*ｘＸ]|かける|掛ける|カケル)";
+  const T=keys.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|"), sp="[ 　]*", NO="[ 　]*(?:の[ 　]*)?", MM="(?:[ 　]*(?:ミリ|mm|ｍｍ))?", X="(?:[xX×✕＊*ｘＸ]|かける|掛ける|カケル)";      // 「HC の5 × 10」「5ミリ×10ミリ」も
   // 種類＋太さ×長さ（hc 6 ×12 → HC M6X12）
-  t=t.replace(new RegExp(`(^|[^A-Za-z])(${T})${sp}(M|m)?${sp}(\\d+(?:\\.\\d+)?)${sp}${X}${sp}(\\d+(?:\\.\\d+)?)`,"gi"),(a,pre,ty,m,d,l)=>{ const e=D[ty.toUpperCase()]; return `${pre}${e.canon} ${e.useM||m?"M":""}${d}X${l}`; });
+  t=t.replace(new RegExp(`(^|[^A-Za-z])(${T})${NO}(M|m)?${sp}(\\d+(?:\\.\\d+)?)${MM}${sp}${X}${sp}(\\d+(?:\\.\\d+)?)${MM}`,"gi"),(a,pre,ty,m,d,l)=>{ const e=D[ty.toUpperCase()]; return `${pre}${e.canon} ${e.useM||m?"M":""}${d}X${l}`; });
   // 種類＋太さだけ（zr6 → Zr 6、nh 6 → NH M6）
-  t=t.replace(new RegExp(`(^|[^A-Za-z])(${T})${sp}(M|m)?${sp}(\\d+)(?![\\dXx×✕＊*.]|[ 　]*(?:かける|掛ける|カケル))`,"gi"),(a,pre,ty,m,d)=>{ const e=D[ty.toUpperCase()]; return `${pre}${e.canon} ${e.useM||m?"M":""}${d}`; });
+  t=t.replace(new RegExp(`(^|[^A-Za-z])(${T})${NO}(M|m)?${sp}(\\d+)(?![\\dXx×✕＊*.]|[ 　]*(?:かける|掛ける|カケル|[xX×✕＊*ｘＸ]|本|個|ヶ|ケ|か所|箇所|カ所|枚|回|セット|組))${MM}`,"gi"),(a,pre,ty,m,d)=>{ const e=D[ty.toUpperCase()]; return `${pre}${e.canon} ${e.useM||m?"M":""}${d}`; });
   // 種類のないサイズ（M6×12 → M6X12）
-  t=t.replace(new RegExp(`(^|[^A-Za-z])M${sp}(\\d+(?:\\.\\d+)?)${sp}${X}${sp}(\\d+(?:\\.\\d+)?)`,"g"),(a,pre,d,l)=>`${pre}M${d}X${l}`);
+  t=t.replace(new RegExp(`(^|[^A-Za-z])M${sp}(\\d+(?:\\.\\d+)?)${MM}${sp}${X}${sp}(\\d+(?:\\.\\d+)?)${MM}`,"g"),(a,pre,d,l)=>`${pre}M${d}X${l}`);
   return t;
 }
 /* 全工程の補材の表記をそろえる（AIを使わずにすぐ） */
