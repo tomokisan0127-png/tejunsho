@@ -1430,7 +1430,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 <script>
 "use strict";
 /* ================= 定数・書式ジオメトリ ================= */
-const NCOL = 51, COLPX = 16, COLW = 1.94;      // 日本語版Excel（ＭＳ Ｐゴシック／游ゴシック基準）で1列＝16px。2.26だと18pxになり横長→縮んで印刷されていた
+const NCOL = 51, COLPX = 16, COLW = 2.36, XLCOLPX = 17;      // Excelでは1列＝17px（2.26＝16pxだと縦長すぎて左右が余る）。画面・文字の計算は16pxのまま、Excelだけ少し広くしてA4の縦横比に合わせる
 const ROWPT = {1:14,2:14.25,3:15,57:16.5,58:14.25,59:14.25,60:14.25,61:15};
 for(let r=4;r<=10;r++) ROWPT[r]=18;
 for(let r=11;r<=56;r++) ROWPT[r]=14;
@@ -1670,7 +1670,7 @@ function fitSize(step,num,r1,r2,capB){
   if(capB) maxB=Math.min(maxB,capB);
   const list = mode==="fixed" ? [[14,12]] : sizeList(maxB,Math.min(minB,maxB));
   const m=$("#measure");
-  m.style.width=((TX_C2-TX_C1+1)*COLPX-28)+"px";              // Excelのセル余白・フォントの差のぶん少し狭く測る（列幅を印刷にぴったり合わせたので余裕を持たせる）
+  m.style.width=((TX_C2-TX_C1+1)*COLPX-16)+"px";              // Excelのセル余白・フォントの差のぶん少し狭く測る（列幅を印刷にぴったり合わせたので余裕を持たせる）
   const h=(rowY(r2+1)-rowY(r1)-2)*0.9;                       // Excelとの行間の差に余裕をみる
   const L=stepLines(step,num);
   // 行の高さが外枠の文字サイズに引っぱられないよう、外枠も本文サイズにする
@@ -4415,11 +4415,12 @@ async function exportXlsx(){
       // 位置はセル基準のEMUで直接指定（1px = 9525EMU）
       const EMU=9525;
       const anchorAt=(x,y)=>{ const c=Math.floor(x/COLPX); let r=1; while(r<61 && ROWY[r+1]<=y) r++;
-        return {nativeCol:c,nativeColOff:Math.round((x-c*COLPX)*EMU),nativeRow:r-1,nativeRowOff:Math.round((y-ROWY[r])*EMU)}; };
+        return {nativeCol:c,nativeColOff:Math.round((x-c*COLPX)*XLCOLPX/COLPX*EMU),nativeRow:r-1,nativeRowOff:Math.round((y-ROWY[r])*EMU)}; };
       spec.imgs.forEach(o=>{
         const id=wb.addImage({base64:o.p.data,extension:"jpeg"});
         const m=Math.max(2,Math.round(Math.min(o.w,o.h)*.02));      // 少しすき間をあける
-        ws.addImage(id,{tl:anchorAt(o.x+m,o.y+m),br:anchorAt(o.x+o.w-m,o.y+o.h-m),editAs:"oneCell"});
+        const k=COLPX/XLCOLPX, w2=(o.w-2*m)*k, x2=o.x+m+((o.w-2*m)-w2)/2;      // Excelは列が少し広いので、写真が横に伸びないよう幅を補正して中央に
+        ws.addImage(id,{tl:anchorAt(x2,o.y+m),br:anchorAt(x2+w2,o.y+o.h-m),editAs:"oneCell"});
       });
     });
     if(S.meta.hzSheet!=="0"&&(S.meta.hozai||[]).length) addHozaiSheet(wb);
