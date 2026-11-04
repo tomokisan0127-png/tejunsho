@@ -159,6 +159,11 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .tagReg .trRow label{width:3em;font-size:13px;color:#667;flex:none}
 #fm .tagReg .trRow input{flex:1;min-width:0;font-size:17px;padding:8px 10px;border:1px solid #c9d1dc;border-radius:10px}
 #fm .tagReg .trRow span{font-size:16px}
+#fm .tagReg .trPh{display:flex;align-items:center;gap:8px;margin:8px 0}
+#fm .tagReg .trPh label{width:3em;font-size:13px;color:#667;flex:none}
+#fm .tagReg .trPh i{width:72px;height:72px;border-radius:10px;background:#eef1f5 center/cover no-repeat;flex:none;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:24px;border:1.5px dashed #c3ccd8}
+#fm .tagReg .trPh i.on{border:1.5px solid #c3ccd8}
+#fm .tagReg .trPhB{display:flex;flex-wrap:wrap;gap:6px;align-items:center} #fm .tagReg .trPhB .pill{margin:0;font-size:14px;padding:8px 12px;display:inline-block;width:auto;flex:none} #fm .tagReg .trPhB small{width:100%;font-size:11.5px;color:#889;font-weight:normal}
 #fm .tagReg .trStat{font-size:13px;color:var(--ok,#2e7d4f);margin:6px 0;font-weight:normal;white-space:pre-line} #fm .tagReg .trStat.ng{color:var(--warn)}
 #fm .tagReg .trWarn{font-size:12.5px;color:var(--warn);margin:4px 0;font-weight:normal}
 /* ボタン */
@@ -2691,7 +2696,7 @@ function renderMap(){
   if(data.length>12) h+=`<tr><td colspan="${ncol}" style="color:var(--sub)">…ほか ${data.length-12} 行</td></tr>`;
   $("#mapTbl").innerHTML=h;
 }
-function fmtPn(v){ v=String(v||"").trim(); return /^L\d{9}$/.test(v)?`${v.slice(0,3)}-${v.slice(3,8)}-${v.slice(8)}`:v; }
+function fmtPn(v){ v=String(v||"").trim(); return /^[A-Z]\d{9}$/.test(v)?`${v.slice(0,3)}-${v.slice(3,8)}-${v.slice(8)}`:v; }
 function applyMap(replace){
   const {rows,hdr,map}=MP; if(!rows.length) return;
   if(map.b<0&&map.pn<0&&map.name<0) return alert("「風船」「品番」「品名」のどれかの列を選んでください");
@@ -3492,10 +3497,17 @@ async function tagRegister(host,pn,f,onDone){
     <div class="trRow"><label>風船</label><input id="trB" inputmode="numeric" placeholder="例 153"></div>
     <div class="trRow"><label>品名</label><input id="trName" placeholder="例 NUT PLATE"></div>
     <p class="trStat" id="trStat"></p>
+    <div class="trPh"><label>写真</label><i id="trPhV">📦</i><div class="trPhB"><button class="pill" id="trShoot">📷 撮る</button><button class="pill" id="trPick">🖼 選ぶ</button><small>部品だけの写真（なくても登録できます）</small></div></div>
     <button class="pill primary wide" id="trOk">✓ 部品表に登録する</button>`;
+  let photo=null;
+  const setPh=ph=>{ photo=ph; const v=$("#trPhV",host); if(v){ v.style.backgroundImage=`url(${ph.data})`; v.textContent=""; v.classList.add("on"); } $("#trShoot",host).textContent="📷 撮り直す"; };
+  const getPh=cap=>{ const inp=document.createElement("input"); inp.type="file"; inp.accept="image/*"; if(cap) inp.setAttribute("capture","environment");
+    inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return; try{ setPh(await fileToPhoto(f)); }catch(_){ fmToast("写真を読み込めませんでした",true); } }; inp.click(); };
+  $("#trShoot",host).onclick=()=>getPh(true); $("#trPick",host).onclick=()=>getPh(false);
   const stat=(t,ng)=>{ const el=$("#trStat",host); if(el){ el.textContent=t; el.className="trStat"+(ng?" ng":""); } };
   $("#trOk",host).onclick=()=>{
     const o={b:normB($("#trB",host).value),pn,name:$("#trName",host).value.trim(),jp:"",qty:"1",manual:true};
+    if(photo) o.photo={data:photo.data,w:photo.w,h:photo.h};      // 部品の写真（準備シート・部品表に使う）
     if(!o.name&&!o.b){ $("#trName",host).focus(); return fmToast("品名か風船番号を入れてください",true); }
     (S.meta.parts||(S.meta.parts=[])).push(o); sortParts(); persist(); refreshPickers(); updateTabs();
     onDone(o);
