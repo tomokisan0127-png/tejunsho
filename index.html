@@ -221,6 +221,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .fmList .it{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 10px;margin-bottom:8px;box-shadow:0 1px 5px rgba(20,30,50,.06);cursor:pointer;min-height:64px}
 #fm .fmList .it i{width:60px;height:45px;border-radius:8px;background:#e9edf2 center/cover no-repeat;flex:none;display:flex;align-items:center;justify-content:center;font-style:normal;color:#a6b0bd;font-size:18px}
 #fm .fmList .it .no{font-size:18px;font-weight:bold;color:var(--accent);min-width:34px;text-align:center;flex:none}
+#fm .fmList .it .noTx{color:#c26b00;font-size:14px} #fm .fmList .it .noTxS{display:block;color:var(--sub);font-size:12px}
 #fm .fmList .it .grip{flex:none;touch-action:none;font-size:24px;line-height:1;color:#9aa6b5;padding:12px 4px 12px 8px;margin-right:-4px;cursor:grab;user-select:none;-webkit-user-select:none}
 #fm .fmList .it.drag{box-shadow:0 10px 28px rgba(20,30,50,.28);opacity:.96;pointer-events:none}
 #fm .fmList .it.ph{background:#e6eef9;border:2px dashed #9db8dc;box-shadow:none;min-height:0;width:100%;box-sizing:border-box;align-self:stretch}
@@ -1472,7 +1473,7 @@ async function docSummary(){
   const ph=(S.steps.find(x=>x.photos&&x.photos[0])||{photos:[]}).photos[0];
   let photo=""; if(ph){ photo=_thumbs.get(ph.data)||""; if(!photo){ try{ const im=await loadImg(ph.data); const c=document.createElement("canvas"), k=64/Math.max(im.naturalWidth,im.naturalHeight);
     c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); photo=c.toDataURL("image/jpeg",.7); _thumbs.set(ph.data,photo); }catch(e){} } }
-  return {id:docId,name:S.meta.name||"",model:S.meta.model||"",updated:Date.now(),steps:S.steps.filter(x=>x.title||x.body).length,photo};
+  return {id:docId,name:S.meta.name||"",model:S.meta.model||"",updated:Date.now(),steps:S.steps.filter(x=>x.title||x.body||(x.photos&&x.photos.length)).length,photo};
 }
 const _thumbs=new Map();
 function persist(){
@@ -3765,14 +3766,14 @@ $("#fqQ").oninput=()=>{ const q=$("#fqQ").value.trim(), nq=normPn(q), low=q.toLo
   $$("#fqCands [data-i]").forEach(b=>b.onclick=()=>{ Q.p=L[+b.dataset.i]; Q.tag=null; $("#fqFindBox").hidden=true; $("#fqQ").value=""; $("#fqCands").innerHTML=""; fmPrepRender(); }); };
 const stEmpty=x=>!x.title&&!x.body&&!x.check&&!x.photos.length;
 function fmList(){
-  const n=S.steps.filter(x=>!stEmpty(x)).length; $("#fmCount").textContent=`${n}件`;
+  const n=S.steps.filter(x=>!stEmpty(x)).length, nt=S.steps.filter(x=>!stEmpty(x)&&!x.title&&!x.body).length; $("#fmCount").textContent=`${n}件${nt?`（説明まだ${nt}）`:""}`;
   const cur=F.stepId, per=perSheet();
   // 空き工程も含めて全部（前に戻って抜けを足せるように、工程番号順）
   const last=S.steps.reduce((m,x,i)=>stEmpty(x)?m:i,-1);
   const L=S.steps.map((s,i)=>({s,i})).filter(x=>!stEmpty(x.s)||x.i<last);
   let h="", sh=-1;
   L.forEach(({s,i})=>{ const k=Math.floor(i/per); if(k!==sh){ sh=k; h+=`<div class="sh">シート${k+1}</div>`; }
-    h+=`<div class="it${s.id===cur?" cur":""}${stEmpty(s)?" blank":""}" data-i="${i}"><span class="no">${stepNo(i+1)}</span><i style="${s.photos[0]?`background-image:url(${s.photos[0].data})`:""}">${s.photos[0]?"":"📷"}</i><span class="tx">${stEmpty(s)?"空き工程（タップして作る）":esc(s.title||String(s.body||"").split("\n")[0]||"（タイトルなし）")}</span><button class="insB" data-ins="${i}" title="この後に工程を差し込む">＋</button><span class="grip" data-grip title="引っ張って並べ替え">⠿</span></div>`; });
+    h+=`<div class="it${s.id===cur?" cur":""}${stEmpty(s)?" blank":""}" data-i="${i}"><span class="no">${stepNo(i+1)}</span><i style="${s.photos[0]?`background-image:url(${s.photos[0].data})`:""}">${s.photos[0]?"":"📷"}</i><span class="tx">${stEmpty(s)?"空き工程（タップして作る）":(!s.title&&!s.body)?`<b class="noTx">📝 説明がまだです</b><small class="noTxS">タップして書く</small>`:esc(s.title||String(s.body||"").split("\n")[0]||"（タイトルなし）")}</span><button class="insB" data-ins="${i}" title="この後に工程を差し込む">＋</button><span class="grip" data-grip title="引っ張って並べ替え">⠿</span></div>`; });
   $("#fmList").innerHTML=h||`<p class="lead" style="text-align:center;padding:30px 0">まだ工程がありません。<br>下のボタンから作り始めましょう。</p>`;
   $$("#fmList .it").forEach(el=>el.onclick=e=>{ if(e.target.closest("[data-ins],[data-grip]")||Date.now()-fmDragEnd<400) return; fmLoadStep(S.steps[+el.dataset.i].id); fmShow("fmStep"); });
   fmDragInit();
@@ -4172,7 +4173,7 @@ function fmSaveStep(){
 $("#fpNext").onclick=()=>{
   if(!fmHasContent()) return fmToast("「これをどうする？」か写真を入れてください",true);
   const st=fmSaveStep(); const i=S.steps.indexOf(st);
-  const next=S.steps[i+1]&&(S.steps[i+1].title||S.steps[i+1].body)?S.steps[i+1].id:null;   // 次が作成済みならそれを開く
+  const nx=S.steps[i+1], next=nx&&(nx.title||nx.body||nx.check||(nx.photos&&nx.photos.length))?nx.id:null;   // 次が作成済み（写真だけでも）ならそれを開く
   fmLoadStep(next); $("#fm").scrollTop=0;
   fmToast(`✓ 工程${stepNo(i+1)}を保存しました`);
 };
