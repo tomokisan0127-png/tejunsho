@@ -646,6 +646,8 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 .balBtns{display:flex;gap:6px} .balBtns button{flex:1;font-size:13px;padding:8px 6px}
 .balDone{color:var(--ok,#2e7d4f);font-weight:bold;font-size:13px}
 .balCm{margin-top:8px;padding:8px 10px;background:#fff8e6;border-radius:10px;font-size:13px}
+.hzNorm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 4px}
+.hzNorm .hint{margin:0;font-size:12px}
 #aiImgBox{margin-top:10px;padding:10px 12px;border-radius:12px;background:#f4f8fd;border:1px solid #d6e2f2}
 .aiImgNote{margin:0 0 8px;font-size:13.5px}
 .aiImgBtns{display:flex;flex-wrap:wrap;gap:8px}
@@ -989,6 +991,7 @@ details.fold>summary::before{color:var(--accent)}
     <div class="card" id="aiCard">
       <h2>AIで文章チェック・整理</h2>
       <p class="hint">社内で使っているAI（Claudeなど）に、表現の統一・誤字・分かりにくい所のチェックを頼めます。風船番号・品番・本数は変えないように指示します。</p>
+      <div class="hzNorm"><button id="bHzNorm">🔤 補材・ボルトの表記をそろえる</button><span class="hint">AIを使わずにすぐ直します（例：hc 6 ×12 → HC M6X12、全角→半角）</span></div>
       <div class="aiMode">
         <label class="on"><input type="radio" name="aiMode" value="text" checked><b>📝 文章だけチェック</b><small>誤字・表現・枠に収まるか</small></label>
         <label><input type="radio" name="aiMode" value="photo"><b>📷 写真もいっしょにチェック</b><small>写真と文章が合っているかも見る（画像を一緒に送ります）</small></label>
@@ -2491,6 +2494,38 @@ function relabelAll(){
   return n;
 }
 const FAST_RE=/^(HC|HB|HH|CB|SB|TB|BT|SUS\s*HC|ZR|Zr|SW|PW|W\s|NUT|N\s|ボルト|ﾎﾞﾙﾄ|ワッシャ|ﾜｯｼｬ|ナット|ﾅｯﾄ|ネジ|ﾈｼﾞ|ねじ|小ねじ|ビス|ﾋﾞｽ|座金|平座金|ばね座金|止め輪|スナップ)|\bM\d+\s*[xX×＊*]\s*\d+|φ\s*\d+/;
+/* ---- 補材（ボルト・座金など）の表記をそろえる：全角→半角、種類記号は部品表の書き方、サイズは「M6X12」 ---- */
+const HZ_BOLT=["HC","HS","HSC","HB","HH","FHC","BHC","OHC","CB","SB","TB","BT"];
+const HZ_KANA=[["エフエイチシー","FHC"],["エイチエスシー","HSC"],["オーエイチシー","OHC"],["エイチシー","HC"],["エイチエス","HS"],["エイチビー","HB"]];
+function hzMaster(){
+  const M={}; const add=n=>{ const m=String(n||"").trim().match(/^([A-Za-z]{1,4})[ 　]*(M)?[ 　]*\d/); if(!m) return; const k=m[1].toUpperCase(), e=M[k]||(M[k]={c:{},m:0,n:0}); e.c[m[1]]=(e.c[m[1]]||0)+1; e.n++; if(m[2]) e.m++; };
+  (S.meta.parts||[]).forEach(p=>add(p.name)); (S.meta.hozai||[]).forEach(h=>add(h.name));
+  HZ_BOLT.forEach(t=>{ if(!M[t]) M[t]={c:{[t]:1},m:1,n:1}; });
+  const out={}; Object.entries(M).forEach(([k,e])=>{ out[k]={canon:Object.entries(e.c).sort((a,b)=>b[1]-a[1])[0][0],useM:e.m*2>=e.n}; }); return out;
+}
+function normHz(text,D){
+  let t=String(text||""); if(!t) return t; D=D||hzMaster();
+  t=t.replace(/[Ａ-Ｚａ-ｚ０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));      // 全角の英数字 → 半角
+  HZ_KANA.forEach(([k,v])=>{ t=t.split(k).join(v); });      // 音声入力のカタカナ → 記号
+  const keys=Object.keys(D).sort((a,b)=>b.length-a.length); if(!keys.length) return t;
+  const T=keys.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|"), sp="[ 　]*", X="(?:[xX×✕＊*ｘＸ]|かける|掛ける|カケル)";
+  // 種類＋太さ×長さ（hc 6 ×12 → HC M6X12）
+  t=t.replace(new RegExp(`(^|[^A-Za-z])(${T})${sp}(M|m)?${sp}(\\d+(?:\\.\\d+)?)${sp}${X}${sp}(\\d+(?:\\.\\d+)?)`,"gi"),(a,pre,ty,m,d,l)=>{ const e=D[ty.toUpperCase()]; return `${pre}${e.canon} ${e.useM||m?"M":""}${d}X${l}`; });
+  // 種類＋太さだけ（zr6 → Zr 6、nh 6 → NH M6）
+  t=t.replace(new RegExp(`(^|[^A-Za-z])(${T})${sp}(M|m)?${sp}(\\d+)(?![\\dXx×✕＊*.]|[ 　]*(?:かける|掛ける|カケル))`,"gi"),(a,pre,ty,m,d)=>{ const e=D[ty.toUpperCase()]; return `${pre}${e.canon} ${e.useM||m?"M":""}${d}`; });
+  // 種類のないサイズ（M6×12 → M6X12）
+  t=t.replace(new RegExp(`(^|[^A-Za-z])M${sp}(\\d+(?:\\.\\d+)?)${sp}${X}${sp}(\\d+(?:\\.\\d+)?)`,"g"),(a,pre,d,l)=>`${pre}M${d}X${l}`);
+  return t;
+}
+/* 全工程の補材の表記をそろえる（AIを使わずにすぐ） */
+function normHzAll(){
+  const D=hzMaster(); let n=0;
+  S.steps.forEach(st=>{ const b4=stepSnap(st), o=JSON.stringify([st.title,st.body,st.check,st.fa&&st.fa.action]);
+    st.title=normHz(st.title,D); st.body=normHz(st.body,D); st.check=normHz(st.check,D); if(st._genBody!=null) st._genBody=st.body; if(st.fa&&st.fa.action) st.fa.action=normHz(st.fa.action,D);
+    if(JSON.stringify([st.title,st.body,st.check,st.fa&&st.fa.action])!==o){ n++; histPush(st,b4); } });
+  if(n){ renderSteps(); persist(); schedulePreview(); if(!$("#fm").hidden&&F.stepId) fmLoadStep(F.stepId); }
+  return n;
+}
 function isFastener(s){ return FAST_RE.test(String(s||"").trim()); }
 function hozaiText(h){
   const n=String(h.name||"").trim(); let q=String(h.qty||"").trim();
@@ -3126,13 +3161,15 @@ function aiPrompt(){
   const fitOn=$("#aiFit").checked;
   const overNos=[];
   const photoMode=aiMode()==="photo", phNos=S.steps.map((s,i)=>s.photos&&s.photos.length?i+1:0).filter(Boolean);
+  const HZD=hzMaster();
   const data={work:S.meta.name||"",model:S.meta.model||"",steps:S.steps.map((s,i)=>{
-    const o={no:i+1,title:s.title||"",body:s.body||"",check:s.check||"",tools:s.tools||""};
+    const o={no:i+1,title:normHz(s.title||"",HZD),body:normHz(s.body||"",HZD),check:normHz(s.check||"",HZD),tools:s.tools||""};
     if(photoMode) o.photos=s.photos?s.photos.length:0;
     if(fitOn&&s._fit&&s._fit.over){ const c=stepCapacity(s,i); o.limit={maxLines:c.lines,maxChars:c.cols}; overNos.push(i+1); }
     return o; })};
   const rules=[
-    "風船番号（例：風船052、【052】）・品番・補材名（例：HC M8X15、Zr φ8）・本数・個数・寸法・トルク値などの数字や記号は、一字も変えないでください。",
+    `補材・ボルトの表記は、部品表の書き方にそろえてください：全角の英数字は半角、種類の記号は部品表と同じ大文字・小文字、サイズは「M6X12」の形（例：「hc 6 ×12」→「HC M6X12」、「ｈｓｃ４×４」→「HSC M4X4」、「zr6」→「Zr 6」）。${(()=>{ const ex=[...new Set([...(S.meta.hozai||[]).map(h=>h.name),...(S.meta.parts||[]).map(p=>p.name)].filter(n=>/^[A-Za-z]{1,4} ?M?\d/.test(n||"")))].slice(0,20); return ex.length?"部品表での書き方："+ex.join("、")+"。":""; })()}太さ・長さ・本数などの数字そのものは変えないでください。`,
+    "風船番号（例：風船052、【052】）・品番・補材名（例：HC M8X15、Zr φ8）・本数・個数・寸法・トルク値などの数字は、一字も変えないでください（補材の表記をそろえる以外で、記号も変えないでください）。",
     "書かれていない作業・部品・数値を推測で追加しないでください。足りないと思う点や気になる点は comments に書いてください。",
     "誤字脱字・表記ゆれ（例：ワッシャ／ワッシャー）・あいまいな表現・重複を直し、読みやすく整理してください。",
     "1行に1つの動作になるように、長い文は分けてください。",
@@ -3191,6 +3228,7 @@ function aiModeUI(){ const md=aiMode(), ph=md!=="text"; const o=$("#aiCard .opts
   if(md==="balloon") $("#aiStep2").innerHTML="AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIは部品の場所だけを答えます（写真はアプリが描きます）。";
   $("#aiImgBox").hidden=true; $("#aiCopied").textContent=""; }
 $$('input[name="aiMode"]').forEach(r=>r.onchange=aiModeUI);
+$("#bHzNorm").onclick=()=>{ const n=normHzAll(); const m=n?`🔤 ${n}工程の補材・ボルトの表記をそろえました（各工程の「前の状態に戻す」で戻せます）`:"そろえる所はありませんでした"; if(!$("#fm").hidden) fmToast(m); else uiToast(m); };
 let aiFiles=[];
 /* 写真のある工程を、見出し「工程①　タイトル」付きで1枚の画像に並べる（1枚に6工程まで） */
 async function aiMakeImages(bal){
@@ -4162,6 +4200,7 @@ function fmHasContent(){ return F.parts.length||String(F.action).trim()||F.photo
 function fmSaveStep(){
   if(!fmHasContent()) return null;
   fmCompose();
+  { const D=hzMaster(); F.title=normHz(F.title,D); F.body=normHz(F.body,D); F.checks=F.checks.map(c=>normHz(c,D)); F.action=normHz(F.action,D); }      // 音声入力の「hc 6×12」などを「HC M6X12」に
   let st=F.stepId&&S.steps.find(x=>x.id===F.stepId);
   if(!st){ const i=fmTargetIndex(); st=S.steps[i]; if(!st){ st=blankStep(); S.steps.push(st); } }
   const hz=F.hz.filter(h=>h.on);
