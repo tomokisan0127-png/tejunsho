@@ -264,6 +264,17 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 #fm .chipRow{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 0}
 #fm .chipRow .hint{align-self:center;margin:0}
+#fm .setBox{max-height:88vh;display:flex;flex-direction:column}
+#fm #fsetClose{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:bold;padding:8px 14px}
+#fm .setScroll{overflow:auto;padding-bottom:20px}
+#fm .setSec{background:#fff;border-radius:14px;padding:10px 12px;margin:0 0 10px;border:1px solid #e1e6ee}
+#fm .setSec h4{margin:0 0 8px;font-size:15px}
+#fm .setSec input,#fm .setSec select{width:100%;font-size:16px;padding:9px 10px;border:1.5px solid #cfd7e2;border-radius:10px;box-sizing:border-box;background:#fff}
+#fm .setSec label{display:block;font-size:12.5px;color:var(--sub);margin:8px 0 4px}
+#fm .setSec .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#fm .setSec .two label{margin-top:0}
+#fm .setEx{font-size:13px;background:#f4f8fd;border-radius:10px;padding:8px 10px;margin:10px 0}
+#fm .setSec .chipRow .chip{font-size:13.5px;padding:6px 10px}
 #fm .hHint{font-size:12.5px;color:var(--sub);margin:2px 2px 8px}
 #fm #fhList{overflow:auto;max-height:60vh}
 #fm .hItem{display:block;width:100%;text-align:left;background:#fff;border:1.5px solid #d3dae4;border-radius:14px;padding:10px 12px;margin:0 0 8px}
@@ -906,10 +917,10 @@ details.fold>summary::before{color:var(--accent)}
           <option value="fusen">風船052（BRACKET-2）</option>
           <option value="none">風船番号を書かない（BRACKET-2）</option></select></div>
         <div><label>子品番の出し方</label><select data-m="partList">
-          <option value="0">文章の中に入れる</option>
-          <option value="1">文章は短くして、工程の下に「使用部品」としてまとめる</option></select></div>
+          <option value="1">文章は短くして、工程の下に「使用部品」としてまとめる（おすすめ）</option>
+          <option value="0">文章の中に入れる</option></select></div>
         <div style="grid-column:1/-1"><div class="exbox">例）<span id="pfEx"></span></div>
-          <button class="sm" id="bRelabel" style="margin-top:4px">入力済みの文章もこの書き方に直す</button></div>
+          <button class="sm primary" id="bRelabel" style="margin-top:4px">🔄 入力済みの文章を、この書き方に変換する</button></div>
         <div><label>風船番号の桁数</label><select data-m="bPad"><option value="3">3桁にそろえる（52→052）</option><option value="0">そのまま</option></select></div>
         <div><label>補材の本数</label><select data-m="hzPer"><option value="0">部品リストの数のまま（合計）</option><option value="1">部品1個あたりに割り算</option></select></div>
       </div>
@@ -1050,7 +1061,7 @@ details.fold>summary::before{color:var(--accent)}
     <button class="tool" data-tool="num"><i>①</i>番号</button>
     <button class="tool" data-tool="balloon"><i>⓪</i>風船</button>
     <span class="sep"></span>
-    <button class="tool" data-tool="crop"><i>⌗</i>切り抜き</button>
+    <button class="tool" id="eBalBig" title="この写真の風船・番号を全部大きくする"><i>⓪⁺</i>風船 大</button><button class="tool" id="eBalSm" title="この写真の風船・番号を全部小さくする"><i>⓪⁻</i>風船 小</button><button class="tool" data-tool="crop"><i>⌗</i>切り抜き</button>
     <button class="tool" id="eRot"><i>⟳</i>回転</button>
     <button class="tool" id="eAdjBtn"><i>☀</i>明るさ</button>
     <span class="sep"></span>
@@ -1129,6 +1140,7 @@ details.fold>summary::before{color:var(--accent)}
         <button class="tile wide" id="fsFin"><i>✅</i><span><b>仕上げ・AIで文章チェック</b><small id="fsFinN"></small></span><em>›</em></button>
       </div>
       <div class="menuCard">
+        <button id="fsSet"><i>⚙</i><span>手順書の設定<small>使用工具・作業時間・作成者・日付・部品の書き方</small></span></button>
         <button id="fsInstall" hidden><i>📲</i><span>アプリとしてホーム画面に追加<small>アイコンから開けて、電波がない所でも使えます</small></span></button>
         <button id="fsLoad"><i>📄</i><span>PLMの部品リストを読み込む<small>.xls / .xlsx / .csv</small></span></button>
         <button id="fmSave"><i>💾</i><span>データを保存する<small>PCへ渡す・バックアップ（.json）</small></span></button>
@@ -1200,6 +1212,32 @@ details.fold>summary::before{color:var(--accent)}
     <input id="fpInsQ" type="search" autocomplete="off" placeholder="🔍 風船番号・品名・品番の一部">
     <div class="pickList" id="fpIns"></div>
     <button class="pill wide" id="fkAdd">＋ 部品表にない部品を追加する</button>
+  </div></div>
+
+  <!-- ===== 手順書の設定（下から出るシート） ===== -->
+  <div class="sheet" id="fmSet" hidden><div class="sheetBox setBox">
+    <div class="sheetHead"><b>⚙ 手順書の設定</b><span class="sp"></span><button class="barBtn primary" id="fsetClose">✓ 閉じる</button></div>
+    <div class="setScroll">
+      <div class="setSec"><h4>🔧 設備・工具 <small style="font-weight:normal;color:var(--sub);font-size:12px">全シート共通（各工程の工具は自動で足されます）</small></h4>
+        <input data-m="tools" placeholder="例）M6、M5用レンチ、水準器、ネジロック">
+        <div class="chipRow" id="fsetTools"></div></div>
+      <div class="setSec"><h4>⏱ 主体作業時間</h4>
+        <div class="two"><input data-m="time" placeholder="例）40分"><select data-m="timeAuto"><option value="0">手入力</option><option value="1">工程の合計</option></select></div></div>
+      <div class="setSec"><h4>👤 作成者</h4>
+        <div class="two"><div><label>部署</label><input data-m="dept" placeholder="例）製造課"></div><div><label>氏名</label><input data-m="author" placeholder="例）山田"></div></div></div>
+      <div class="setSec"><h4>📅 日付</h4>
+        <div class="two"><div><label>制定日</label><input type="date" data-m="seitei"></div><div><label>実施日</label><input type="date" data-m="jisshi"></div></div>
+        <button class="txtBtn" id="fsetToday">今日の日付にする</button></div>
+      <div class="setSec"><h4>📄 1シートの工程数</h4>
+        <select data-m="perSheet"><option value="2">2工程</option><option value="3">3工程</option><option value="4">4工程</option></select></div>
+      <div class="setSec"><h4>🔤 文章での部品の書き方</h4>
+        <label>品番（子品番）の出し方</label>
+        <select data-m="partList"><option value="1">文章は短くして、工程の下に「使用部品」としてまとめる</option><option value="0">文章の中に入れる</option></select>
+        <label>風船番号の書き方</label>
+        <select data-m="bFmt"><option value="kakko">【052】BRACKET-2</option><option value="fusen">風船052（BRACKET-2）</option><option value="none">風船番号を書かない</option></select>
+        <div class="setEx" id="fsetEx"></div>
+        <button class="pill wide" id="fsetConv">🔄 入力済みの文章を、この書き方に変換する</button></div>
+    </div>
   </div></div>
 
   <!-- ===== 前の状態に戻す（下から出るシート） ===== -->
@@ -1412,7 +1450,7 @@ function blankStep(){ return {id:uid(),title:"",body:"",check:"",tools:"",min:""
 function blankState(){
   return {meta:{name:"",model:"",spec:"標準",time:"",seitei:today(),jisshi:today(),tools:"",no1:"",no2:"",no3mode:"page",
     dept:"",author:"",adate:today(),perSheet:"3",divider:"1",revs:[],fitMode:"auto",maxPt:"16",minPt:"9",uniform:"1",torqueOn:"1",timeAuto:"0",prepOn:"1",hzSheet:"1",
-    parts:[],hozai:[],skipParts:[],partLabel:"name_pn",plv:1,bFmt:"kakko",partList:"0",bPad:"3",hzPer:"0"},
+    parts:[],hozai:[],skipParts:[],partLabel:"name_pn",plv:1,bFmt:"kakko",partList:"1",bPad:"3",hzPer:"0"},
     steps:[blankStep(),blankStep(),blankStep()]};
 }
 let S = blankState();
@@ -1532,7 +1570,9 @@ function pageTools(steps){
   if(!sizes.length&&!rest.length) steps.forEach(st=>boltSizes(st.body).forEach(z=>{ if(!sizes.includes("M"+z)) sizes.push("M"+z); }));   // 工具が未入力ならボルトから推定
   sizes.sort((a,b)=>parseInt(b.slice(1))-parseInt(a.slice(1)));
   const all=(sizes.length?[sizes.join("、")+"用レンチ"]:[]).concat(rest);
-  return all.length?all.join("、"):(S.meta.tools||"");
+  // 「手順書の設定」で入れた工具は、全シート共通で足す
+  String(S.meta.tools||"").split(/[、,，\n]+/).map(x=>x.trim()).filter(Boolean).forEach(t=>{ if(!all.some(x=>x===t||x.split("、").includes(t))) all.push(t); });
+  return all.join("、");
 }
 
 /* ---- 工程の文章を行ごとの「ラン」に分解（プレビューとExcelで共用） ---- */
@@ -1823,7 +1863,8 @@ function updateFitBadges(){
 function bindMeta(){
   $$("[data-m]").forEach(el=>{
     const k=el.dataset.m; el.value=S.meta[k]??"";
-    el.oninput=el.onchange=()=>{ S.meta[k]=el.value; persist(); if(k==="perSheet"||k==="noFmt") renderSteps(); if(k==="prepOn"){ $$('[data-m="prepOn"]').forEach(x=>x.value=el.value); updateTabs(); } if(["partLabel","bPad","hzPer","bFmt","partList"].includes(k)){ refreshPickers(); showPfEx(); } schedulePreview(); };
+    el.oninput=el.onchange=()=>{ S.meta[k]=el.value; persist(); if(k==="perSheet"||k==="noFmt") renderSteps(); if(k==="prepOn"){ $$('[data-m="prepOn"]').forEach(x=>x.value=el.value); updateTabs(); } if(["partLabel","bPad","hzPer","bFmt","partList"].includes(k)){ refreshPickers(); showPfEx(); }
+      if(["partLabel","bFmt","partList"].includes(k)&&el.type!=="text"&&S.steps.some(st=>/【\d|風船\d/.test(st.body||""))) setTimeout(()=>{ if(confirm("書き方を変えました。入力済みの工程の文章も、この書き方に変換しますか？\n（あとで「🔄 変換する」ボタンからでもできます）")) convertParts(false); },50); schedulePreview(); };
   });
   renderRevs();
 }
@@ -2297,8 +2338,8 @@ eC.onpointerdown=e=>{
   if(t==="select"||(hit&&["text","num"].includes(t)&&hit.type===t)){ E.sel=hit; if(hit){ push(); E.drag={kind:"move",s:hit,last:p,moved:false}; } edDraw(); edUI(); return; }
   if(t==="text"){ openText(p,"",v=>{ push(); const s={type:"text",x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit()*E.wk,fs:Math.max(18,Math.max(iw(),ih())/24)*E.wk,text:v}; E.shapes.push(s); E.sel=s; edDraw(); edUI(); }); return; }
   if(t==="num"){ push(); const n=E.shapes.filter(s=>s.type==="num").reduce((m,s)=>Math.max(m,+s.text||0),0)+1;
-    const s={type:"num",x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit(),fs:Math.max(18,Math.max(iw(),ih())/26)*E.wk,text:String(n)}; E.shapes.push(s); E.sel=s; E.drag={kind:"move",s,last:p,moved:true}; edDraw(); edUI(); return; }
-  E.sel=null; E.drag={kind:"draw",s:{type:t,x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit()*E.wk,fs:Math.max(18,Math.max(iw(),ih())/26)*E.wk}}; edDraw(); edUI();
+    const s={type:"num",x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit(),fs:Math.max(18,Math.max(iw(),ih())/17)*E.wk,text:String(n)}; E.shapes.push(s); E.sel=s; E.drag={kind:"move",s,last:p,moved:true}; edDraw(); edUI(); return; }
+  E.sel=null; E.drag={kind:"draw",s:{type:t,x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit()*E.wk,fs:Math.max(18,Math.max(iw(),ih())/(t==="balloon"?15:26))*E.wk}}; edDraw(); edUI();
 };
 eC.onpointermove=e=>{
   const d=E.drag; if(!d) return; const p=pos(e);
@@ -2342,6 +2383,8 @@ $("#eTextIn").onkeydown=e=>{ if(e.key==="Enter"){ e.preventDefault(); closeText(
 $("#eTextEdit").onclick=()=>{ const s=E.sel; if(!s) return; const p=s.type==="balloon"?{x:s.x2,y:s.y2}:{x:s.x1,y:s.y1}; openText(p,s.text,v=>{ push(); s.text=v; edDraw(); }); };
 /* ---- 選択中の図形 ---- */
 function sizeSel(f){ const s=E.sel; if(!s) return; push(); if(["text","num","balloon"].includes(s.type)) s.fs*=f; else s.w=Math.max(1,s.w*f); edDraw(); }
+function sizeBal(f){ const L=E.shapes.filter(x=>x.type==="balloon"||x.type==="num"); if(!L.length) return; push(); L.forEach(x=>{ x.fs*=f; x._bb=null; }); edDraw(); }
+$("#eBalBig").onclick=()=>sizeBal(1.25); $("#eBalSm").onclick=()=>sizeBal(1/1.25);
 $("#eBigger").onclick=()=>sizeSel(1.2); $("#eSmaller").onclick=()=>sizeSel(1/1.2);
 function delSel(){ const s=E.sel; if(!s) return; push(); E.shapes=E.shapes.filter(x=>x!==s); E.sel=null; edDraw(); edUI(); }
 $("#eDel").onclick=delSel;
@@ -2405,7 +2448,7 @@ function partTextOpt(p,fmt,label,list){
   if(fmt==="kakko"&&p.b) return `【${p.b}】${body}`;
   return body||(p.b?`【${p.b}】`:"");
 }
-function partText(p){ const M=S.meta; return partTextOpt(p,M.bFmt||"kakko",M.partLabel||"name_pn",M.partList||"0"); }
+function partText(p){ const M=S.meta; return partTextOpt(p,M.bFmt||"kakko",M.partLabel||"name_pn",M.partList||"1"); }
 /* 文章の中で使われている部品（風船番号・【番号】・子品番で探す） */
 function usesPart(text,p){
   const t=String(text||"");
@@ -2580,8 +2623,17 @@ function showPfEx(){
 }
 function partListLine(p){ const f=S.meta.bFmt||"kakko"; const n=pName(p);
   return (f==="fusen"&&p.b?`風船${p.b} `:f==="kakko"&&p.b?`【${p.b}】`:"")+[n,p.pn&&p.pn!==n?p.pn:""].filter(Boolean).join("　"); }
-$("#bRelabel").onclick=()=>{ if(!confirm("作業内容・確認ポイントの中の「風船○○（…）」を、今の書き方に置き換えます。よろしいですか？")) return;
-  const n=relabelAll(); renderSteps(); persist(); alert(n?`${n}か所を直しました。`:"直す所はありませんでした。"); };
+/* 入力済みの文章を、今の「部品の書き方」に変換する（現場モード・PC共通） */
+function convertParts(ask){
+  if(ask&&!confirm("入力済みの工程の文章・確認ポイントの部品の書き方を、今の設定に変換します。よろしいですか？\n（変換前の状態は、各工程の「前の状態に戻す」から戻せます）")) return 0;
+  const b4=S.steps.map(st=>stepSnap(st));
+  const n=relabelAll(); S.steps.forEach((st,i)=>histPush(st,b4[i])); renderSteps(); persist(); schedulePreview();
+  const msg=n?`🔄 ${n}か所を今の書き方に変換しました`:"変換する所はありませんでした";
+  if(!$("#fm").hidden) fmToast(msg); else uiToast(msg);
+  if(!$("#fm").hidden&&F.stepId&&!$("#fmStep").hidden) fmLoadStep(F.stepId);
+  return n;
+}
+$("#bRelabel").onclick=()=>convertParts(true);
 $("#bPAdd").onclick=()=>{ const box=$("#pAddBox"); if(!box.hidden){ $("#paName").focus(); return; }
   box.hidden=false; ["paPn","paName","paJp"].forEach(id=>$("#"+id).value=""); $("#paQty").value="1";
   const nb=nextFreeB(); $("#paB").value=""; $("#paB").placeholder=nb?`例 ${nb}（空き番号）`:"例 058"; $("#paMsg").textContent="";
@@ -3207,7 +3259,7 @@ ${L.map(({s,i})=>`工程${i+1}（${stepNo(i+1)}・写真${s.photos.length}枚）
 let BAL=null;
 /* AIの位置 → 写真編集の「風船」と同じ形（部品の点 x1,y1／丸 x2,y2） */
 function balShapes(W,H,items){
-  const M=Math.max(W,H), fs=Math.max(18,M/26), r=fs*.85, off=M*.13, out=[];
+  const M=Math.max(W,H), fs=Math.max(18,M/15), r=fs*.85, off=M*.17, out=[];
   items.forEach(it=>{
     const x1=Math.max(0,Math.min(100,+it.x||0))/100*W, y1=Math.max(0,Math.min(100,+it.y||0))/100*H;
     let dir=x1<W/2?-1:1, x2=x1+dir*off; if(x2<r+6||x2>W-r-6){ dir=-dir; x2=x1+dir*off; }
@@ -3534,7 +3586,7 @@ function fmShow(id){
   if(from) fmScroll[from]=$("#fm").scrollTop;
   if(!FM_OVER.includes(id)) fmCur=id;
   FM_SCR.forEach(x=>$("#"+x).hidden=x!==id);
-  $("#fpMenu").hidden=true; $("#fmPick").hidden=true; $("#fmHist").hidden=true;
+  $("#fpMenu").hidden=true; $("#fmPick").hidden=true; $("#fmHist").hidden=true; $("#fmSet").hidden=true;
   if(id==="fmStart") fmStartInfo();
   if(id==="fmListS") fmList();
   const back=fmCur==="fmStep"?`✏️ ${$("#fpNo").textContent}の入力に戻る`:fmCur==="fmPrep"?"← 部品写真に戻る":fmCur==="fmListS"?"← 工程の一覧に戻る":"← ホームに戻る";
@@ -3891,6 +3943,24 @@ function fmCkAdd(){ const el=$("#fpCkNew"), v=el.value.trim(); if(!v) return el.
 $("#fpCkAdd").onclick=fmCkAdd;
 $("#fpCkNew").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); fmCkAdd(); } });
 $("#fpHist").onclick=fmHistOpen;
+/* ---- 現場モード：手順書の設定 ---- */
+function fmSetFill(){
+  $$("#fmSet [data-m]").forEach(el=>el.value=S.meta[el.dataset.m]??"");
+  // 工程で使った工具を候補に
+  const have=String(S.meta.tools||"").split(/[、,，\s]+/).filter(Boolean), cand=[...new Set(S.steps.flatMap(st=>String(st.tools||"").split(/[、,，\n]+/)).map(x=>x.trim()).filter(Boolean))].filter(x=>!have.includes(x));
+  $("#fsetTools").innerHTML=cand.length?`<span class="hint">工程で使った工具：</span>`+cand.map((t,i)=>`<button class="chip" data-tl="${i}">＋ ${esc(t)}</button>`).join(""):"";
+  $$("#fsetTools [data-tl]").forEach(b=>b.onclick=()=>{ const t=cand[+b.dataset.tl]; S.meta.tools=[S.meta.tools,t].filter(Boolean).join("、"); persist(); schedulePreview(); fmSetFill(); });
+  const p=(S.meta.parts||[]).find(x=>x.b&&x.pn&&x.name)||{b:"052",pn:"A00-00000-00",name:"BRACKET-2",jp:""};
+  $("#fsetEx").innerHTML=`例）<b>${esc(partText(p))}</b> を取り付ける。`+(S.meta.partList==="1"?`<br>【使用部品】・${esc(partListLine(p))}`:"");
+}
+function fmSetOpen(){ fmSetFill(); $("#fmSet").hidden=false; $("#fmSet .setScroll").scrollTop=0; }
+function fmSetClose(){ $("#fmSet").hidden=true; bindMeta(); showPfEx(); schedulePreview(); fmStartInfo(); }
+$("#fsSet").onclick=fmSetOpen;
+$("#fsetClose").onclick=fmSetClose;
+$("#fmSet").onclick=e=>{ if(e.target.id==="fmSet") fmSetClose(); };
+$("#fmSet").addEventListener("change",()=>setTimeout(fmSetFill,0));
+$("#fsetToday").onclick=()=>{ S.meta.seitei=S.meta.jisshi=today(); persist(); schedulePreview(); fmSetFill(); fmToast("制定日・実施日を今日にしました"); };
+$("#fsetConv").onclick=()=>convertParts(true);
 $("#fhClose").onclick=()=>$("#fmHist").hidden=true;
 $("#fmHist").onclick=e=>{ if(e.target.id==="fmHist") $("#fmHist").hidden=true; };
 /* 部品の追加（現品札・検索） */
@@ -4197,7 +4267,7 @@ function guideTick(){
   const ring=$("#gdRing"), tip=$("#gdTip"), fm=$("#fm");
   const ae=document.activeElement;
   const pc=fm.hidden;
-  const blocked=!$("#scan").hidden||!(G.on||(gForce&&!$("#fmFinS").hidden))||(!pc&&(fm.classList.contains("typing")||!$("#fmPick").hidden||!$("#fmHist").hidden||!$("#fpMenu").hidden))||!!document.querySelector(".modal.show,#map.show,#batch.show")||$("#ed").classList.contains("show")
+  const blocked=!$("#scan").hidden||!(G.on||(gForce&&!$("#fmFinS").hidden))||(!pc&&(fm.classList.contains("typing")||!$("#fmPick").hidden||!$("#fmHist").hidden||!$("#fmSet").hidden||!$("#fpMenu").hidden))||!!document.querySelector(".modal.show,#map.show,#batch.show")||$("#ed").classList.contains("show")
     ||(pc&&(!$("#fileMenu").hidden||!$("#pMenu").hidden||!$("#stepMenu").hidden||$("#sug").style.display==="block"||innerWidth<700))
     ||(ae&&ae.closest&&ae.closest("#fm,#editor")&&ae.matches("textarea,input:not([type=checkbox]):not([type=file])"));
   let st=blocked?null:guideStep(), el=null;
@@ -4308,7 +4378,8 @@ async function exportXlsx(){
         return {nativeCol:c,nativeColOff:Math.round((x-c*COLPX)*EMU),nativeRow:r-1,nativeRowOff:Math.round((y-ROWY[r])*EMU)}; };
       spec.imgs.forEach(o=>{
         const id=wb.addImage({base64:o.p.data,extension:"jpeg"});
-        ws.addImage(id,{tl:anchorAt(o.x,o.y),ext:{width:o.w,height:o.h},editAs:"oneCell"});
+        const m=Math.max(2,Math.round(Math.min(o.w,o.h)*.02));      // 少しすき間をあける
+        ws.addImage(id,{tl:anchorAt(o.x+m,o.y+m),br:anchorAt(o.x+o.w-m,o.y+o.h-m),editAs:"oneCell"});
       });
     });
     if(S.meta.hzSheet!=="0"&&(S.meta.hozai||[]).length) addHozaiSheet(wb);
