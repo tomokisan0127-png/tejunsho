@@ -274,6 +274,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .setSec label{display:block;font-size:12.5px;color:var(--sub);margin:8px 0 4px}
 #fm .setSec .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 #fm .setSec .two label{margin-top:0}
+#fm .shot .af{position:absolute;left:4px;top:4px;background:rgba(255,255,255,.88);color:#1f5fae;font-size:10.5px;font-weight:bold;border-radius:6px;padding:1px 5px}
 #fm .stampPv{display:flex;gap:14px;margin-top:8px} #fm .stampPv span{display:flex;flex-direction:column;align-items:center;font-size:11px;color:var(--sub)} #fm .stampPv img{width:56px;height:56px}
 #fm .setEx{font-size:13px;background:#f4f8fd;border-radius:10px;padding:8px 10px;margin:10px 0}
 #fm .setSec .chipRow .chip{font-size:13.5px;padding:6px 10px}
@@ -848,6 +849,8 @@ details.fold>summary::before{color:var(--accent)}
     </details>
     <details class="card fold"><summary>レイアウト・文字サイズ</summary>
       <div class="grid2">
+        <div><label>撮った写真の自動補正</label>
+          <select data-m="autoFix"><option value="1">する（明るさ・色かぶり・くっきり）</option><option value="0">しない</option></select></div>
         <div><label>1シートの工程数</label>
           <select data-m="perSheet"><option value="2">2工程</option><option value="3">3工程</option><option value="4">4工程</option></select></div>
         <div><label>工程番号の記号</label>
@@ -1067,6 +1070,7 @@ details.fold>summary::before{color:var(--accent)}
     <button class="tool" data-tool="balloon"><i>⓪</i>風船</button>
     <span class="sep"></span>
     <button class="tool" id="eBalBig" title="この写真の風船・番号を全部大きくする"><i>⓪⁺</i>風船 大</button><button class="tool" id="eBalSm" title="この写真の風船・番号を全部小さくする"><i>⓪⁻</i>風船 小</button><button class="tool" data-tool="crop"><i>⌗</i>切り抜き</button>
+    <button class="tool" id="eAutoBtn" title="明るさ・色かぶり・くっきりを自動で直す（もう一度押すと元に戻る）"><i>✨</i>自動補正</button>
     <button class="tool" id="eRot"><i>⟳</i>回転</button>
     <button class="tool" id="eAdjBtn"><i>☀</i>明るさ</button>
     <span class="sep"></span>
@@ -1235,6 +1239,9 @@ details.fold>summary::before{color:var(--accent)}
       <div class="setSec"><h4>📅 日付</h4>
         <div class="two"><div><label>制定日</label><input type="date" data-m="seitei"></div><div><label>実施日</label><input type="date" data-m="jisshi"></div></div>
         <button class="txtBtn" id="fsetToday">今日の日付にする</button></div>
+      <div class="setSec"><h4>📷 撮った写真</h4>
+        <select data-m="autoFix"><option value="1">自動補正する（明るさ・色かぶり・くっきり）</option><option value="0">自動補正しない（撮ったまま）</option></select>
+        <p class="hint" style="margin:6px 0 0">補正した写真も、写真をタップ →「✨ 自動補正」を押せば元に戻せます。</p></div>
       <div class="setSec"><h4>📄 1シートの工程数</h4>
         <select data-m="perSheet"><option value="2">2工程</option><option value="3">3工程</option><option value="4">4工程</option></select></div>
       <div class="setSec"><h4>🔤 文章での部品の書き方</h4>
@@ -1456,7 +1463,7 @@ const today = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.ge
 function blankStep(){ return {id:uid(),title:"",body:"",check:"",tools:"",min:"",photos:[]}; }
 function blankState(){
   return {meta:{name:"",model:"",spec:"標準",time:"",seitei:today(),jisshi:today(),tools:"",no1:"",no2:"",no3mode:"page",
-    dept:"",author:"",checker:"",adate:today(),perSheet:"3",divider:"1",revs:[],fitMode:"auto",maxPt:"16",minPt:"9",uniform:"1",torqueOn:"1",timeAuto:"0",prepOn:"1",hzSheet:"1",
+    dept:"",author:"",checker:"",autoFix:"1",adate:today(),perSheet:"3",divider:"1",revs:[],fitMode:"auto",maxPt:"16",minPt:"9",uniform:"1",torqueOn:"1",timeAuto:"0",prepOn:"1",hzSheet:"1",
     parts:[],hozai:[],skipParts:[],partLabel:"name_pn",plv:1,bFmt:"kakko",partList:"1",bPad:"3",hzPer:"0"},
     steps:[blankStep(),blankStep(),blankStep()]};
 }
@@ -2173,11 +2180,17 @@ async function fileToPhoto(f){
   try{ const im=await loadImg(url); return Object.assign({id:uid()},toJpeg(im,im.naturalWidth,im.naturalHeight)); }
   finally{ URL.revokeObjectURL(url); }
 }
+async function autoFixPhoto(ph){
+  if(!ph||S.meta.autoFix==="0") return ph;
+  try{ const im=await loadImg(ph.data), adj={b:0,c:0,auto:autoParams(im)}, cv=bakeWith(im,adj,[]);
+    const src=ph.data; Object.assign(ph,toJpeg(cv,cv.width,cv.height),{src,ed:{adj,shapes:[]}}); }catch(_){}
+  return ph;
+}
 async function addFiles(st,files){
   const list=[...files].filter(f=>f.type.startsWith("image/"));
   for(const f of list){
     if(st.photos.length>=3){ alert("1工程の写真は3枚までです"); break; }
-    try{ st.photos.push(await fileToPhoto(f)); }catch(e){ alert("画像を読み込めませんでした: "+f.name); }
+    try{ st.photos.push(await autoFixPhoto(await fileToPhoto(f))); }catch(e){ alert("画像を読み込めませんでした: "+f.name); }
   }
   afterPhoto(st);
 }
@@ -2220,6 +2233,7 @@ $("#bCap").onclick=()=>{
   if(!vid.videoWidth) return alert("動画を読み込んでください");
   vid.pause();
   const p=Object.assign({id:uid(),t:Math.round(vid.currentTime*10)/10},toJpeg(vid,vid.videoWidth,vid.videoHeight));
+  if(S.meta.autoFix!=="0"){ const fixP=p; autoFixPhoto(fixP).then(()=>{ persist(); try{ renderSteps(); }catch(_){} schedulePreview(); }); }
   let id=$("#vTarget").value, st;
   if(id==="__new"){ st=blankStep(); S.steps.push(st); activeId=st.id; st.photos.push(p); renderSteps(); $("#vTarget").value=st.id; }
   else{ st=S.steps.find(s=>s.id===id); if(!st) return; if(st.photos.length>=3) return alert("この工程の写真は3枚までです。不要な写真を消してください。"); st.photos.push(p); afterPhoto(st); }
@@ -2239,13 +2253,13 @@ async function openEditor(st,j,done,tool){
   E.st=st;E.j=j;E.done=done||null;
   const ph=st.photos[j], re=!!(ph.src&&ph.ed);      // 元の写真＋書き込みが残っていれば、動かせる状態で開く
   const im=await loadImg(re?ph.src:ph.data);
-  Object.assign(E,{bases:[im],bi:0,base:im,adj:re?{b:+ph.ed.adj?.b||0,c:+ph.ed.adj?.c||0}:{b:0,c:0},shapes:re?JSON.parse(JSON.stringify(ph.ed.shapes||[])):[],sel:null,hist:[],fut:[],crop:null,adjC:null,adjK:"",drag:null});
-  $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; $("#eSubAdj").classList.remove("show"); $("#eAdjBtn").classList.remove("on");
+  Object.assign(E,{bases:[im],bi:0,base:im,adj:re?Object.assign({b:+ph.ed.adj?.b||0,c:+ph.ed.adj?.c||0},ph.ed.adj?.auto?{auto:ph.ed.adj.auto}:{}):{b:0,c:0},shapes:re?JSON.parse(JSON.stringify(ph.ed.shapes||[])):[],sel:null,hist:[],fut:[],crop:null,adjC:null,adjK:"",drag:null});
+  $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; autoUI(); $("#eSubAdj").classList.remove("show"); $("#eAdjBtn").classList.remove("on");
   $("#ed").classList.add("show"); setTool(tool||"arrow"); edSize(); edDraw(); edUI();
 }
 /* ---- 履歴 ---- */
 const snap=()=>({bi:E.bi,adj:{...E.adj},shapes:JSON.parse(JSON.stringify(E.shapes,(k,v)=>k==="_bb"?undefined:v))});
-function restore(o){ E.bi=o.bi; E.base=E.bases[o.bi]; E.adj={...o.adj}; E.shapes=o.shapes; E.sel=null; E.crop=null; $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; if(E.tool==="crop") setTool("select"); edSize(); edDraw(); edUI(); }
+function restore(o){ E.bi=o.bi; E.base=E.bases[o.bi]; E.adj={...o.adj}; E.shapes=o.shapes; E.sel=null; E.crop=null; $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; autoUI(); if(E.tool==="crop") setTool("select"); edSize(); edDraw(); edUI(); }
 function push(){ E.hist.push(snap()); E.fut=[]; edUI(); }
 $("#eUndo").onclick=()=>{ if(!E.hist.length) return; E.fut.push(snap()); restore(E.hist.pop()); };
 $("#eRedo").onclick=()=>{ if(!E.fut.length) return; E.hist.push(snap()); restore(E.fut.pop()); };
@@ -2259,24 +2273,57 @@ function edSize(){
 window.addEventListener("resize",()=>{ if($("#ed").classList.contains("show")){ edSize(); edDraw(); } });
 /* ---- 明るさ・コントラスト ---- */
 function adjBase(){
-  const {b,c}=E.adj; if(!b&&!c) return E.base;
-  const key=E.bi+":"+b+":"+c; if(E.adjK===key&&E.adjC) return E.adjC;
+  const {b,c,auto}=E.adj; if(!b&&!c&&!auto) return E.base;
+  const key=E.bi+":"+b+":"+c+":"+(auto?JSON.stringify(auto):""); if(E.adjK===key&&E.adjC) return E.adjC;
   const cv=document.createElement("canvas"); cv.width=iw(); cv.height=ih(); const g=cv.getContext("2d"); g.drawImage(E.base,0,0);
-  const d=g.getImageData(0,0,cv.width,cv.height), a=d.data, cf=1+c/100, bf=1+b/100;
-  const lut=new Uint8ClampedArray(256); for(let v=0;v<256;v++) lut[v]=((v-128)*cf+128)*bf;
-  for(let i=0;i<a.length;i+=4){ a[i]=lut[a[i]]; a[i+1]=lut[a[i+1]]; a[i+2]=lut[a[i+2]]; }
+  const d=g.getImageData(0,0,cv.width,cv.height), a=d.data, cf=1+(b||c?c:0)/100, bf=1+(b||0)/100;
+  const L=[0,1,2].map(ch=>{ const t=new Uint8ClampedArray(256);
+    for(let v=0;v<256;v++){ let x=v;
+      if(auto){ x=v*auto.wb[ch]; let y=Math.max(0,Math.min(1,(x-auto.lo)/(auto.hi-auto.lo))); y=Math.pow(y,auto.gam); x=y*255; }      // 色かぶり → 明るさの幅 → 中間の明るさ
+      t[v]=((x-128)*cf+128)*bf; }
+    return t; });
+  for(let i=0;i<a.length;i+=4){ a[i]=L[0][a[i]]; a[i+1]=L[1][a[i+1]]; a[i+2]=L[2][a[i+2]]; }
+  if(auto&&auto.sh){      // くっきり（輪郭を少しだけ強める）
+    const W=cv.width,H=cv.height,src=new Uint8ClampedArray(a),k=auto.sh;
+    for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i=(y*W+x)*4;
+      for(let ch=0;ch<3;ch++){ const v=src[i+ch], bl=(src[i+ch-4]+src[i+ch+4]+src[i+ch-W*4]+src[i+ch+W*4])/4; a[i+ch]=v+(v-bl)*k; } }
+  }
   g.putImageData(d,0,0); E.adjC=cv; E.adjK=key; return cv;
 }
+/* 写真を見て、自動補正の中身を決める */
+function autoParams(img){
+  const k=Math.min(1,320/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)), cv=document.createElement("canvas");
+  cv.width=Math.max(1,Math.round((img.naturalWidth||img.width)*k)); cv.height=Math.max(1,Math.round((img.naturalHeight||img.height)*k));
+  const g=cv.getContext("2d"); g.drawImage(img,0,0,cv.width,cv.height); const a=g.getImageData(0,0,cv.width,cv.height).data;
+  // 色かぶり：中くらいの明るさの所の平均を灰色に近づける（控えめ・最大±12%）
+  let sr=0,sg=0,sb=0,n=0; for(let i=0;i<a.length;i+=4){ const l=.299*a[i]+.587*a[i+1]+.114*a[i+2]; if(l>35&&l<225){ sr+=a[i]; sg+=a[i+1]; sb+=a[i+2]; n++; } }
+  let wb=[1,1,1]; if(n>50){ const m=[sr/n,sg/n,sb/n], gr=(m[0]+m[1]+m[2])/3; wb=m.map(v=>{ const f=Math.max(.88,Math.min(1.12,gr/Math.max(1,v))); return 1+(f-1)*.7; }); }
+  // 明るさの幅：暗い所・明るい所の端を広げる（上限2.2倍）
+  const h=new Array(256).fill(0); let N=0;
+  for(let i=0;i<a.length;i+=4){ const l=Math.round(Math.min(255,.299*a[i]*wb[0]+.587*a[i+1]*wb[1]+.114*a[i+2]*wb[2])); h[l]++; N++; }
+  let acc=0,lo=0,hi=255; for(let v=0;v<256;v++){ acc+=h[v]; if(acc>N*.008){ lo=v; break; } } acc=0; for(let v=255;v>=0;v--){ acc+=h[v]; if(acc>N*.008){ hi=v; break; } }
+  lo=Math.min(lo,60); hi=Math.max(hi,190); if(hi-lo<255/2.2){ const mid=(hi+lo)/2; lo=mid-255/4.4; hi=mid+255/4.4; }
+  // 中間の明るさ：全体の平均が少し明るめ（約0.47）になるように
+  let sum=0; for(let v=0;v<256;v++) sum+=h[v]*Math.max(0,Math.min(1,(v-lo)/(hi-lo))); const mean=Math.max(.05,Math.min(.95,sum/N));
+  const gam=Math.max(.68,Math.min(1.12,Math.log(.47)/Math.log(mean)));      // 明るい写真（白い札など）は暗くしすぎない
+  return {wb:wb.map(v=>+v.toFixed(3)),lo:Math.round(lo),hi:Math.round(hi),gam:+gam.toFixed(3),sh:.45};
+}
 let adjTimer=null;
-function setAdj(b,c,rec){ if(rec) push(); E.adj={b:Math.round(b),c:Math.round(c)}; $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; clearTimeout(adjTimer); adjTimer=setTimeout(edDraw,30); }
+function setAdj(b,c,rec){ if(rec) push(); E.adj=Object.assign({},E.adj,{b:Math.round(b),c:Math.round(c)}); $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; clearTimeout(adjTimer); adjTimer=setTimeout(edDraw,30); }
 let adjPushed=false;
 ["eBri","eCon"].forEach(id=>{ const el=$("#"+id);
   el.onpointerdown=()=>{ if(!adjPushed){ push(); adjPushed=true; } };
   el.oninput=()=>setAdj(+$("#eBri").value,+$("#eCon").value,false);
   el.onchange=()=>{ adjPushed=false; }; });
 $("#eAdjBtn").onclick=()=>{ const s=$("#eSubAdj"); s.classList.toggle("show"); $("#eAdjBtn").classList.toggle("on",s.classList.contains("show")); edSize(); edDraw(); };
-$("#eAdjReset").onclick=()=>setAdj(0,0,true);
-$("#eAuto").onclick=()=>{   // 暗い・ぼやけた写真を見やすく（明るさの分布を広げる）
+$("#eAdjReset").onclick=()=>{ push(); E.adj={b:0,c:0}; $("#eBri").value=0; $("#eCon").value=0; autoUI(); edDraw(); };
+function autoUI(){ const b=$("#eAutoBtn"); if(b) b.classList.toggle("on",!!E.adj.auto); }
+function toggleAuto(){ push(); if(E.adj.auto){ const a={...E.adj}; delete a.auto; E.adj=a; }
+  else E.adj=Object.assign({},E.adj,{auto:autoParams(E.base)});
+  autoUI(); edDraw(); if(typeof fmToast==="function"&&!$("#fm").hidden) fmToast(E.adj.auto?"✨ 自動補正しました（もう一度押すと元に戻ります）":"自動補正を外しました"); }
+$("#eAuto").onclick=()=>toggleAuto();
+$("#eAutoBtn").onclick=()=>toggleAuto();
+const _oldAuto=()=>{   // （旧）明るさ・コントラストだけの補正
   const k=Math.min(1,240/Math.max(iw(),ih())), cv=document.createElement("canvas"); cv.width=Math.max(1,Math.round(iw()*k)); cv.height=Math.max(1,Math.round(ih()*k));
   const g=cv.getContext("2d"); g.drawImage(E.base,0,0,cv.width,cv.height); const a=g.getImageData(0,0,cv.width,cv.height).data, h=new Array(256).fill(0); let n=0;
   for(let i=0;i<a.length;i+=4){ h[Math.round(.299*a[i]+.587*a[i+1]+.114*a[i+2])]++; n++; }
@@ -2447,7 +2494,7 @@ $("#eCancel").onclick=()=>{ if(E.hist.length&&!confirm("編集をやめますか
 $("#eOk").onclick=()=>{ if(E.crop&&confirm("切り抜きの範囲を確定して保存しますか？\n（いいえ＝切り抜かずに保存）")) doCrop(); E.crop=null;
   const c=bake(), p=E.st.photos[E.j];
   const src=E.bi===0?(p.src||p.data):toJpeg(E.base,iw(),ih()).data;      // 書き込み前の写真（切り抜き後）
-  const clean=!E.shapes.length&&!E.adj.b&&!E.adj.c;
+  const clean=!E.shapes.length&&!E.adj.b&&!E.adj.c&&!E.adj.auto;
   if(clean&&E.bi===0){ Object.assign(p,{data:src,w:iw(),h:ih()}); delete p.src; delete p.ed; }      // 書き込みを全部消した → 元の写真に戻す
   else{ Object.assign(p,toJpeg(c,c.width,c.height));
     if(clean){ delete p.src; delete p.ed; }
@@ -3989,7 +4036,7 @@ function fmRenderStep(){
   $$("#fpVerbs [data-v]").forEach(b=>{ b.onmousedown=e=>e.preventDefault(); b.onclick=()=>fmInsert(b.dataset.v); });
   fmRefs();
   // 写真（タップで矢印・文字の書き込み）
-  const ph=F.photos.map((p,j)=>`<div class="shot" data-ej="${j}" style="background-image:url(${p.data})"><button class="x" data-j="${j}" title="外す">✕</button><span class="ed">✎ 書き込む</span></div>`);
+  const ph=F.photos.map((p,j)=>`<div class="shot" data-ej="${j}" style="background-image:url(${p.data})"><button class="x" data-j="${j}" title="外す">✕</button>${p.ed&&p.ed.adj&&p.ed.adj.auto?`<span class="af">✨補正</span>`:""}<span class="ed">✎ 書き込む</span></div>`);
   if(F.photos.length<3) ph.push(`<button class="shot add main" id="fpShot"><i>📷</i>撮る</button>`);
   $("#fpThumbs").innerHTML=ph.join("");
   $("#fpShotNote").innerHTML=(F.photos.length<3?`<button class="txtBtn" id="fpShotF">🖼 スマホの中の写真から選ぶ</button>`:"写真は3枚までです。")+(F.photos.length?`<div>写真をタップすると、矢印や文字を書き込めます。</div>`:"");
@@ -4227,7 +4274,8 @@ $("#fpTxtV").onclick=()=>{ const a=$("#fpAct"); a.scrollIntoView({block:"center"
 /* 写真 */
 $("#fpShotFIn").onchange=e=>$("#fpShotIn").onchange(e);
 $("#fpShotIn").onchange=async e=>{ const fs=[...e.target.files]; e.target.value="";
-  for(const f of fs){ if(F.photos.length>=3) break; try{ F.photos.push(await fileToPhoto(f)); }catch(_){ alert("写真を読み込めませんでした"); } } fmRenderStep(); };
+  for(const f of fs){ if(F.photos.length>=3) break; try{ F.photos.push(await autoFixPhoto(await fileToPhoto(f))); }catch(_){ alert("写真を読み込めませんでした"); } } fmRenderStep();
+  if(S.meta.autoFix!=="0"&&fs.length) fmToast("✨ 自動補正しました（写真をタップ →「✨ 自動補正」で外せます）"); };
 /* 保存して次へ */
 function fmHasContent(){ return F.parts.length||String(F.action).trim()||F.photos.length||String(F.body).trim(); }
 function fmSaveStep(){
