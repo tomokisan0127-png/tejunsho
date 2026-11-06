@@ -1176,6 +1176,8 @@ details.fold>summary::before{color:var(--accent)}
         <button id="fsInstall" hidden><i>📲</i><span>アプリとしてホーム画面に追加<small>アイコンから開けて、電波がない所でも使えます</small></span></button>
         <button id="fsLoad"><i>📄</i><span>PLMの部品リストを読み込む<small>.xls / .xlsx / .csv</small></span></button>
         <button id="fmSave"><i>💾</i><span>データを保存する<small>PCへ渡す・バックアップ（.json）</small></span></button>
+        <button id="fmUnfix"><i>↩</i><span>写真の自動補正をまとめて外す<small>この手順書の写真を、撮ったままに戻す（書き込みは残ります）</small></span></button>
+        <button id="fmSlim"><i>🗜</i><span>写真を軽くする<small>動きが重い時に。印刷の見た目はほぼ変わりません</small></span></button>
         <button id="fmMove"><i>📦</i><span>データを別のスマホ・ブラウザに移す<small>全部の手順書をまとめて、コピーまたはファイルで渡す</small></span></button>
         <button id="fmPaste"><i>📋</i><span>コピーしたデータを取り込む<small>「データを移す」でコピーしたものを貼り付け</small></span></button>
         <button id="fmLoadJ"><i>📂</i><span>データを取り込む<small>PCやほかのスマホで作った .json を開く</small></span></button>
@@ -1266,7 +1268,8 @@ details.fold>summary::before{color:var(--accent)}
         <button class="txtBtn" id="fsetToday">今日の日付にする</button></div>
       <div class="setSec"><h4>📷 撮った写真</h4>
         <select data-m="autoFix"><option value="1">自動補正する（明るさ・色かぶり・くっきり）</option><option value="0">自動補正しない（撮ったまま）</option></select>
-        <p class="hint" style="margin:6px 0 0">補正した写真も、写真をタップ →「✨ 自動補正」を押せば元に戻せます。</p></div>
+        <p class="hint" style="margin:6px 0 0">補正した写真も、写真をタップ →「✨ 自動補正」を押せば元に戻せます。</p>
+        <button class="pill wide" id="fsetUnfix" style="margin-top:8px">↩ この手順書の写真の自動補正をまとめて外す</button></div>
       <div class="setSec"><h4>📄 1シートの工程数</h4>
         <select data-m="perSheet"><option value="2">2工程</option><option value="3">3工程</option><option value="4">4工程</option></select></div>
       <div class="setSec"><h4>🔤 文章での部品の書き方</h4>
@@ -1502,8 +1505,44 @@ const DB = {
     q.onupgradeneeded=()=>q.result.createObjectStore("kv");
     q.onsuccess=()=>{this.db=q.result;ok();}; q.onerror=()=>ng(q.error); }); },
   get(k){ return new Promise((ok,ng)=>{ const t=this.db.transaction("kv").objectStore("kv").get(k); t.onsuccess=()=>ok(t.result); t.onerror=()=>ng(t.error);}); },
-  set(k,v){ return new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"); tx.objectStore("kv").put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}); }
+  set(k,v){ return new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"); tx.objectStore("kv").put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}); },
+  setMany(list){ return new Promise((ok,ng)=>{ if(!list.length) return ok(); const tx=this.db.transaction("kv","readwrite"), os=tx.objectStore("kv"); list.forEach(([k,v])=>os.put(v,k)); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}); },
+  del(k){ return new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"); tx.objectStore("kv").delete(k); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}); },
+  keys(prefix){ return new Promise((ok,ng)=>{ const st=this.db.transaction("kv").objectStore("kv"), r=IDBKeyRange.bound(prefix,prefix+"\uffff"), q=st.getAllKeys?st.getAllKeys(r):null;
+    if(q){ q.onsuccess=()=>ok(q.result); q.onerror=()=>ng(q.error); return; }
+    const out=[], c=st.openKeyCursor?st.openKeyCursor(r):st.openCursor(r); c.onsuccess=()=>{ const x=c.result; if(x){ out.push(x.key); x.continue(); } else ok(out); }; c.onerror=()=>ng(c.error); }); }
 };
+/* ---- 写真は別の場所に1回だけ保存（手順書の中には「@img:番号」だけ書く）→ 文章を直すたびに写真まで保存し直さない ---- */
+const _imgKey=new Map();
+async function packJSON(obj){
+  const pend=[];
+  const txt=JSON.stringify(obj,(k,v)=>{
+    if(k==="_fit"||k==="_tgt"||k==="_balDone") return undefined;
+    if((k==="data"||k==="src")&&typeof v==="string"&&v.length>4096&&v.startsWith("data:")){
+      let key=_imgKey.get(v); if(!key){ key="img:"+uid()+uid(); _imgKey.set(v,key); pend.push([key,v]); } return "@"+key; }
+    return v; });
+  if(pend.length) await DB.setMany(pend);      // 写真を先に保存してから、手順書（小さい）を保存
+  return txt;
+}
+async function unpackJSON(raw){
+  if(!raw) return null; const refs=new Set();
+  const o=JSON.parse(raw,(k,v)=>{ if(typeof v==="string"&&v.startsWith("@img:")) refs.add(v.slice(1)); return v; });
+  if(!refs.size) return o;
+  const map=new Map(); await Promise.all([...refs].map(async k=>{ try{ const d=await DB.get(k); if(d){ map.set(k,d); _imgKey.set(d,k); } }catch(_){} }));
+  const walk=x=>{ if(Array.isArray(x)) x.forEach((y,i)=>{ if(typeof y==="string"&&y.startsWith("@img:")) x[i]=map.get(y.slice(1))||""; else if(y&&typeof y==="object") walk(y); });
+    else if(x&&typeof x==="object") for(const k in x){ const y=x[k]; if(typeof y==="string"&&y.startsWith("@img:")) x[k]=map.get(y.slice(1))||""; else if(y&&typeof y==="object") walk(y); } };
+  walk(o); return o;
+}
+async function readDoc(id){ return unpackJSON(await DB.get("doc:"+id)); }
+/* 使われなくなった写真を片付ける（起動してしばらくしてから） */
+async function imgGC(){
+  try{ const keys=await DB.keys("img:"); if(!keys.length) return; const used=new Set();
+    const scan=raw=>{ if(raw) for(const m of String(raw).matchAll(/"@(img:[0-9a-z]+)"/g)) used.add(m[1]); };
+    for(const k of await DB.keys("doc:")) scan(await DB.get(k)); for(const k of await DB.keys("hist:")) scan(await DB.get(k));
+    for(const v of _imgKey.values()) used.add(v);
+    const del=keys.filter(k=>!used.has(k)); for(const k of del) await DB.del(k);
+  }catch(e){ console.warn(e); }
+}
 let saveTimer=null, docId=null;
 /* 手順書ごとに保存：docIndex（一覧）と doc:<id>（中身） */
 async function getIndex(){ try{ return JSON.parse(await DB.get("docIndex")||"[]"); }catch(e){ return []; } }
@@ -1524,7 +1563,7 @@ async function saveNow(){
   try{
     if(!DB.db) return;
     if(!docId) docId=uid();
-    await DB.set("doc:"+docId,JSON.stringify(S,(k,v)=>k==="_fit"||k==="_tgt"?undefined:v));
+    await DB.set("doc:"+docId,await packJSON(S));
     const sm=await docSummary(), idx=await getIndex(), i=idx.findIndex(x=>x.id===docId);
     if(i>=0){ if(!sm.photo) sm.photo=idx[i].photo; idx[i]=sm; } else idx.push(sm);
     await DB.set("docIndex",JSON.stringify(idx)); await DB.set("curDoc",docId);
@@ -1534,8 +1573,8 @@ async function saveNow(){
 function showDocName(){ const e=$("#docName"); if(e) e.textContent=[S.meta.name||"（無題）",S.meta.model].filter(Boolean).join(" / "); }
 async function openDoc(id){
   await saveNow();
-  const raw=await DB.get("doc:"+id); if(!raw) return alert("この手順書のデータが見つかりません");
-  docId=id; load(JSON.parse(raw)); await DB.set("curDoc",id); showDocName(); $("#saveState").textContent="開きました";
+  const d=await readDoc(id); if(!d) return alert("この手順書のデータが見つかりません");
+  docId=id; load(d); await DB.set("curDoc",id); showDocName(); $("#saveState").textContent="開きました";
 }
 async function newDoc(d,name){
   await saveNow();
@@ -1558,8 +1597,8 @@ async function renderDocs(){
     if(x.id===docId){ if(rest.length) await openDoc(rest.sort((a,b)=>b.updated-a.updated)[0].id); else await newDoc(); }
     renderDocs(); });
   $$("[data-base]",$("#dBody")).forEach(b=>b.onclick=async()=>{
-    const raw=await DB.get("doc:"+b.dataset.base); if(!raw) return;
-    const d=JSON.parse(raw); d.steps.forEach(st=>st.id=uid()); d.meta.revs=[]; d.meta.seitei=today(); d.meta.jisshi=today(); d.meta.adate=today();
+    const d=await readDoc(b.dataset.base); if(!d) return;
+    d.steps.forEach(st=>st.id=uid()); d.meta.revs=[]; d.meta.seitei=today(); d.meta.jisshi=today(); d.meta.adate=today();
     const oldModel=d.meta.model; d.meta.model="";
     await newDoc(d); $("#docs").classList.remove("show");
     if(confirm(`「${d.meta.name||"（無題）"}」をもとに新しい手順書を作りました。\n\n続けて、新しい機種の部品リストを読み込んで、子品番・風船番号を自動で置き換えますか？${oldModel?`\n（元の機種：${oldModel}）`:""}`)){
@@ -2194,11 +2233,11 @@ $("#bSave2").onclick=()=>$("#bSave").click();
 
 /* ================= 画像取り込み ================= */
 function loadImg(src){ return new Promise((ok,ng)=>{ const im=new Image(); im.onload=()=>ok(im); im.onerror=ng; im.src=src; }); }
-function toJpeg(srcCanvasOrImg,w,h,max=1600){
+function toJpeg(srcCanvasOrImg,w,h,max=1280){
   const s=Math.min(1,max/Math.max(w,h)); const c=document.createElement("canvas");
   c.width=Math.round(w*s); c.height=Math.round(h*s);
   const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(srcCanvasOrImg,0,0,c.width,c.height);
-  return {data:c.toDataURL("image/jpeg",0.85),w:c.width,h:c.height};
+  return {data:c.toDataURL("image/jpeg",0.82),w:c.width,h:c.height};
 }
 async function fileToPhoto(f){
   const url=URL.createObjectURL(f);
@@ -3870,7 +3909,43 @@ async function fmPaste(){
   try{ await importText(t); $("#fsPaste").hidden=true; }catch(e){ alert("取り込めませんでした："+e.message+"\nもう一度、元の場所で「データを移す」からコピーし直してください。"); }
 }
 const fmMove=moveOpen;
-$("#fmMove").onclick=fmMove; $("#fsLineMove").onclick=fmMove; $("#fmPaste").onclick=fmPaste; $("#fsPasteGo").onclick=fmPaste;
+$("#fmMove").onclick=fmMove;
+/* 写真を軽くする：書き込みのない写真は長い辺1280に。書き込みのある写真は大きさはそのまま画質だけ */
+async function recode(data,max){ const im=await loadImg(data); const w=im.naturalWidth,h=im.naturalHeight; return toJpeg(im,w,h,max||Math.max(w,h)); }
+async function slimPhotos(){
+  const before=S.steps.reduce((n,st)=>n+st.photos.reduce((m,p)=>m+(p.data||"").length+(p.src||"").length,0),0)+(S.meta.parts||[]).reduce((n,p)=>n+(p.photo&&p.photo.data?p.photo.data.length:0),0);
+  if(!confirm(`この手順書の写真を軽くします（今 約${Math.round(before/1e6)}MB）。\n印刷の見た目はほぼ変わりません。少し時間がかかります。よろしいですか？`)) return;
+  try{ fmKeepEditing(); }catch(_){}
+  const all=[]; S.steps.forEach(st=>st.photos.forEach(p=>all.push(p)));
+  let i=0; for(const p of all){ i++; if(i%5===0){ try{ fmToast(`🗜 写真を軽くしています… ${i}/${all.length}`); }catch(_){} await new Promise(r=>setTimeout(r,0)); }
+    try{
+      if(p.src&&p.ed){ const a=await recode(p.data), b=await recode(p.src); if(a.data.length<p.data.length) Object.assign(p,{data:a.data}); if(b.data.length<p.src.length) p.src=b.data; }
+      else if(Math.max(p.w||0,p.h||0)>1280||(p.data||"").length>450e3){ const a=await recode(p.data,1280); if(a.data.length<p.data.length) Object.assign(p,a); }
+    }catch(_){} }
+  for(const pt of (S.meta.parts||[])){ if(pt.photo&&pt.photo.data&&pt.photo.data.length>300e3){ try{ const a=await recode(pt.photo.data,1000); if(a.data.length<pt.photo.data.length) pt.photo={data:a.data,w:a.w,h:a.h}; }catch(_){} } }
+  const after=S.steps.reduce((n,st)=>n+st.photos.reduce((m,p)=>m+(p.data||"").length+(p.src||"").length,0),0)+(S.meta.parts||[]).reduce((n,p)=>n+(p.photo&&p.photo.data?p.photo.data.length:0),0);
+  persist(); try{ renderSteps(); }catch(_){} schedulePreview(); setTimeout(imgGC,3000);
+  alert(`🗜 写真を軽くしました：約${Math.round(before/1e6)}MB → 約${Math.round(after/1e6)}MB`); try{ fmStartInfo(); }catch(_){}
+}
+$("#fmSlim").onclick=slimPhotos;
+/* 自動補正をまとめて外す：書き込みのない写真は撮ったままに。書き込みのある写真は、補正だけ外して描き直す */
+async function unfixAll(){
+  const L=[]; S.steps.forEach(st=>st.photos.forEach(p=>{ if(p.src&&p.ed&&p.ed.adj&&p.ed.adj.auto) L.push({st,p}); }));
+  if(!L.length) return alert("自動補正がかかっている写真はありません。");
+  if(!confirm(`この手順書の ${L.length}枚 の写真の自動補正を外して、撮ったままに戻します。\n（風船・矢印などの書き込みは残ります。各工程の「前の状態に戻す」で戻せます）\nよろしいですか？`)) return;
+  try{ fmKeepEditing(); }catch(_){}
+  const b4=new Map(); L.forEach(({st})=>{ if(!b4.has(st)) b4.set(st,stepSnap(st)); }); let i=0;
+  for(const {st,p} of L){ i++; if(i%5===0){ try{ fmToast(`↩ 自動補正を外しています… ${i}/${L.length}`); }catch(_){} await new Promise(r=>setTimeout(r,0)); }
+    try{ const adj={b:p.ed.adj.b||0,c:p.ed.adj.c||0}, sh=p.ed.shapes||[];
+      if(!sh.length&&!adj.b&&!adj.c){ const im=await loadImg(p.src); Object.assign(p,{data:p.src,w:im.naturalWidth,h:im.naturalHeight}); delete p.src; delete p.ed; }      // 撮ったままに戻す
+      else{ const im=await loadImg(p.src), cv=bakeWith(im,adj,sh); Object.assign(p,toJpeg(cv,cv.width,cv.height,Math.max(cv.width,cv.height))); p.ed={adj,shapes:sh}; }      // 書き込みは残して描き直す
+    }catch(_){} }
+  b4.forEach((snap,st)=>histPush(st,snap));      // 外す前の状態を「前の状態に戻す」に残す
+  persist(); try{ renderSteps(); }catch(_){} schedulePreview(); setTimeout(imgGC,3000);
+  if(!$("#fm").hidden&&F.stepId) try{ fmLoadStep(F.stepId); }catch(_){}
+  alert(`↩ ${L.length}枚の写真の自動補正を外しました。`); try{ fmStartInfo(); fmSetFill&&!$("#fmSet").hidden&&fmSetFill(); }catch(_){}
+}
+$("#fmUnfix").onclick=unfixAll; $("#fsetUnfix").onclick=unfixAll; $("#fsLineMove").onclick=fmMove; $("#fmPaste").onclick=fmPaste; $("#fsPasteGo").onclick=fmPaste;
 $("#fsMoveCopy").onclick=moveCopy; $("#fsMoveFile").onclick=moveFile; $("#fsMoveX").onclick=()=>$("#fsMoveBox").hidden=true;
 $("#fsLineGo").onclick=()=>{ location.href=safariUrl(); };
 $("#fsPasteX").onclick=()=>{ $("#fsPaste").hidden=true; try{ localStorage.removeItem("movePending"); }catch(_){} };
@@ -3988,7 +4063,7 @@ function stepSnap(st){ const cl=o=>o==null?o:JSON.parse(JSON.stringify(o));
 const snapSig=v=>JSON.stringify([v.title,v.body,v.check,v.tools])+"|"+(v.photos?v.photos.map(p=>p.id+":"+(p.data||"").length+":"+(p.data||"").slice(-48)+":"+(p.ed?JSON.stringify(p.ed).length:0)).join(","):"-");
 async function histLoad(){
   if(HIST&&histDoc===docId) return HIST; histDoc=docId; HIST={};
-  try{ const raw=DB.db&&await DB.get("hist:"+docId); if(raw){ const o=JSON.parse(raw);
+  try{ const raw=DB.db&&await DB.get("hist:"+docId); if(raw){ const o=await unpackJSON(raw);
     Object.entries(o).forEach(([sid,L])=>{ const st=S.steps.find(x=>x.id===sid); if(!st) return;
       L.forEach(v=>{ if(v.photos){ const ps=v.photos.map(p=>p.same?st.photos.find(q=>q.id===p.id)&&Object.assign({},st.photos.find(q=>q.id===p.id)):p); v.photos=ps.every(Boolean)?ps:null; } });
       HIST[sid]=L; }); } }catch(e){}
@@ -4002,7 +4077,7 @@ function histSave(){ clearTimeout(histT); histT=setTimeout(async()=>{
   ent.forEach(e=>{ tot+=e.v.photos.reduce((n,p)=>n+(same(e.sid,p)?0:(p.data||"").length+(p.src||"").length),0); if(tot>10e6) e.v.photos=null; });      // 写真は全体で10MBまで（古い方から外す）
   const out={}; Object.entries(HIST).forEach(([sid,L])=>{ if(!S.steps.some(x=>x.id===sid)||!L.length) return;
     out[sid]=L.map(v=>Object.assign({},v,{photos:v.photos?v.photos.map(p=>same(sid,p)?{id:p.id,same:1}:p):null})); });      // 今と同じ写真は使い回す（保存しない）
-  try{ await DB.set("hist:"+docId,JSON.stringify(out)); }catch(e){}
+  try{ await DB.set("hist:"+docId,await packJSON(out)); }catch(e){}
 },600); }
 async function histPush(st,snap){
   if(!st||!snap) return; const sig=snapSig(snap); if(sig===snapSig(stepSnap(st))) return;      // 何も変わっていない
@@ -4611,7 +4686,7 @@ async function importText(t){
 async function allDocsJson(){
   try{ fmKeepEditing(); }catch(_){}
   const cur=JSON.parse(JSON.stringify(S,(k,v)=>k==="_fit"||k==="_tgt"?undefined:v)), docs=[cur];
-  for(const x of await getIndex()){ if(x.id===docId) continue; try{ const r=await DB.get("doc:"+x.id); if(r){ const d=JSON.parse(r); if(d&&d.meta&&d.steps) docs.push(d); } }catch(_){} }
+  for(const x of await getIndex()){ if(x.id===docId) continue; try{ const d=await readDoc(x.id); if(d&&d.meta&&d.steps) docs.push(d); }catch(_){} }
   return {txt:JSON.stringify({app:"sagyo-tejunsho",ver:2,docs}),n:docs.length};
 }
 $("#bNew").onclick=()=>newDoc();
@@ -4649,7 +4724,7 @@ window.addEventListener("resize",schedulePreview);
       if(old){ docId=uid(); load(JSON.parse(old)); await saveNow(); $("#saveState").textContent="前回の続きから"; return; } }
     const cur=await DB.get("curDoc"); idx=await getIndex();
     const id=idx.some(x=>x.id===cur)?cur:(idx.sort((a,b)=>b.updated-a.updated)[0]||{}).id;
-    if(id){ const raw=await DB.get("doc:"+id); if(raw){ docId=id; load(JSON.parse(raw)); showDocName(); $("#saveState").textContent="前回の続きから"; return; } }
+    if(id){ const d=await readDoc(id); if(d){ docId=id; load(d); showDocName(); setTimeout(imgGC,8000); $("#saveState").textContent="前回の続きから"; return; } }
   }catch(e){ console.error(e); }
   docId=uid(); load(blankState()); showDocName();
 })();
