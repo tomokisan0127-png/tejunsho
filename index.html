@@ -407,6 +407,19 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .barBtn.on{background:#fff4d6;border-color:#ffb020;color:#8a5200;font-weight:bold}
 
 #docs{z-index:150}
+#mix{z-index:160}
+#mix .box{max-height:92vh;display:flex;flex-direction:column}
+.mixBar{display:flex;gap:6px;align-items:center;margin:8px 0 4px}
+#mixList{overflow:auto;flex:1;min-height:120px;border:1px solid var(--line);border-radius:10px}
+#mixList label{display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);margin:0;cursor:pointer;font-size:14px}
+#mixList label:last-child{border-bottom:none}
+#mixList input{width:22px;height:22px;flex:none}
+#mixList .th{width:56px;height:42px;border-radius:6px;flex:none;background:#eef1f4 center/cover}
+#mixList .tx{flex:1;min-width:0}
+#mixList .tx small{display:block;color:#667;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mixPos{display:flex;gap:8px;align-items:center;margin-top:10px}.mixPos label{margin:0;white-space:nowrap}.mixPos select{flex:1}
+.mixOpt{display:flex!important;gap:8px;align-items:flex-start;margin-top:8px;font-size:13px}
+.mixOpt input{width:20px!important;height:20px;flex:none;margin:0}
 @media (max-width:600px){
   #docs .box{padding:12px}
   #docs table.dl,#docs table.dl tbody{display:block}
@@ -1004,6 +1017,7 @@ details.fold>summary::before{color:var(--accent)}
         <label class="on"><input type="radio" name="aiMode" value="text" checked><b>📝 文章だけチェック</b><small>誤字・表現・枠に収まるか</small></label>
         <label><input type="radio" name="aiMode" value="photo"><b>📷 写真もいっしょにチェック</b><small>写真と文章が合っているかも見る（画像を一緒に送ります）</small></label>
         <label><input type="radio" name="aiMode" value="balloon"><b>📍 写真に風船を付けてもらう</b><small>AIが部品の場所を答え、アプリが写真に風船を描きます</small></label>
+        <label><input type="radio" name="aiMode" value="gen"><b>✍ 写真から説明文を作ってもらう</b><small>写真だけの工程に、タイトル・作業内容・確認ポイントの下書きを書いてもらいます</small></label>
       </div>
       <div class="aistep"><span class="badge">1</span><div>
         <div class="opts">
@@ -1350,6 +1364,15 @@ details.fold>summary::before{color:var(--accent)}
   <input id="dq" placeholder="作業名・機種名で絞り込み" style="margin-top:8px">
   <table class="dl"><thead><tr><th>手順書</th><th>工程</th><th>更新</th><th></th></tr></thead><tbody id="dBody"></tbody></table>
 </div></div>
+<div id="mix" class="modal"><div class="box" style="max-width:720px">
+  <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:8px">🔀 工程を取り込む <span style="flex:1"></span><button class="sm" id="mixClose">閉じる</button></h2>
+  <p class="hint" style="margin:0" id="mixFrom"></p>
+  <div class="mixBar"><button class="sm" id="mixAll">全部選ぶ</button><button class="sm" id="mixNone">全部外す</button><span style="flex:1"></span><b id="mixN"></b></div>
+  <div id="mixList"></div>
+  <div class="mixPos"><label>入れる場所</label><select id="mixPos"></select></div>
+  <label class="mixOpt"><input type="checkbox" id="mixParts" checked> 使っている部品・補材も、今の部品表に追加する（同じ品番は1つにまとめます）</label>
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px"><button id="mixCancel">やめる</button><button class="primary" id="mixGo">取り込む</button></div>
+</div></div>
 <div id="rmap" class="modal"><div class="box rm" style="max-width:720px">
   <h2 style="margin:0 0 4px;font-size:16px">部品表の差し替え結果</h2>
   <div id="rmBody"></div>
@@ -1588,7 +1611,7 @@ async function renderDocs(){
       <span style="width:48px;height:36px;border-radius:5px;flex:none;background:#eef1f4 ${x.photo?`url(${x.photo}) center/cover`:""}"></span>
       <span><b>${esc(x.name||"（無題）")}</b><small>${esc(x.model||"")}${x.id===docId?"　← 今開いている手順書":""}</small></span></td>
     <td>${x.steps}</td><td style="white-space:nowrap">${(d=>`${d.getMonth()+1}/${d.getDate()} ${hm(d)}`)(new Date(x.updated))}</td>
-    <td class="ops"><button class="sm" data-open="${x.id}">開く</button> <button class="sm" data-base="${x.id}" title="写真・文章をコピーして新しい手順書を作る（別機種への展開など）">これをもとに作る</button> <button class="sm danger" data-del="${x.id}">削除</button></td></tr>`).join("")
+    <td class="ops"><button class="sm" data-open="${x.id}">開く</button> ${x.id!==docId?`<button class="sm primary" data-mix="${x.id}" title="この手順書の工程を、今開いている手順書に取り込む">🔀 工程を取り込む</button> `:""}<button class="sm" data-base="${x.id}" title="写真・文章をコピーして新しい手順書を作る（別機種への展開など）">これをもとに作る</button> <button class="sm danger" data-del="${x.id}">削除</button></td></tr>`).join("")
     ||`<tr><td colspan="4" class="hint" style="text-align:center;padding:16px">まだ保存された手順書がありません</td></tr>`;
   $$("[data-open]",$("#dBody")).forEach(b=>b.onclick=async()=>{ await openDoc(b.dataset.open); $("#docs").classList.remove("show"); });
   $$("[data-del]",$("#dBody")).forEach(b=>b.onclick=async()=>{
@@ -1596,6 +1619,7 @@ async function renderDocs(){
     const rest=(await getIndex()).filter(y=>y.id!==x.id); await DB.set("docIndex",JSON.stringify(rest)); await DB.set("doc:"+x.id,""); try{ await DB.set("hist:"+x.id,""); }catch(_){}
     if(x.id===docId){ if(rest.length) await openDoc(rest.sort((a,b)=>b.updated-a.updated)[0].id); else await newDoc(); }
     renderDocs(); });
+  $$("[data-mix]",$("#dBody")).forEach(b=>b.onclick=()=>mixOpen(b.dataset.mix));
   $$("[data-base]",$("#dBody")).forEach(b=>b.onclick=async()=>{
     const d=await readDoc(b.dataset.base); if(!d) return;
     d.steps.forEach(st=>st.id=uid()); d.meta.revs=[]; d.meta.seitei=today(); d.meta.jisshi=today(); d.meta.adate=today();
@@ -1605,6 +1629,57 @@ async function renderDocs(){
       showTab("parts"); MP.remap=true; $("#fParts").click(); }
   });
 }
+/* ---- 別の手順書から工程を取り込む（ミックス） ---- */
+const MIX={d:null,id:null};
+async function mixOpen(id){
+  await saveNow(); const d=await readDoc(id); if(!d) return alert("この手順書のデータが見つかりません");
+  MIX.d=d; MIX.id=id;
+  const L=(d.steps||[]).map((s,i)=>({s,i})).filter(x=>!stEmpty(x.s));
+  if(!L.length) return alert("この手順書には工程がありません");
+  $("#mixFrom").innerHTML=`取り込み元：<b>${esc(d.meta.name||"（無題）")}</b> ${esc(d.meta.model||"")}　→　今の手順書：<b>${esc(S.meta.name||"（無題）")}</b>`;
+  $("#mixList").innerHTML=L.map(({s,i})=>{ const ph=s.photos&&s.photos[0]; const t=s.title||String(s.body||"").split("\n")[0]||"（説明まだ）";
+    return `<label><input type="checkbox" data-mx="${i}" checked><span class="th" style="${ph?`background-image:url(${ph.data})`:""}"></span><span class="tx"><b>工程${stepNo(i+1)}　${esc(t)}</b><small>${s.photos&&s.photos.length?`📷${s.photos.length}　`:""}${esc(String(s.body||"").replace(/\n/g," "))}</small></span></label>`; }).join("");
+  const last=S.steps.reduce((m,x,i)=>stEmpty(x)?m:i,-1);
+  $("#mixPos").innerHTML=`<option value="end">いちばん最後（工程${stepNo(last+2)}から）</option><option value="-1">いちばん最初</option>`+
+    S.steps.slice(0,last).map((s,i)=>`<option value="${i}">工程${stepNo(i+1)}「${esc((s.title||String(s.body||"").split("\n")[0]||"").slice(0,16))}」の後</option>`).join("");
+  const cnt=()=>{ $("#mixN").textContent=`${$$("[data-mx]:checked",$("#mixList")).length}工程を選択中`; };
+  $$("[data-mx]",$("#mixList")).forEach(c=>c.onchange=cnt); cnt();
+  $("#mixAll").onclick=()=>{ $$("[data-mx]",$("#mixList")).forEach(c=>c.checked=true); cnt(); };
+  $("#mixNone").onclick=()=>{ $$("[data-mx]",$("#mixList")).forEach(c=>c.checked=false); cnt(); };
+  $("#mix").classList.add("show");
+}
+function mixClose(){ $("#mix").classList.remove("show"); MIX.d=null; }
+$("#mixClose").onclick=mixClose; $("#mixCancel").onclick=mixClose;
+$("#mix").addEventListener("mousedown",e=>{ if(e.target.id==="mix") mixClose(); });
+/* 部品表をまとめる：同じ品番（無ければ 風船＋品名）は1つに。追加した数・風船番号が重なった数を返す */
+function mixParts(src){
+  const P=S.meta.parts||(S.meta.parts=[]), H=S.meta.hozai||(S.meta.hozai=[]); let add=0, clash=[];
+  const key=p=>p.pn?"P"+normPn(p.pn):"B"+(p.b||"")+"|"+String(p.name||"").toUpperCase().replace(/\s+/g,"");
+  const have=new Set(P.map(key));
+  (src.meta.parts||[]).forEach(p=>{ const k=key(p); if(have.has(k)) return;
+    if(p.b&&P.some(q=>q.b===p.b)) clash.push(p.b);
+    P.push(JSON.parse(JSON.stringify(p))); have.add(k); add++; });
+  const hn=new Set(H.map(h=>String(h.name||"").toUpperCase().replace(/\s+/g,"")));
+  (src.meta.hozai||[]).forEach(h=>{ const k=String(h.name||"").toUpperCase().replace(/\s+/g,""); if(!k||hn.has(k)) return; H.push(JSON.parse(JSON.stringify(h))); hn.add(k); add++; });
+  return {add,clash:[...new Set(clash)]};
+}
+$("#mixGo").onclick=async()=>{
+  const d=MIX.d; if(!d) return;
+  const sel=$$("[data-mx]:checked",$("#mixList")).map(c=>+c.dataset.mx); if(!sel.length) return alert("取り込む工程にチェックを入れてください");
+  const pos=$("#mixPos").value, last=S.steps.reduce((m,x,i)=>stEmpty(x)?m:i,-1);
+  const at=pos==="end"?last+1:(+pos)+1;
+  const ns=sel.map(i=>{ const st=JSON.parse(JSON.stringify(d.steps[i])); st.id=uid(); delete st._fit; return st; });
+  // 最後に入れるときは、後ろの空き工程を使う（空き枠が余らないように）
+  let rm=0; if(pos==="end") while(rm<ns.length&&S.steps[at+rm]&&stEmpty(S.steps[at+rm])) rm++;
+  S.steps.splice(at,rm,...ns);
+  const r=$("#mixParts").checked?mixParts(d):{add:0,clash:[]};
+  mixClose(); $("#docs").classList.remove("show");
+  renderSteps(); try{ renderParts(); refreshPickers(); }catch(_){} persist(); schedulePreview();
+  if(!$("#fm").hidden){ try{ fmList(); }catch(_){} }
+  let m=`🔀 ${ns.length}工程を取り込みました（工程${stepNo(at+1)}〜${stepNo(at+ns.length)}）${r.add?`。部品・補材を${r.add}件追加`:""}`;
+  uiToast(m);
+  if(r.clash.length) alert(`取り込みました。\n\n⚠ 次の風船番号は、今の部品表にも別の部品で使われています：\n${r.clash.join("、")}\n\n機種が違う手順書から取り込んだときは、部品表で風船番号を確認してください。`);
+};
 $("#bDocs").onclick=async()=>{ await saveNow(); $("#dq").value=""; await renderDocs(); $("#docs").classList.add("show"); };
 $("#dq").oninput=renderDocs;
 $("#dClose").onclick=()=>$("#docs").classList.remove("show");
@@ -3348,6 +3423,13 @@ async function copyText(t){
     let ok=false; try{ ok=document.execCommand("copy"); }catch(_){} ta.remove(); return ok; }
 }
 $("#bAiCopy").onclick=async()=>{
+  if(aiMode()==="gen"){
+    let L=genTargets(false);
+    if(!L.length){ L=genTargets(true);
+      if(!L.length) return alert("写真のある工程がありません。先に作業の写真を撮ってください。");
+      if(!confirm(`説明がまだの工程はありません。\n写真のある${L.length}工程すべての説明文を、AIに書き直してもらいますか？\n（反映する前に、工程ごとに変更を確認できます）`)) return; }
+    const ok=await copyText(aiGenPrompt(L)); $("#aiCopied").textContent=ok?`✓ 依頼文をコピーしました（対象：${L.length}工程）。続けて写真の画像を用意します…`:"依頼文をコピーできませんでした";
+    return aiMakeImages(true,L); }
   if(aiMode()==="balloon"){
     if(!balTargets().length) return alert("写真があって、文章に風船番号の部品（【052】など）が入っている工程がありません。");
     const ok=await copyText(aiBalloonPrompt()); $("#aiCopied").textContent=ok?"✓ 依頼文をコピーしました。続けて写真の画像を用意します…":"依頼文をコピーできませんでした";
@@ -3367,17 +3449,20 @@ function aiModeUI(){ const md=aiMode(), ph=md!=="text"; const o=$("#aiCard .opts
   $$(".aiMode label").forEach(l=>l.classList.toggle("on",l.querySelector("input").checked));
   $("#aiStep2").innerHTML=ph?"AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。":"AIの画面に貼り付けて（Ctrl+V）送信します。";
   $("#bAiCopy").textContent=ph?"AIへの依頼文をコピー＋写真の画像を作る":"AIへの依頼文をコピー";
+  if(o&&md==="gen") o.style.display="none";
+  if(md==="gen") $("#aiStep2").innerHTML="AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIが写真を見て、説明文の下書きを書きます。";
   if(md==="balloon") $("#aiStep2").innerHTML="AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIは部品の場所だけを答えます（写真はアプリが描きます）。";
   $("#aiImgBox").hidden=true; $("#aiCopied").textContent=""; }
 $$('input[name="aiMode"]').forEach(r=>r.onchange=aiModeUI);
 $("#bHzNorm").onclick=()=>{ const n=normHzAll(); const m=n?`🔤 ${n}工程の補材・ボルトの表記をそろえました（各工程の「前の状態に戻す」で戻せます）`:"そろえる所はありませんでした"; if(!$("#fm").hidden) fmToast(m); else uiToast(m); };
 let aiFiles=[];
 /* 写真のある工程を、見出し「工程①　タイトル」付きで1枚の画像に並べる（1枚に6工程まで） */
-async function aiMakeImages(bal){
-  const L=bal?balTargets():S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length);
+async function aiMakeImages(bal,list){
+  const L=list||(bal?balTargets():S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length));
   const box=$("#aiImgBox"); box.hidden=false;
   if(!L.length){ aiFiles=[]; box.innerHTML=`<p class="aiImgNote">写真のある工程がありません。文章だけでチェックされます。</p>`; return; }
   box.innerHTML=`<p class="aiImgNote">画像を作っています…</p>`;
+  if(list) bal=true;
   const W=1500, PER=bal?4:6, HEAD=64, PH=bal?760:440, GAP=24, name=(S.meta.name||"手順書").replace(/[\\/:*?"<>|\s]+/g,"_");
   aiFiles=[];
   for(let k=0;k<L.length;k+=PER){
@@ -3411,6 +3496,51 @@ async function aiMakeImages(bal){
   const sh=$("#aiShare"); if(sh) sh.onclick=async()=>{ try{ await navigator.share({files:aiFiles,title:"手順書の写真"}); }catch(e){ if(e.name!=="AbortError") alert("送れませんでした。「画像を保存する」から保存して添付してください。"); } };
   $("#aiSave").onclick=()=>aiFiles.forEach((f,j)=>setTimeout(()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); },j*400));
   $("#aiView").onclick=()=>{ const u=URL.createObjectURL(aiFiles[0]); window.open(u,"_blank"); };
+}
+/* ---- 写真から説明文を作ってもらう ---- */
+function genTargets(all){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&(all||!(String(x.s.title||"").trim()||String(x.s.body||"").trim()))); }
+function aiGenPrompt(L){
+  const HZD=hzMaster(), P=(S.meta.parts||[]), H=(S.meta.hozai||[]);
+  const parts=P.filter(p=>!isFastener(p.name)).slice(0,150).map(p=>({書き方:partText(p),品名:p.jp||p.name||"",風船:p.b||""}));
+  const hz=[...new Set([...H.map(h=>h.name),...P.filter(p=>isFastener(p.name)).map(p=>p.name)].filter(Boolean))].slice(0,60);
+  const tools=String(S.meta.tools||"").trim();
+  const steps=L.map(({s,i})=>{ const o={no:i+1,photos:s.photos.length}; ["title","body","check","tools"].forEach(k=>{ if(String(s[k]||"").trim()) o[k]=normHz(s[k],HZD); }); return o; });
+  const prev=(n)=>{ const a=S.steps[n-2], b=S.steps[n]; return {前:a&&(a.title||String(a.body||"").split("\n")[0])||"", 次:b&&(b.title||String(b.body||"").split("\n")[0])||""}; };
+  const ctx=L.map(({i})=>({no:i+1,...prev(i+1)})).filter(x=>x.前||x.次);
+  return `あなたは製造現場（機械組立）の作業手順書を書く担当です。
+添付した画像には、作業の写真が並んでいます。写真の左上に「③-1」のような［工程番号-写真番号］のラベルがあります。
+写真を見て、下の【書いてほしい工程】それぞれの「タイトル」「作業内容」「確認ポイント」の下書きを書いてください。
+作業名：${S.meta.name||"（未入力）"}　機種：${S.meta.model||"（未入力）"}
+
+【ルール】
+1. title は「〇〇の取り付け」のような体言止めで、15文字くらいまで。
+2. body は、写真に写っている作業を1〜3行で書いてください。1行に1つの動作、文体は「〜する。」「〜で固定する。」の言い切りにそろえてください。
+3. 部品は、できるだけ【部品表】の「書き方」をそのまま一字も変えずに使ってください（例：${parts[0]?parts[0].書き方:"風船052（COVER）"}）。どの部品か分からないときは、見た目の一般的な名前（例：カバー、ブラケット）で書き、comments にそのことを書いてください。
+4. ボルト・補材は【補材】の書き方にそろえてください（例：HC M6X12）。サイズ・本数・トルクなどの数字が写真から読み取れないときは、推測で書かずに「（要確認）」と書いてください（例：HC（要確認）4本で固定する。）。
+5. check は、その作業で品質・安全の面で確認すべきことを1行1項目、1〜2項目、語尾を「〜か」にそろえてください。
+6. 写真から分からないことは書かないでください。不鮮明・判断できない写真は comments に書いてください。
+7. すでに書いてある title／body／check／tools がある工程は、それを生かして足りないところだけを補ってください。
+8. 工程の数と順番、工程番号（no）は変えないでください。tools は写真で使っている工具が分かれば書き、分からなければ空のままにしてください${tools?`（この手順書でよく使う工具：${tools}）`:""}。
+9. 画像が添付されていない場合は何も作らず、comments に「画像が見つかりませんでした」とだけ書いてください。
+
+【返し方】
+次の形式の JSON だけを \`\`\`json のコードブロック1つで返してください（説明文は不要です）。
+body と check の改行は \\n で表してください。
+{"steps":[{"no":1,"title":"…","body":"…","check":"…","tools":"…"}],"comments":[{"no":1,"text":"自信がない所・確認してほしい所"}]}
+
+【書いてほしい工程】
+\`\`\`json
+${JSON.stringify(steps,null,1)}
+\`\`\`
+${ctx.length?`【前後の工程（参考）】
+\`\`\`json
+${JSON.stringify(ctx,null,1)}
+\`\`\`
+`:""}【部品表】
+\`\`\`json
+${JSON.stringify(parts,null,1)}
+\`\`\`
+${hz.length?`【補材】${hz.join("、")}`:""}`;
 }
 /* ---- 写真に風船を付けてもらう：AIは場所（%）だけ答える → アプリが元の写真に描く ---- */
 function balParts(st){ return partsInStep(st).filter(p=>p.b); }
@@ -3548,13 +3678,14 @@ function renderAiReview(){
   $("#aiNone").onclick=()=>$$("[data-ai]",box).forEach(c=>c.checked=false);
   $("#aiApply").onclick=()=>{
     const sel=$$("[data-ai]",box).filter(c=>c.checked).map(c=>+c.dataset.ai); if(!sel.length) return alert("反映する工程にチェックを入れてください");
-    aiUndo=sel.map(i=>{ const st=S.steps[i]; return {id:st.id,title:st.title,body:st.body,check:st.check}; });
+    aiUndo=sel.map(i=>{ const st=S.steps[i]; return {id:st.id,title:st.title,body:st.body,check:st.check,tools:st.tools}; });
     sel.forEach(i=>{ const st=S.steps[i], r=AI.steps.find(x=>+x.no===i+1); if(!r) return; const b4=stepSnap(st); queueMicrotask(()=>histPush(st,b4));
-      if(r.title!=null) st.title=String(r.title); if(r.body!=null) st.body=String(r.body); if(r.check!=null) st.check=String(r.check); });
+      if(r.title!=null) st.title=String(r.title); if(r.body!=null) st.body=String(r.body); if(r.check!=null) st.check=String(r.check);
+      if(r.tools&&!String(st.tools||"").trim()) st.tools=String(r.tools); });
     renderSteps(); persist(); renderAiReview();
     alert(`${sel.length}工程に反映しました。プレビューで確認してください。`);
   };
-  const u=$("#aiUndo"); if(u) u.onclick=()=>{ aiUndo.forEach(o=>{ const st=S.steps.find(s=>s.id===o.id); if(st) Object.assign(st,{title:o.title,body:o.body,check:o.check}); }); aiUndo=null; renderSteps(); persist(); renderAiReview(); };
+  const u=$("#aiUndo"); if(u) u.onclick=()=>{ aiUndo.forEach(o=>{ const st=S.steps.find(s=>s.id===o.id); if(st) Object.assign(st,{title:o.title,body:o.body,check:o.check,tools:o.tools||""}); }); aiUndo=null; renderSteps(); persist(); renderAiReview(); };
 }
 
 /* ================= 現場モード（スマホ）：準備 → 1工程ずつ「部品 → これをどうする？」 ================= */
