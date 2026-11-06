@@ -286,6 +286,10 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .hT .hBadge.tx{background:#f1f3f6;color:#667}
 #fm .hB{margin-top:4px;font-weight:bold;font-size:14.5px} #fm .hB small{display:block;font-weight:normal;color:#667;font-size:12.5px;margin-top:2px}
 #fm .hP{display:flex;gap:6px;margin-top:6px} #fm .hP i{width:64px;height:48px;border-radius:8px;background:#e9edf2 center/cover no-repeat}
+#fm .lineWarn{background:#fff4e0;border:2px solid #f0a020;border-radius:14px;padding:12px;margin:0 0 12px}
+#fm .lineWarn.ok{background:#eef6ff;border-color:#8bb4e8}
+#fm .lineWarn p{margin:6px 0 10px;font-size:13.5px}
+#fm .lineWarn .pill{margin:6px 0 0} #fm .lineWarn .lwHint{font-size:11.5px;color:var(--sub);margin:4px 0 6px} #fm .lineWarn .lwN{font-size:12px;color:var(--sub);margin-left:6px}
 #fm .storeInfo{font-size:12px;color:var(--sub);text-align:center;margin:10px 0 0}
 #fm .ckEdH,#fm .ckLibH{font-size:12.5px;color:var(--sub);margin:12px 2px 6px;font-weight:bold}
 #fm .ckEd{display:flex;align-items:center;gap:6px;margin:6px 0}
@@ -1122,6 +1126,25 @@ details.fold>summary::before{color:var(--accent)}
   <section id="fmStart" class="scr">
     <div class="bar"><b class="ttl">📱 現場モード</b><span class="sp"></span><button class="barBtn" id="fmGuideB" title="次に押す所を案内します">🧭 ガイド</button><button class="barBtn" id="fmExit">PC画面へ</button></div>
     <div class="wrap">
+      <div class="lineWarn" id="fsLine" hidden>
+        <b>⚠ LINEの中で開いています</b>
+        <p>ここで作ったデータは<b>LINEの中だけ</b>に保存され、Safariやホーム画面のアプリからは見えません。</p>
+        <button class="pill primary wide" id="fsLineGo">🧭 Safariで開く</button>
+        <p class="lwHint">開かないときは、画面右下の「︙」または共有ボタン →「Safariで開く」</p>
+        <button class="pill wide" id="fsLineMove">📦 ここにあるデータをSafariに移す</button>
+      </div>
+      <div class="lineWarn" id="fsMoveBox" hidden>
+        <b>📦 データを移す</b><span class="lwN" id="fsMoveN"></span>
+        <p>① どちらかを押す → ② 移したい先（Safariなど）で開いて、ホームの「📋 コピーしたデータを取り込む」（ファイルなら「📂 データを取り込む」）</p>
+        <button class="pill primary wide" id="fsMoveCopy">📋 コピーして移す（おすすめ）</button>
+        <button class="pill wide" id="fsMoveFile">💾 ファイルにして保存・共有する</button>
+        <button class="txtBtn" id="fsMoveX">閉じる</button>
+      </div>
+      <div class="lineWarn ok" id="fsPaste" hidden>
+        <b>📋 LINEからコピーしたデータがあれば取り込めます</b>
+        <button class="pill primary wide" id="fsPasteGo">📋 コピーしたデータを取り込む</button>
+        <button class="txtBtn" id="fsPasteX">閉じる</button>
+      </div>
       <div class="docCard">
         <div id="fsView">
           <div class="dn" id="fsTitle"></div>
@@ -1153,6 +1176,8 @@ details.fold>summary::before{color:var(--accent)}
         <button id="fsInstall" hidden><i>📲</i><span>アプリとしてホーム画面に追加<small>アイコンから開けて、電波がない所でも使えます</small></span></button>
         <button id="fsLoad"><i>📄</i><span>PLMの部品リストを読み込む<small>.xls / .xlsx / .csv</small></span></button>
         <button id="fmSave"><i>💾</i><span>データを保存する<small>PCへ渡す・バックアップ（.json）</small></span></button>
+        <button id="fmMove"><i>📦</i><span>データを別のスマホ・ブラウザに移す<small>全部の手順書をまとめて、コピーまたはファイルで渡す</small></span></button>
+        <button id="fmPaste"><i>📋</i><span>コピーしたデータを取り込む<small>「データを移す」でコピーしたものを貼り付け</small></span></button>
         <button id="fmLoadJ"><i>📂</i><span>データを取り込む<small>PCやほかのスマホで作った .json を開く</small></span></button>
         <button id="fmDocs2"><i>📚</i><span>手順書を切り替える<small>このスマホに保存されている手順書</small></span></button>
         <button id="fsNewDoc"><i>＋</i><span>新しい手順書を作る</span></button>
@@ -3798,7 +3823,7 @@ function fmStoreInfo(){ const el=$("#fsStore"); if(!el||!navigator.storage||!nav
   navigator.storage.estimate().then(e=>{ const mb=v=>v>=1e9?(v/1e9).toFixed(1)+"GB":Math.max(1,Math.round(v/1e6))+"MB"; el.textContent=`このスマホで使っている容量：約${mb(e.usage||0)}${e.quota?`（使える量の目安 ${mb(e.quota)}）`:""}`; }).catch(()=>{}); }
 try{ if(navigator.storage&&navigator.storage.persist&&/^https?:$/.test(location.protocol)) navigator.storage.persist().catch(()=>{}); }catch(_){}      // データを消さないようお願い
 function fmStartInfo(){
-  fmStoreInfo();
+  fmStoreInfo(); try{ fmLineInfo(); }catch(_){}
   $("#fsName").value=S.meta.name||""; $("#fsModel").value=S.meta.model||""; $("#fsSpec").value=S.meta.spec||"";
   const nm=S.meta.name||"", sub=[S.meta.model,S.meta.spec].filter(Boolean).join("・");
   $("#fsTitle").textContent=nm||"（作業名がまだありません）"; $("#fsSub").textContent=sub?`機種 ${sub}`:"";
@@ -3824,6 +3849,32 @@ $("#bField").onclick=fmOpen;
 $("#fmExit").onclick=()=>{ fmKeepEditing(); $("#fm").hidden=true; bindMeta(); renderParts(); renderSteps(); showDocName(); };
 /* ---- 現場モードのデータ保存・取り込み・一覧 ---- */
 $("#fmSave").onclick=()=>{ fmKeepEditing(); $("#bSave").click(); };
+/* ---- 引っ越し（LINEの中 → Safari など） ---- */
+const safariUrl=()=>location.origin+location.pathname+"?openExternalBrowser=1";
+let MOVE=null;      // まとめたデータ（ボタンを押したその場で使えるよう先に用意）
+async function movePrep(){ MOVE=await allDocsJson(); const el=$("#fsMoveN"); if(el) el.textContent=`（手順書 ${MOVE.n}件・約${Math.max(1,Math.round(MOVE.txt.length/1e6))}MB）`; return MOVE; }
+function moveOpen(){ $("#fsMoveBox").hidden=false; $("#fsMoveN").textContent="（まとめています…）"; movePrep(); $("#fsMoveBox").scrollIntoView({block:"center",behavior:"smooth"}); }
+function moveDone(n){ alert(`✓ ${n}件の手順書をコピーしました。\n\n次に「Safariで開く」を押して、Safariのホーム画面の「📋 コピーしたデータを取り込む」を押してください。`); if(inLine()) location.href=safariUrl(); }
+function moveCopy(){
+  const p=MOVE?Promise.resolve(MOVE):movePrep();
+  try{ if(window.ClipboardItem&&navigator.clipboard&&navigator.clipboard.write){      // iPhone：押したその場でコピーを予約（中身はあとから入る）
+    navigator.clipboard.write([new ClipboardItem({"text/plain":p.then(r=>new Blob([r.txt],{type:"text/plain"}))})]).then(()=>p.then(r=>moveDone(r.n))).catch(()=>p.then(async r=>{ try{ await navigator.clipboard.writeText(r.txt); moveDone(r.n); }catch(_){ alert("コピーできませんでした。「💾 ファイルにして保存・共有する」を使ってください。"); } }));
+    return; } }catch(_){}
+  p.then(async r=>{ try{ await navigator.clipboard.writeText(r.txt); moveDone(r.n); }catch(_){ alert("コピーできませんでした。「💾 ファイルにして保存・共有する」を使ってください。"); } });
+}
+function moveFile(){ if(!MOVE){ movePrep().then(()=>alert("準備できました。もう一度「💾 ファイルにして保存・共有する」を押してください。")); return; }
+  download(new Blob([MOVE.txt],{type:"application/json"}),`手順書データ_まとめ${MOVE.n}件.json`); }
+async function fmPaste(){
+  let t=""; try{ t=await navigator.clipboard.readText(); }catch(_){}
+  if(!t||t.trim()[0]!=="{"){ t=prompt("コピーしたデータが見つかりません。\nここに貼り付けて［OK］を押してください（長押し →「ペースト」）",""); if(!t) return; }
+  try{ await importText(t); $("#fsPaste").hidden=true; }catch(e){ alert("取り込めませんでした："+e.message+"\nもう一度、元の場所で「データを移す」からコピーし直してください。"); }
+}
+const fmMove=moveOpen;
+$("#fmMove").onclick=fmMove; $("#fsLineMove").onclick=fmMove; $("#fmPaste").onclick=fmPaste; $("#fsPasteGo").onclick=fmPaste;
+$("#fsMoveCopy").onclick=moveCopy; $("#fsMoveFile").onclick=moveFile; $("#fsMoveX").onclick=()=>$("#fsMoveBox").hidden=true;
+$("#fsLineGo").onclick=()=>{ location.href=safariUrl(); };
+$("#fsPasteX").onclick=()=>{ $("#fsPaste").hidden=true; try{ localStorage.removeItem("movePending"); }catch(_){} };
+function fmLineInfo(){ const L=inLine(); $("#fsLine").hidden=!L; if(L&&!MOVE) movePrep(); $("#fsPaste").hidden=L||!(new URLSearchParams(location.search).has("openExternalBrowser")); }
 $("#fmLoadJ").onclick=()=>{ fmKeepEditing(); $("#fOpen").click(); };
 $("#fmDocs2").onclick=()=>{ fmKeepEditing(); $("#bDocs").click(); };
 $("#fsLoad").onclick=()=>{ MP.remap=false; $("#fParts").click(); };
@@ -4527,7 +4578,12 @@ function addHozaiSheet(wb){
       const c=ws.getCell(r,j+1); c.value=v; c.font=F(10,j===4?{color:{argb:"FFC00000"}}:{}); c.border=bd; c.alignment={horizontal:j===1?"right":"left",vertical:"middle"}; });
   });
 }
-function download(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000); }
+const inLine=()=>/\bLine\//i.test(navigator.userAgent);
+function download(blob,name){
+  if(isIOS()||inLine()){ try{ const f=new File([blob],name,{type:blob.type||"application/octet-stream"}); if(navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share({files:[f]}).catch(e=>{ if(e&&e.name!=="AbortError") dlA(blob,name); }); return; } }catch(_){} }
+  dlA(blob,name);
+}
+function dlA(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000); }
 $("#bXlsx").onclick=exportXlsx;
 $("#bXlsx3").onclick=exportXlsx;
 $("#bPrint3").onclick=()=>$("#bPrint").click();
@@ -4541,9 +4597,23 @@ $("#bSave").onclick=()=>{
 $("#bOpen").onclick=()=>$("#fOpen").click();
 $("#fOpen").onchange=async e=>{
   const f=e.target.files[0]; if(!f) return; e.target.value="";
-  try{ const j=JSON.parse(await f.text()); const d=j.data||j; if(!d.meta||!d.steps) throw new Error("形式が違います");
-    await newDoc(d); alert(`「${d.meta.name||"（無題）"}」を新しい手順書として取り込みました。`); }catch(err){ alert("読み込めませんでした: "+err.message); }
+  try{ await importText(await f.text()); }catch(err){ alert("読み込めませんでした: "+err.message); }
 };
+/* .json の中身（1つの手順書／引っ越し用のまとめ）を取り込む */
+async function importText(t){
+  const j=JSON.parse(String(t||"").trim()); const list=Array.isArray(j.docs)?j.docs:[j.data||j];
+  const ok=list.filter(d=>d&&d.meta&&d.steps); if(!ok.length) throw new Error("形式が違います");
+  for(const d of ok) await newDoc(d);
+  alert(ok.length>1?`${ok.length}件の手順書を取り込みました。\n（「手順書を切り替える」から選べます）`:`「${ok[0].meta.name||"（無題）"}」を新しい手順書として取り込みました。`);
+  if(!$("#fm").hidden) try{ fmStartInfo(); }catch(_){}
+}
+/* このスマホ（このブラウザ）にある手順書を全部まとめる */
+async function allDocsJson(){
+  try{ fmKeepEditing(); }catch(_){}
+  const cur=JSON.parse(JSON.stringify(S,(k,v)=>k==="_fit"||k==="_tgt"?undefined:v)), docs=[cur];
+  for(const x of await getIndex()){ if(x.id===docId) continue; try{ const r=await DB.get("doc:"+x.id); if(r){ const d=JSON.parse(r); if(d&&d.meta&&d.steps) docs.push(d); } }catch(_){} }
+  return {txt:JSON.stringify({app:"sagyo-tejunsho",ver:2,docs}),n:docs.length};
+}
 $("#bNew").onclick=()=>newDoc();
 $("#bSample").onclick=()=>newDoc(sample());
 function load(d){
