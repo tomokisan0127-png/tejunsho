@@ -386,6 +386,9 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 /* お知らせ */
 #fm .toast{width:max-content;position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;background:#1f2a3a;color:#fff;border-radius:999px;padding:10px 18px;font-size:15px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:92vw;text-align:center}
 #fm .toast.ng{background:var(--warn)}
+#fm .undoT{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:61;display:flex;align-items:center;gap:12px;background:#1f2a3a;color:#fff;border-radius:999px;padding:8px 8px 8px 18px;font-size:15px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:92vw;white-space:nowrap}
+#fm .undoT[hidden]{display:none}
+#fm .undoT button{background:#fff;color:#1f2a3a;border:0;border-radius:999px;padding:8px 14px;font-size:15px;font-weight:bold}
 @media (max-width:380px){ #fm .bar .ttl{font-size:16px} #fm .hero{font-size:19px} }
 /* ガイド */
 #gdRing{position:fixed;z-index:125;pointer-events:none;border:3px solid #ffb020;border-radius:14px;box-shadow:0 0 0 100vmax rgba(15,22,35,.30);transition:left .25s,top .25s,width .25s,height .25s}
@@ -1224,6 +1227,7 @@ details.fold>summary::before{color:var(--accent)}
       <button id="fpGuideB">🧭 ガイドを表示する</button>
       <button id="fpHist">↩ 前の状態に戻す</button>
       <button id="fpDone">🏠 保存してホームへ</button>
+      <button id="fpDel" style="color:var(--warn)">🗑 この工程を削除</button>
     </div>
     <div class="wrap">
       <div class="where" id="fpSheet"></div>
@@ -1346,6 +1350,7 @@ details.fold>summary::before{color:var(--accent)}
   </section>
 
   <div class="toast" id="fmToast" hidden></div>
+  <div class="undoT" id="fmUndo" hidden><span id="fmUndoT"></span><button id="fmUndoB">↩ 元に戻す</button></div>
 </div>
 <!-- ガイド（次に押す所）：PC・現場モード共通 -->
 <div id="scan" hidden>
@@ -4558,6 +4563,31 @@ $("#fpInsBefore").onclick=()=>{ const i=fmTargetIndex(); fmInsertAt(i); };
 $("#fpInsAfter").onclick=()=>{ const st=fmHasContent()?fmSaveStep():null; const i=st?S.steps.indexOf(st):fmTargetIndex(); fmInsertAt(i+1); };
 $("#fpPrev").onclick=()=>{ const i=fmTargetIndex(); if(i<=0) return; if(fmHasContent()) fmSaveStep(); fmLoadStep(S.steps[i-1].id); };
 $("#fpDone").onclick=()=>{ fmKeepEditing(); fmShow("fmStart"); fmToast("✓ 保存しました"); };
+/* 工程の削除（5秒間は「元に戻す」で戻せる） */
+let fmDelUndo=null;
+function fmUndoHide(){ const u=$("#fmUndo"); clearTimeout(u._t); u.hidden=true; fmDelUndo=null; }
+$("#fpDel").onclick=()=>{
+  $("#fpMenu").hidden=true;
+  const i=F.stepId?S.steps.findIndex(x=>x.id===F.stepId):-1;
+  if(i<0){      // まだ保存していない新しい工程
+    if(fmHasContent()&&!confirm("この工程はまだ保存していません。入力した内容を消しますか？")) return;
+    fmLoadStep(null); fmShow("fmListS"); fmToast("入力した内容を消しました"); return;
+  }
+  if(!confirm(`工程${stepNo(i+1)}を削除しますか？\n後ろの工程の番号は1つずつ前にずれます。`)) return;
+  const [st]=S.steps.splice(i,1);
+  fmLoadStep(null); persist(); try{ renderSteps(); }catch(_){} schedulePreview();
+  fmShow("fmListS");
+  $("#fmToast").hidden=true; fmDelUndo={st,i};
+  const u=$("#fmUndo"); $("#fmUndoT").textContent=`工程${stepNo(i+1)}を削除しました`; u.hidden=false;
+  clearTimeout(u._t); u._t=setTimeout(fmUndoHide,5000);
+};
+$("#fmUndoB").onclick=()=>{
+  if(!fmDelUndo) return fmUndoHide();
+  const {st,i}=fmDelUndo; fmUndoHide();
+  S.steps.splice(Math.min(i,S.steps.length),0,st); persist(); try{ renderSteps(); }catch(_){} schedulePreview();
+  if(!$("#fmListS").hidden) fmList();
+  fmToast(`↩ 工程${stepNo(S.steps.indexOf(st)+1)}を元に戻しました`);
+};
 /* ================= 現場モードのガイド（次に押す所を光らせて案内） ================= */
 let gForce=false;     // 完成後の仕上げナレーション（ガイドを消していても出す）
 const G=(()=>{ let o={}; try{ o=JSON.parse(localStorage.getItem("fmGuide")||"{}"); }catch(_){} return Object.assign({on:true,seen:{}},o); })();
