@@ -330,6 +330,12 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .shots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 #fm .shot{aspect-ratio:4/3;border-radius:12px;background:#dde2e8 center/cover no-repeat;position:relative;border:none;padding:0;cursor:pointer}
 #fm .shot .mvo{position:absolute;top:5px;right:42px;width:32px;height:32px;border-radius:50%;padding:0;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:14px}
+#fm .shot .more{position:absolute;right:6px;bottom:6px;min-width:30px;height:26px;border-radius:13px;background:rgba(0,0,0,.5);color:#fff;font-size:16px;line-height:24px;text-align:center;font-weight:bold}
+#fm .faImg{height:min(34vh,260px);border-radius:12px;background:#222 center/contain no-repeat}
+#fm .faBtns{display:flex;flex-direction:column;gap:8px}
+#fm .faBtns button{height:52px;font-size:16px;border-radius:12px}
+#fm .faRow{display:flex;gap:8px}#fm .faRow button{flex:1}
+#fm .faBtns .faDel{color:#c0392b;background:#fff;border:1.5px solid #f0c9c4}
 #fm .shot .x{position:absolute;top:5px;right:5px;width:32px;height:32px;border-radius:50%;padding:0;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:15px}
 #fm .shot .af:empty{display:none}
 #fm .shot .af b{display:inline-block;min-width:16px;text-align:center;background:#1f5fae;color:#fff;border-radius:5px;margin-right:3px;font-size:12px}
@@ -1327,6 +1333,16 @@ details.fold>summary::before{color:var(--accent)}
   </div></div>
 
   <!-- ===== 前の状態に戻す（下から出るシート） ===== -->
+  <div class="sheet" id="fmPhAct" hidden><div class="sheetBox">
+    <div class="sheetHead"><b id="faTtl">写真</b><span class="sp"></span><button class="barBtn" id="faClose">閉じる</button></div>
+    <div class="faImg" id="faImg"></div>
+    <div class="faBtns">
+      <button class="primary" id="faEdit">✎ 書き込む・明るさを直す</button>
+      <div class="faRow" id="faMvRow"><button id="faPrev">◀ 前へ</button><button id="faNext">後ろへ ▶</button></div>
+      <button id="faMove">📤 別の工程へ移す</button>
+      <button id="faDel" class="faDel">🗑 この写真を外す</button>
+    </div>
+  </div></div>
   <div class="sheet" id="fmHist" hidden><div class="sheetBox">
     <div class="sheetHead"><b>前の状態に戻す</b><small>上書きされる前の状態</small><span class="sp"></span><button class="barBtn" id="fhClose">閉じる</button></div>
     <p class="hHint">文章は5回前まで、写真は直前の1回分だけ戻せます。</p>
@@ -4027,7 +4043,7 @@ function fmShow(id){
   if(from) fmScroll[from]=$("#fm").scrollTop;
   if(!FM_OVER.includes(id)) fmCur=id;
   FM_SCR.forEach(x=>$("#"+x).hidden=x!==id);
-  $("#fpMenu").hidden=true; $("#fmPick").hidden=true; $("#fmHist").hidden=true; $("#fmSet").hidden=true;
+  $("#fpMenu").hidden=true; $("#fmPick").hidden=true; $("#fmHist").hidden=true; $("#fmSet").hidden=true; $("#fmPhAct").hidden=true;
   if(id==="fmStart") fmStartInfo();
   if(id==="fmListS") fmList();
   const back=fmCur==="fmStep"?`✏️ ${$("#fpNo").textContent}の入力に戻る`:fmCur==="fmPrep"?"← 部品写真に戻る":fmCur==="fmListS"?"← 工程の一覧に戻る":"← ホームに戻る";
@@ -4438,22 +4454,13 @@ function fmRenderStep(){
   fmRefs();
   // 写真（タップで矢印・文字の書き込み）
   const many=F.photos.length>1;
-  const ph=F.photos.map((p,j)=>`<div class="shot" data-ej="${j}" style="background-image:url(${p.data})"><button class="x" data-j="${j}" title="外す">✕</button><button class="mvo" data-mvo="${j}" title="別の工程へ移す">📤</button><span class="af">${many?`<b>${j+1}</b>`:""}${p.ed&&p.ed.adj&&p.ed.adj.auto?"✨補正":""}</span>${many?`<div class="mv"><button data-mv="${j}" data-d="-1" ${j?"":"disabled"} title="前へ">◀</button><button data-mv="${j}" data-d="1" ${j<F.photos.length-1?"":"disabled"} title="後ろへ">▶</button></div>`:`<span class="ed">✎ 書き込む</span>`}</div>`);
+  const ph=F.photos.map((p,j)=>`<div class="shot" data-ej="${j}" style="background-image:url(${p.data})"><span class="af">${many?`<b>${j+1}</b>`:""}${p.ed&&p.ed.adj&&p.ed.adj.auto?"✨補正":""}</span><span class="more">⋯</span></div>`);
   if(F.photos.length<3) ph.push(`<button class="shot add main" id="fpShot"><i>📷</i>撮る</button>`);
   $("#fpThumbs").innerHTML=ph.join("");
-  $("#fpShotNote").innerHTML=(F.photos.length<3?`<button class="txtBtn" id="fpShotF">🖼 スマホの中の写真から選ぶ</button>`:"写真は3枚までです。")+(F.photos.length?`<div>写真をタップすると、矢印や文字を書き込めます。${many?"◀ ▶ で写真の順番を入れ替えられます。":""}📤 で別の工程へ移せます。</div>`:"");
+  $("#fpShotNote").innerHTML=(F.photos.length<3?`<button class="txtBtn" id="fpShotF">🖼 スマホの中の写真から選ぶ</button>`:"写真は3枚までです。")+(F.photos.length?`<div>写真をタップすると、書き込み・順番の入れ替え・別の工程へ移す・外す ができます。</div>`:"");
   $("#fpLay").innerHTML=many?phLayChips(F.photos.map(p=>({w:p.w||4,h:p.h||3})),F.phLay):"";
   $$("#fpLay [data-lay]").forEach(b=>b.onclick=()=>{ F.phLay=b.dataset.lay==="auto"?"":b.dataset.lay; fmRenderStep(); fmToast("写真の並べ方："+(F.phLay?PH_LAYS[F.phLay]:"おまかせ")+"（保存すると手順書に反映）"); });
-  $$("#fpThumbs [data-mvo]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=+b.dataset.mvo;
-    const st=fmHasContent()?fmSaveStep():null; if(!st) return;
-    phMoveOpen(st,j,dst=>{ if(!dst) return; fmLoadStep(st.id); fmRenderStep(); const k=S.steps.indexOf(dst);
-      const el=$("#fmToast"); el.innerHTML=`写真を工程${stepNo(k+1)}へ移しました<button class="undo" id="fmGoDst">工程${stepNo(k+1)}を開く</button>`; el.className="toast"; el.hidden=false;
-      clearTimeout(el._t); el._t=setTimeout(()=>el.hidden=true,6000);
-      $("#fmGoDst").onclick=()=>{ el.hidden=true; const s2=fmHasContent()?fmSaveStep():null; fmLoadStep(dst.id); fmShow("fmStep"); fmRenderStep(); }; }); });
-  $$("#fpThumbs [data-mv]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=+b.dataset.mv, k=j+(+b.dataset.d); if(k<0||k>=F.photos.length) return;
-    [F.photos[j],F.photos[k]]=[F.photos[k],F.photos[j]]; fmRenderStep(); fmToast(`写真${j+1}と写真${k+1}を入れ替えました`); });
-  $$("#fpThumbs [data-j]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(!confirm("この写真を外しますか？")) return; F.photos.splice(+b.dataset.j,1); fmRenderStep(); });
-  $$("#fpThumbs [data-ej]").forEach(d=>d.onclick=()=>openEditor({photos:F.photos},+d.dataset.ej,()=>fmRenderStep()));
+  $$("#fpThumbs [data-ej]").forEach(d=>d.onclick=()=>fmPhActOpen(+d.dataset.ej));
   const s1=$("#fpShot"); if(s1) s1.onclick=()=>$("#fpShotIn").click();
   const s2=$("#fpShotF"); if(s2) s2.onclick=()=>$("#fpShotFIn").click();
   // 確認ポイント
@@ -4493,6 +4500,27 @@ $$('#fmSet [data-m="author"],#fmSet [data-m="checker"]').forEach(el=>el.addEvent
 $("#fsetToday").onclick=()=>{ S.meta.seitei=S.meta.jisshi=today(); persist(); schedulePreview(); fmSetFill(); fmToast("制定日・実施日を今日にしました"); };
 $("#fsetConv").onclick=()=>convertParts(true);
 $("#fhClose").onclick=()=>$("#fmHist").hidden=true;
+/* 写真をタップしたときのメニュー */
+let faJ=0;
+function fmPhActOpen(j){
+  const p=F.photos[j]; if(!p) return; faJ=j; const n=F.photos.length;
+  $("#faTtl").textContent=n>1?`写真${j+1}（${n}枚中）`:"写真";
+  $("#faImg").style.backgroundImage=`url(${p.data})`;
+  $("#faMvRow").style.display=n>1?"":"none"; $("#faPrev").disabled=j===0; $("#faNext").disabled=j>=n-1;
+  $("#fmPhAct").hidden=false;
+}
+const faClose=()=>$("#fmPhAct").hidden=true;
+$("#faClose").onclick=faClose; $("#fmPhAct").onclick=e=>{ if(e.target.id==="fmPhAct") faClose(); };
+$("#faEdit").onclick=()=>{ faClose(); openEditor({photos:F.photos},faJ,()=>fmRenderStep()); };
+const faSwap=d=>{ const j=faJ, k=j+d; if(k<0||k>=F.photos.length) return; [F.photos[j],F.photos[k]]=[F.photos[k],F.photos[j]]; fmRenderStep(); fmToast(`写真${j+1}と写真${k+1}を入れ替えました`); fmPhActOpen(k); };
+$("#faPrev").onclick=()=>faSwap(-1); $("#faNext").onclick=()=>faSwap(1);
+$("#faDel").onclick=()=>{ if(!confirm("この写真を外しますか？")) return; F.photos.splice(faJ,1); faClose(); fmRenderStep(); };
+$("#faMove").onclick=()=>{ faClose(); const j=faJ;
+  const st=fmHasContent()?fmSaveStep():null; if(!st) return;
+  phMoveOpen(st,j,dst=>{ if(!dst) return; fmLoadStep(st.id); fmRenderStep(); const k=S.steps.indexOf(dst);
+    const el=$("#fmToast"); el.innerHTML=`写真を工程${stepNo(k+1)}へ移しました<button class="undo" id="fmGoDst">工程${stepNo(k+1)}を開く</button>`; el.className="toast"; el.hidden=false;
+    clearTimeout(el._t); el._t=setTimeout(()=>el.hidden=true,6000);
+    $("#fmGoDst").onclick=()=>{ el.hidden=true; if(fmHasContent()) fmSaveStep(); fmLoadStep(dst.id); fmShow("fmStep"); fmRenderStep(); }; }); };
 $("#fmHist").onclick=e=>{ if(e.target.id==="fmHist") $("#fmHist").hidden=true; };
 /* 部品の追加（現品札・検索） */
 /* 補材：①の部品の分（最初からチェック）＋文章に出てくる部品の分（最初はチェックなし） */
