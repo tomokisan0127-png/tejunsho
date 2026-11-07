@@ -1,5 +1,5 @@
-/* 作業手順書メーカー：オフライン用（版 b6506778） */
-const CACHE="tejunsho-b6506779";
+/* 作業手順書メーカー：オフライン用（版 0252423b） */
+const CACHE="tejunsho-0252423b";
 const FILES=["./","index.html","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","apple-touch-icon.png"];
 const OCR=["tesseract.min.js","tesseract-worker.min.js","tesseract-core-lstm.wasm.js","eng.traineddata.gz"];   // 現品札の文字認識（無くても本体は動く）
 self.addEventListener("install",e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES).then(()=>Promise.all(OCR.map(f=>c.add(f).catch(()=>{}))))).then(()=>self.skipWaiting())); });
