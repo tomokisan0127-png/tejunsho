@@ -1029,7 +1029,7 @@ details.fold>summary::before{color:var(--accent)}
         <label class="on"><input type="radio" name="aiMode" value="text" checked><b>📝 文章だけチェック</b><small>誤字・表現・枠に収まるか</small></label>
         <label><input type="radio" name="aiMode" value="photo"><b>📷 写真もいっしょにチェック</b><small>写真と文章が合っているかも見る（画像を一緒に送ります）</small></label>
         <label><input type="radio" name="aiMode" value="balloon"><b>📍 写真に風船を付けてもらう</b><small>AIが部品の場所を答え、アプリが写真に風船を描きます</small></label>
-        <label><input type="radio" name="aiMode" value="gen"><b>✍ 写真から説明文を作ってもらう</b><small>写真だけの工程に、タイトル・作業内容・確認ポイントの下書きを書いてもらいます</small></label>
+        <label><input type="radio" name="aiMode" value="gen"><b>✍ 写真から説明文を作ってもらう</b><small>写真だけの工程や、使う部品（風船番号）だけ書いた工程に、タイトル・作業内容・確認ポイントの下書きを書いてもらいます</small></label>
       </div>
       <div class="aistep"><span class="badge">1</span><div>
         <div class="opts">
@@ -3551,13 +3551,35 @@ async function aiMakeImages(bal,list){
   $("#aiView").onclick=()=>{ const u=URL.createObjectURL(aiFiles[0]); window.open(u,"_blank"); };
 }
 /* ---- 写真から説明文を作ってもらう ---- */
-function genTargets(all){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&(all||!(String(x.s.title||"").trim()||String(x.s.body||"").trim()))); }
+/* 本文が「部品（風船番号）だけのメモ」か調べる。そうなら使う部品の一覧を返す
+   例：「052」「風船052、077」「【052】【077】取付」「52と77」 */
+function balMemo(st){
+  const body=String(st.body||"").trim(); if(!body) return null;
+  const P=(S.meta.parts||[]).filter(p=>p.b); if(!P.length) return null;
+  let rest=body.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)); const used=[];
+  const take=p=>{ if(!used.includes(p)) used.push(p); };
+  // 本文に入っている部品の書き方（風船052（COVER）など）をそのまま取り除く
+  P.forEach(p=>{ [partText(p),...(p.pn&&p.pn.length>=6?[p.pn]:[])].forEach(t=>{ if(t&&rest.includes(t)){ rest=rest.split(t).join(" "); take(p); } }); });
+  // ボルト表記（HC M6X12）・本数（4本）などは風船番号と間違えないよう先に取り分ける（メモのヒントとして渡す）
+  const extra=[]; rest=rest.replace(/[A-Za-zＡ-Ｚａ-ｚ]+\s*M?\d+[^\s、，,。]*|\d+\s*(本|個|か所|ヶ所|カ所|箇所|枚|mm|ミリ|Nm|N)/g,m=>{ extra.push(m.trim()); return " "; });
+  // 「風船052」「【052】」「052」「52」など、数字だけの風船番号
+  rest=rest.replace(/(風船|【)?\s*(\d{1,4})\s*(】|番)?(（[^）]*）|\([^)]*\))?/g,(m,a,n)=>{ const p=P.find(q=>q.b===n||(/^\d+$/.test(q.b)&&+q.b===+n)); if(p){ take(p); return " "; } return m; });
+  if(!used.length) return null;
+  // 残りがつなぎ言葉・短い動作だけならメモとみなす
+  const left=rest.replace(/[\s、，,。・\/／と&＆+＋\-ー〜~]/g,"").replace(/^(を|の)+|(を|の)+$/g,"");
+  return left.length<=8?{parts:used,hint:[left,...extra].filter(Boolean).join("、")}:null;
+}
+function genTargets(all){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&(all||balMemo(x.s)||!(String(x.s.title||"").trim()||String(x.s.body||"").trim()))); }
 function aiGenPrompt(L){
   const HZD=hzMaster(), P=(S.meta.parts||[]), H=(S.meta.hozai||[]);
   const parts=P.filter(p=>!isFastener(p.name)).slice(0,150).map(p=>({書き方:partText(p),品名:p.jp||p.name||"",風船:p.b||""}));
   const hz=[...new Set([...H.map(h=>h.name),...P.filter(p=>isFastener(p.name)).map(p=>p.name)].filter(Boolean))].slice(0,60);
   const tools=String(S.meta.tools||"").trim();
-  const steps=L.map(({s,i})=>{ const o={no:i+1,photos:s.photos.length}; ["title","body","check","tools"].forEach(k=>{ if(String(s[k]||"").trim()) o[k]=normHz(s[k],HZD); }); return o; });
+  const steps=L.map(({s,i})=>{ const o={no:i+1,photos:s.photos.length}; const mm=balMemo(s);
+    ["title","body","check","tools"].forEach(k=>{ if(mm&&k==="body") return; if(String(s[k]||"").trim()) o[k]=normHz(s[k],HZD); });
+    if(mm){ o.使う部品=mm.parts.map(p=>partText(p)); if(mm.hint) o.メモ=mm.hint; }
+    return o; });
+  const memoN=steps.filter(x=>x.使う部品).length;
   const prev=(n)=>{ const a=S.steps[n-2], b=S.steps[n]; return {前:a&&(a.title||String(a.body||"").split("\n")[0])||"", 次:b&&(b.title||String(b.body||"").split("\n")[0])||""}; };
   const ctx=L.map(({i})=>({no:i+1,...prev(i+1)})).filter(x=>x.前||x.次);
   return `あなたは製造現場（機械組立）の作業手順書を書く担当です。
@@ -3572,7 +3594,8 @@ function aiGenPrompt(L){
 4. ボルト・補材は【補材】の書き方にそろえてください（例：HC M6X12）。サイズ・本数・トルクなどの数字が写真から読み取れないときは、推測で書かずに「（要確認）」と書いてください（例：HC（要確認）4本で固定する。）。
 5. check は、その作業で品質・安全の面で確認すべきことを1行1項目、1〜2項目、語尾を「〜か」にそろえてください。
 6. 写真から分からないことは書かないでください。不鮮明・判断できない写真は comments に書いてください。
-7. すでに書いてある title／body／check／tools がある工程は、それを生かして足りないところだけを補ってください。
+${memoN?`7-2. 「使う部品」がある工程は、作業者が「この工程ではこの部品を使う」と指定したものです。その部品を必ず全部、【部品表】の書き方のまま body に入れ、写真で取り付け位置・向き・相手部品を確かめて手順を書いてください（「メモ」があれば作業のヒントです）。写真でその部品が見つからないときも部品は残し、comments にそのことを書いてください。
+`:""}7. すでに書いてある title／body／check／tools がある工程は、それを生かして足りないところだけを補ってください。
 8. 工程の数と順番、工程番号（no）は変えないでください。tools は写真で使っている工具が分かれば書き、分からなければ空のままにしてください${tools?`（この手順書でよく使う工具：${tools}）`:""}。
 9. 画像が添付されていない場合は何も作らず、comments に「画像が見つかりませんでした」とだけ書いてください。
 
@@ -4917,7 +4940,7 @@ window.addEventListener("resize",schedulePreview);
   }catch(e){ console.error(e); }
   docId=uid(); load(blankState()); showDocName();
 })();
-window.__app={get S(){return S;},get docId(){return docId;},saveNow,openDoc,newDoc,getIndex,load,exportXlsx,sheetSpec,pages,renderPreview};
+window.__app={get S(){return S;},balMemo,get docId(){return docId;},saveNow,openDoc,newDoc,getIndex,load,exportXlsx,sheetSpec,pages,renderPreview};
 </script>
 <script>
 /* アプリ（PWA）：一度開けば電波がなくても動くように */
