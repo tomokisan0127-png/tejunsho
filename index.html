@@ -231,6 +231,9 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .fmList .it.cur{outline:2.5px solid var(--accent)}
 #fm .fmList .it.blank{background:#fff8e1;border:1.5px dashed #e5c56a;box-shadow:none}
 #fm .fmList .it.blank .tx{color:#8a6100}
+#fm .fmList .delB{flex:none;width:36px;height:40px;border-radius:10px;border:none;background:none;color:#b0b8c4;font-size:18px;padding:0;filter:grayscale(1);opacity:.8}
+#fm .fmList .delB:active{background:#fde8e8;filter:none;opacity:1}
+#fm .toast .undo{margin-left:10px;border:none;background:#fff;color:#1f5fae;font-weight:bold;border-radius:8px;padding:5px 12px;font-size:14px}
 #fm .fmList .insB{flex:none;width:40px;height:40px;border-radius:50%;border:1.5px solid #cfd7e2;background:#fff;color:var(--accent);font-size:20px;padding:0}
 /* 下に固定のボタン */
 #fm .dock{position:fixed;left:0;right:0;bottom:0;z-index:16;background:rgba(255,255,255,.96);border-top:1px solid #e1e6ec;padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center}
@@ -326,6 +329,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 /* 写真 */
 #fm .shots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 #fm .shot{aspect-ratio:4/3;border-radius:12px;background:#dde2e8 center/cover no-repeat;position:relative;border:none;padding:0;cursor:pointer}
+#fm .shot .mvo{position:absolute;top:5px;right:42px;width:32px;height:32px;border-radius:50%;padding:0;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:14px}
 #fm .shot .x{position:absolute;top:5px;right:5px;width:32px;height:32px;border-radius:50%;padding:0;background:rgba(0,0,0,.55);color:#fff;border:none;font-size:15px}
 #fm .shot .af:empty{display:none}
 #fm .shot .af b{display:inline-block;min-width:16px;text-align:center;background:#1f5fae;color:#fff;border-radius:5px;margin-right:3px;font-size:12px}
@@ -420,6 +424,19 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 
 #docs{z-index:150}
 #mix{z-index:160}
+#phMv{z-index:400}
+.step.flash{outline:3px solid #ffb020;outline-offset:2px}
+#phMv .box{max-height:90vh;display:flex;flex-direction:column}
+.phMvHead{display:flex;gap:10px;align-items:center;font-size:14px}
+.phMvHead .th,#phMvList .th{width:64px;height:48px;border-radius:7px;flex:none;background:#eef1f4 center/cover no-repeat}
+#phMvList{overflow:auto;flex:1;border:1px solid var(--line,#dde3ea);border-radius:10px}
+#phMvList button{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:8px 10px;border:none;border-bottom:1px solid #e6eaef;background:#fff;border-radius:0;font-size:14.5px;min-height:62px;cursor:pointer;color:inherit}
+#phMvList button:last-child{border-bottom:none}
+#phMvList button:disabled{opacity:.45;cursor:default}
+#phMvList button.new{color:#1f5fae;font-weight:bold;background:#f2f7fd}
+#phMvList .no{font-weight:bold;color:#1f5fae;min-width:30px;text-align:center;font-size:16px}
+#phMvList .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#phMvList .cnt{font-size:12px;color:#667;flex:none}
 #mix .box{max-height:92vh;display:flex;flex-direction:column}
 .mixBar{display:flex;gap:6px;align-items:center;margin:8px 0 4px}
 #mixList{overflow:auto;flex:1;min-height:120px;border:1px solid var(--line);border-radius:10px}
@@ -1218,7 +1235,7 @@ details.fold>summary::before{color:var(--accent)}
   <section id="fmListS" class="scr" hidden>
     <div class="bar"><button class="back" id="flBack">‹ ホーム</button><b class="ttl">工程の一覧</b><span class="sp"></span><span class="barInfo" id="fmCount"></span></div>
     <div class="wrap">
-      <p class="lead">タップすると開いて直せます。<b class="plus">＋</b> でその後ろに工程を差し込み、<b class="gripI">⠿</b> を指で引っ張ると順番を入れ替えられます。</p>
+      <p class="lead">タップすると開いて直せます。<b class="plus">＋</b> でその後ろに工程を差し込み、<b class="gripI">⠿</b> を指で引っ張ると順番を入れ替えられます。🗑 で削除できます。</p>
       <div class="fmList" id="fmList"></div>
       <div class="spacer"></div>
     </div>
@@ -1236,6 +1253,7 @@ details.fold>summary::before{color:var(--accent)}
       <button id="fpGuideB">🧭 ガイドを表示する</button>
       <button id="fpHist">↩ 前の状態に戻す</button>
       <button id="fpDone">🏠 保存してホームへ</button>
+      <button id="fpDelStep" style="color:#c0392b">🗑 この工程を削除</button>
     </div>
     <div class="wrap">
       <div class="where" id="fpSheet"></div>
@@ -1375,6 +1393,12 @@ details.fold>summary::before{color:var(--accent)}
   <p class="hint" style="margin:0">このパソコン（ブラウザ）に保存されている手順書です。別のPCへ渡すときは「.json に保存」を使ってください。</p>
   <input id="dq" placeholder="作業名・機種名で絞り込み" style="margin-top:8px">
   <table class="dl"><thead><tr><th>手順書</th><th>工程</th><th>更新</th><th></th></tr></thead><tbody id="dBody"></tbody></table>
+</div></div>
+<div id="phMv" class="modal"><div class="box" style="max-width:560px">
+  <h2 style="margin:0 0 6px;font-size:17px;display:flex;align-items:center;gap:8px">📤 写真を別の工程へ移す<span style="flex:1"></span><button class="sm" id="phMvClose">やめる</button></h2>
+  <div class="phMvHead"><span class="th" id="phMvImg"></span><span id="phMvFrom"></span></div>
+  <p class="hint" style="margin:6px 0">移す先の工程をタップしてください（写真が3枚ある工程には入れられません）</p>
+  <div id="phMvList"></div>
 </div></div>
 <div id="mix" class="modal"><div class="box" style="max-width:720px">
   <h2 style="margin:0 0 4px;font-size:16px;display:flex;align-items:center;gap:8px">🔀 工程を取り込む <span style="flex:1"></span><button class="sm" id="mixClose">閉じる</button></h2>
@@ -1640,6 +1664,34 @@ async function renderDocs(){
     if(confirm(`「${d.meta.name||"（無題）"}」をもとに新しい手順書を作りました。\n\n続けて、新しい機種の部品リストを読み込んで、子品番・風船番号を自動で置き換えますか？${oldModel?`\n（元の機種：${oldModel}）`:""}`)){
       showTab("parts"); MP.remap=true; $("#fParts").click(); }
   });
+}
+/* ---- 写真を別の工程へ移す（現場モード・PC共通） ---- */
+function phMoveOpen(src,j,done){
+  const p=src.photos[j]; if(!p) return; const si=S.steps.indexOf(src);
+  $("#phMvImg").style.backgroundImage=`url(${p.data})`;
+  $("#phMvFrom").innerHTML=`工程${stepNo(si+1)} の写真${j+1}`;
+  const last=S.steps.reduce((m,x,i)=>stEmpty(x)?m:i,-1);
+  let h=`<button class="new" data-mvt="new">＋ 工程${stepNo(si+1)}のすぐ後に新しい工程を作って移す</button>`;
+  S.steps.forEach((st,i)=>{ if(i>last&&i!==si) return; const me=i===si, full=st.photos.length>=3, ph=st.photos[0];
+    const t=stEmpty(st)?"空き工程":(st.title||String(st.body||"").split("\n")[0]||"（説明まだ）");
+    h+=`<button data-mvt="${i}" ${me||full?"disabled":""}><span class="no">${stepNo(i+1)}</span><span class="th" style="${ph?`background-image:url(${ph.data})`:""}"></span><span class="tx">${esc(t)}</span><span class="cnt">${me?"今の工程":full?"3枚で満杯":`写真${st.photos.length}枚`}</span></button>`; });
+  $("#phMvList").innerHTML=h;
+  $$("#phMvList [data-mvt]").forEach(b=>b.onclick=()=>{ $("#phMv").classList.remove("show"); const v=b.dataset.mvt; done(phMoveDo(src,j,v==="new"?"new":+v)); });
+  $("#phMv").classList.add("show");
+  const cur=$("#phMvList [disabled]"); if(cur&&cur.textContent.includes("今の工程")) cur.scrollIntoView({block:"center"});
+}
+$("#phMvClose").onclick=()=>$("#phMv").classList.remove("show");
+$("#phMv").addEventListener("mousedown",e=>{ if(e.target.id==="phMv") $("#phMv").classList.remove("show"); });
+function phMoveDo(src,j,to){
+  let dst; const b4s=stepSnap(src);
+  if(to==="new"){ dst=blankStep(); S.steps.splice(S.steps.indexOf(src)+1,0,dst); }
+  else dst=S.steps[to];
+  if(!dst||dst===src||dst.photos.length>=3) return null;
+  const b4d=stepSnap(dst), p=src.photos.splice(j,1)[0]; dst.photos.push(p);
+  if(src.photos.length<2) src.phLay=""; 
+  histPush(src,b4s); histPush(dst,b4d);
+  renderSteps(); persist(); schedulePreview();
+  return dst;
 }
 /* ---- 別の手順書から工程を取り込む（ミックス） ---- */
 const MIX={d:null,id:null};
@@ -2177,8 +2229,9 @@ function renderPhotos(st,box){
   box.innerHTML="";
   st.photos.forEach((p,j)=>{
     const d=document.createElement("div"); d.className="ph"; d.style.backgroundImage=`url(${p.data})`;
-    d.innerHTML=`<div class="ops"><button title="左へ">◀</button><button>編集</button><button title="右へ">▶</button><button title="削除">✕</button></div>`;
-    const [l,e,r,x]=$$("button",d);
+    d.innerHTML=`<div class="ops"><button title="左へ">◀</button><button>編集</button><button title="右へ">▶</button><button title="別の工程へ移す">移動</button><button title="削除">✕</button></div>`;
+    const [l,e,r,mv,x]=$$("button",d);
+    mv.onclick=()=>phMoveOpen(st,j,dst=>{ if(dst){ const c=$(`.step[data-id="${dst.id}"]`); if(c){ c.scrollIntoView({block:"center",behavior:"smooth"}); c.classList.add("flash"); setTimeout(()=>c.classList.remove("flash"),1500);} } });
     l.onclick=()=>{ if(j>0){[st.photos[j-1],st.photos[j]]=[st.photos[j],st.photos[j-1]]; afterPhoto(st);} };
     r.onclick=()=>{ if(j<st.photos.length-1){[st.photos[j+1],st.photos[j]]=[st.photos[j],st.photos[j+1]]; afterPhoto(st);} };
     e.onclick=()=>openEditor(st,j);
@@ -3594,10 +3647,10 @@ function aiGenPrompt(L){
 4. ボルト・補材は【補材】の書き方にそろえてください（例：HC M6X12）。サイズ・本数・トルクなどの数字が写真から読み取れないときは、推測で書かずに「（要確認）」と書いてください（例：HC（要確認）4本で固定する。）。
 5. check は、その作業で品質・安全の面で確認すべきことを1行1項目、1〜2項目、語尾を「〜か」にそろえてください。
 6. 写真から分からないことは書かないでください。不鮮明・判断できない写真は comments に書いてください。
-${memoN?`7-2. 「使う部品」がある工程は、作業者が「この工程ではこの部品を使う」と指定したものです。その部品を必ず全部、【部品表】の書き方のまま body に入れ、写真で取り付け位置・向き・相手部品を確かめて手順を書いてください（「メモ」があれば作業のヒントです）。写真でその部品が見つからないときも部品は残し、comments にそのことを書いてください。
-`:""}7. すでに書いてある title／body／check／tools がある工程は、それを生かして足りないところだけを補ってください。
-8. 工程の数と順番、工程番号（no）は変えないでください。tools は写真で使っている工具が分かれば書き、分からなければ空のままにしてください${tools?`（この手順書でよく使う工具：${tools}）`:""}。
-9. 画像が添付されていない場合は何も作らず、comments に「画像が見つかりませんでした」とだけ書いてください。
+7. すでに書いてある title／body／check／tools がある工程は、それを生かして足りないところだけを補ってください。
+${memoN?`8. 「使う部品」がある工程は、作業者が「この工程ではこの部品を使う」と指定したものです。その部品を必ず全部、【部品表】の書き方のまま body に入れ、写真で取り付け位置・向き・相手部品を確かめて手順を書いてください（「メモ」があれば作業のヒントです）。写真でその部品が見つからないときも部品は残し、comments にそのことを書いてください。
+`:""}${memoN?9:8}. 工程の数と順番、工程番号（no）は変えないでください。tools は写真で使っている工具が分かれば書き、分からなければ空のままにしてください${tools?`（この手順書でよく使う工具：${tools}）`:""}。
+${memoN?10:9}. 画像が添付されていない場合は何も作らず、comments に「画像が見つかりませんでした」とだけ書いてください。
 
 【返し方】
 次の形式の JSON だけを \`\`\`json のコードブロック1つで返してください（説明文は不要です）。
@@ -3983,6 +4036,20 @@ function fmShow(id){
 }
 /* 書きかけの工程は、画面を移るときに自動で保存 */
 function fmKeepEditing(){ if(!$("#fmStep").hidden&&fmHasContent()) return fmSaveStep(); return null; }
+/* 工程を削除（8秒間は「元に戻す」で戻せる） */
+let fmUndoDel=null;
+function fmDeleteStep(i){
+  const st=S.steps[i]; if(!st) return;
+  const nm=stEmpty(st)?"空き工程":`「${(st.title||String(st.body||"").split("\n")[0]||"説明なし").slice(0,20)}」`;
+  if(!confirm(`工程${stepNo(i+1)} ${nm} を削除しますか？\n（後ろの工程の番号が1つずつ繰り上がります）`)) return;
+  S.steps.splice(i,1); fmUndoDel={st,i};
+  if(F.stepId===st.id) F.stepId=null;
+  renderSteps(); persist(); schedulePreview(); fmList();
+  const el=$("#fmToast"); el.innerHTML=`工程${stepNo(i+1)}を削除しました<button class="undo" id="fmUndoDel">元に戻す</button>`; el.className="toast"; el.hidden=false;
+  clearTimeout(el._t); el._t=setTimeout(()=>{ el.hidden=true; fmUndoDel=null; },8000);
+  $("#fmUndoDel").onclick=()=>{ const u=fmUndoDel; if(!u) return; S.steps.splice(Math.min(u.i,S.steps.length),0,u.st); fmUndoDel=null;
+    renderSteps(); persist(); schedulePreview(); fmList(); fmToast(`工程${stepNo(u.i+1)}を元に戻しました`); };
+}
 function fmToast(t,ng){ const el=$("#fmToast"); el.textContent=t; el.className="toast"+(ng?" ng":""); el.hidden=false; clearTimeout(el._t); el._t=setTimeout(()=>el.hidden=true,2600); }
 /* ---- 現場モードの手順書プレビュー（PCのプレビューと同じ描画をスマホ幅で） ---- */
 let fvZoom=1;
@@ -4222,11 +4289,12 @@ function fmList(){
   const L=S.steps.map((s,i)=>({s,i})).filter(x=>!stEmpty(x.s)||x.i<last);
   let h="", sh=-1;
   L.forEach(({s,i})=>{ const k=Math.floor(i/per); if(k!==sh){ sh=k; h+=`<div class="sh">シート${k+1}</div>`; }
-    h+=`<div class="it${s.id===cur?" cur":""}${stEmpty(s)?" blank":""}" data-i="${i}"><span class="no">${stepNo(i+1)}</span><i style="${s.photos[0]?`background-image:url(${s.photos[0].data})`:""}">${s.photos[0]?"":"📷"}</i><span class="tx">${stEmpty(s)?"空き工程（タップして作る）":(!s.title&&!s.body)?`<b class="noTx">📝 説明がまだです</b><small class="noTxS">タップして書く</small>`:esc(s.title||String(s.body||"").split("\n")[0]||"（タイトルなし）")}</span><button class="insB" data-ins="${i}" title="この後に工程を差し込む">＋</button><span class="grip" data-grip title="引っ張って並べ替え">⠿</span></div>`; });
+    h+=`<div class="it${s.id===cur?" cur":""}${stEmpty(s)?" blank":""}" data-i="${i}"><span class="no">${stepNo(i+1)}</span><i style="${s.photos[0]?`background-image:url(${s.photos[0].data})`:""}">${s.photos[0]?"":"📷"}</i><span class="tx">${stEmpty(s)?"空き工程（タップして作る）":(!s.title&&!s.body)?`<b class="noTx">📝 説明がまだです</b><small class="noTxS">タップして書く</small>`:esc(s.title||String(s.body||"").split("\n")[0]||"（タイトルなし）")}</span><button class="delB" data-fdel="${i}" title="この工程を削除">🗑</button><button class="insB" data-ins="${i}" title="この後に工程を差し込む">＋</button><span class="grip" data-grip title="引っ張って並べ替え">⠿</span></div>`; });
   $("#fmList").innerHTML=h||`<p class="lead" style="text-align:center;padding:30px 0">まだ工程がありません。<br>下のボタンから作り始めましょう。</p>`;
-  $$("#fmList .it").forEach(el=>el.onclick=e=>{ if(e.target.closest("[data-ins],[data-grip]")||Date.now()-fmDragEnd<400) return; fmLoadStep(S.steps[+el.dataset.i].id); fmShow("fmStep"); });
+  $$("#fmList .it").forEach(el=>el.onclick=e=>{ if(e.target.closest("[data-ins],[data-grip],[data-fdel]")||Date.now()-fmDragEnd<400) return; fmLoadStep(S.steps[+el.dataset.i].id); fmShow("fmStep"); });
   fmDragInit();
   $$("#fmList [data-ins]").forEach(b=>b.onclick=()=>fmInsertAt(+b.dataset.ins+1));
+  $$("#fmList [data-fdel]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); fmDeleteStep(+b.dataset.fdel); });
   $("#flNew").textContent="＋ "+fmGoLabel();
 }
 /* 工程の一覧：⠿ を指で引っ張って並べ替え */
@@ -4370,12 +4438,18 @@ function fmRenderStep(){
   fmRefs();
   // 写真（タップで矢印・文字の書き込み）
   const many=F.photos.length>1;
-  const ph=F.photos.map((p,j)=>`<div class="shot" data-ej="${j}" style="background-image:url(${p.data})"><button class="x" data-j="${j}" title="外す">✕</button><span class="af">${many?`<b>${j+1}</b>`:""}${p.ed&&p.ed.adj&&p.ed.adj.auto?"✨補正":""}</span>${many?`<div class="mv"><button data-mv="${j}" data-d="-1" ${j?"":"disabled"} title="前へ">◀</button><button data-mv="${j}" data-d="1" ${j<F.photos.length-1?"":"disabled"} title="後ろへ">▶</button></div>`:`<span class="ed">✎ 書き込む</span>`}</div>`);
+  const ph=F.photos.map((p,j)=>`<div class="shot" data-ej="${j}" style="background-image:url(${p.data})"><button class="x" data-j="${j}" title="外す">✕</button><button class="mvo" data-mvo="${j}" title="別の工程へ移す">📤</button><span class="af">${many?`<b>${j+1}</b>`:""}${p.ed&&p.ed.adj&&p.ed.adj.auto?"✨補正":""}</span>${many?`<div class="mv"><button data-mv="${j}" data-d="-1" ${j?"":"disabled"} title="前へ">◀</button><button data-mv="${j}" data-d="1" ${j<F.photos.length-1?"":"disabled"} title="後ろへ">▶</button></div>`:`<span class="ed">✎ 書き込む</span>`}</div>`);
   if(F.photos.length<3) ph.push(`<button class="shot add main" id="fpShot"><i>📷</i>撮る</button>`);
   $("#fpThumbs").innerHTML=ph.join("");
-  $("#fpShotNote").innerHTML=(F.photos.length<3?`<button class="txtBtn" id="fpShotF">🖼 スマホの中の写真から選ぶ</button>`:"写真は3枚までです。")+(F.photos.length?`<div>写真をタップすると、矢印や文字を書き込めます。${many?"◀ ▶ で写真の順番を入れ替えられます。":""}</div>`:"");
+  $("#fpShotNote").innerHTML=(F.photos.length<3?`<button class="txtBtn" id="fpShotF">🖼 スマホの中の写真から選ぶ</button>`:"写真は3枚までです。")+(F.photos.length?`<div>写真をタップすると、矢印や文字を書き込めます。${many?"◀ ▶ で写真の順番を入れ替えられます。":""}📤 で別の工程へ移せます。</div>`:"");
   $("#fpLay").innerHTML=many?phLayChips(F.photos.map(p=>({w:p.w||4,h:p.h||3})),F.phLay):"";
   $$("#fpLay [data-lay]").forEach(b=>b.onclick=()=>{ F.phLay=b.dataset.lay==="auto"?"":b.dataset.lay; fmRenderStep(); fmToast("写真の並べ方："+(F.phLay?PH_LAYS[F.phLay]:"おまかせ")+"（保存すると手順書に反映）"); });
+  $$("#fpThumbs [data-mvo]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=+b.dataset.mvo;
+    const st=fmHasContent()?fmSaveStep():null; if(!st) return;
+    phMoveOpen(st,j,dst=>{ if(!dst) return; fmLoadStep(st.id); fmRenderStep(); const k=S.steps.indexOf(dst);
+      const el=$("#fmToast"); el.innerHTML=`写真を工程${stepNo(k+1)}へ移しました<button class="undo" id="fmGoDst">工程${stepNo(k+1)}を開く</button>`; el.className="toast"; el.hidden=false;
+      clearTimeout(el._t); el._t=setTimeout(()=>el.hidden=true,6000);
+      $("#fmGoDst").onclick=()=>{ el.hidden=true; const s2=fmHasContent()?fmSaveStep():null; fmLoadStep(dst.id); fmShow("fmStep"); fmRenderStep(); }; }); });
   $$("#fpThumbs [data-mv]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=+b.dataset.mv, k=j+(+b.dataset.d); if(k<0||k>=F.photos.length) return;
     [F.photos[j],F.photos[k]]=[F.photos[k],F.photos[j]]; fmRenderStep(); fmToast(`写真${j+1}と写真${k+1}を入れ替えました`); });
   $$("#fpThumbs [data-j]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(!confirm("この写真を外しますか？")) return; F.photos.splice(+b.dataset.j,1); fmRenderStep(); });
@@ -4636,6 +4710,9 @@ $("#fpNext").onclick=()=>{
   fmToast(`✓ 工程${stepNo(i+1)}を保存しました`);
 };
 $("#fpInsBefore").onclick=()=>{ const i=fmTargetIndex(); fmInsertAt(i); };
+$("#fpDelStep").onclick=()=>{ $("#fpMenu").hidden=true; const i=S.steps.findIndex(x=>x.id===F.stepId);
+  if(i<0){ fmToast("まだ保存していない工程です（何も書かずに一覧へ戻れば消えます）"); return; }
+  const n=S.steps.length; fmDeleteStep(i); if(S.steps.length<n){ fmLoadStep(null); fmList(); fmShow("fmListS"); } };
 $("#fpInsAfter").onclick=()=>{ const st=fmHasContent()?fmSaveStep():null; const i=st?S.steps.indexOf(st):fmTargetIndex(); fmInsertAt(i+1); };
 $("#fpPrev").onclick=()=>{ const i=fmTargetIndex(); if(i<=0) return; if(fmHasContent()) fmSaveStep(); fmLoadStep(S.steps[i-1].id); };
 $("#fpDone").onclick=()=>{ fmKeepEditing(); fmShow("fmStart"); fmToast("✓ 保存しました"); };
