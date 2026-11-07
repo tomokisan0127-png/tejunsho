@@ -1110,7 +1110,7 @@ details.fold>summary::before{color:var(--accent)}
     コントラスト <input type="range" id="eCon" min="-50" max="80" value="0">
     <button id="eAuto">自動補正</button><button id="eAdjReset">元に戻す</button></div>
   <div class="sub" id="eSubSel"><span id="eSelLab">選択中</span>
-    <button id="eSmaller">小さく</button><button id="eBigger">大きく</button><button id="eTextEdit" hidden>文字を直す</button>
+    <button id="eSmaller">小さく</button><button id="eBigger">大きく</button><button id="eTextEdit" hidden>文字を直す</button><span id="eRotBtns" hidden><button id="eRotL" title="左に15°回す">↺</button><button id="eRotR" title="右に15°回す">↻</button><button id="eRot0" title="傾きをなくす">傾き0</button></span>
     <span style="flex:1"></span><button id="eDel">🗑 削除</button></div>
   <div class="ebar">
     <button class="tool" data-tool="select"><i>👆</i>選択・移動</button>
@@ -2506,7 +2506,7 @@ $("#bCap").onclick=()=>{
 const E={st:null,j:0,done:null,bases:[],bi:0,base:null,adj:{b:0,c:0},shapes:[],sel:null,tool:"arrow",color:"#ff1a1a",wk:1,
   hist:[],fut:[],drag:null,sc:1,dpr:1,crop:null,asp:0,adjC:null,adjK:"",txt:null};
 const eC=$("#eC"), eG=eC.getContext("2d");
-const ED_TIPS={select:"図形をタップで選んでドラッグで移動。端の○で大きさ・向きを変えられます",arrow:"根元から先に向かってドラッグ",line:"ドラッグで線",rect:"ドラッグで四角",ellipse:"ドラッグで丸",
+const ED_TIPS={select:"図形をタップで選んでドラッグで移動。端の○で大きさ・向きを変えられます。四角・丸は上の青い↻をドラッグすると回せます",arrow:"根元から先に向かってドラッグ",line:"ドラッグで線",rect:"ドラッグで四角",ellipse:"ドラッグで丸",
   text:"文字を置きたい所をタップ",num:"タップするたびに 1,2,3… の番号を置きます",balloon:"部品の所から、番号札を置きたい所までドラッグ",crop:"枠の角・辺をドラッグして範囲を決め「✓ 切り抜く」"};
 const iw=()=>E.base.naturalWidth||E.base.width, ih=()=>E.base.naturalHeight||E.base.height;
 const unit=()=>Math.max(3,Math.max(iw(),ih())/220);
@@ -2605,8 +2605,9 @@ function drawShape(g,s){
     g.save(); g.lineCap="round"; g.lineJoin="round"; const ol=isLight(s.color)?"rgba(0,0,0,.55)":"rgba(255,255,255,.9)";
     g.strokeStyle=ol; g.lineWidth=s.w*1.6; g.beginPath(); g.moveTo(x1,y1); g.lineTo(bx,by); g.stroke(); head(); g.lineWidth=s.w*.6; g.stroke();
     g.strokeStyle=s.color; g.fillStyle=s.color; g.lineWidth=s.w; g.beginPath(); g.moveTo(x1,y1); g.lineTo(bx,by); g.stroke(); head(); g.fill(); g.restore(); }
-  else if(s.type==="rect") strokeTwice(g,s,()=>{ g.beginPath(); g.rect(Math.min(x1,x2),Math.min(y1,y2),Math.abs(x2-x1),Math.abs(y2-y1)); });
-  else if(s.type==="ellipse") strokeTwice(g,s,()=>{ g.beginPath(); g.ellipse((x1+x2)/2,(y1+y2)/2,Math.max(1,Math.abs(x2-x1)/2),Math.max(1,Math.abs(y2-y1)/2),0,0,Math.PI*2); });
+  else if(s.type==="rect"||s.type==="ellipse"){ const cx=(x1+x2)/2, cy=(y1+y2)/2, hw=Math.max(1,Math.abs(x2-x1)/2), hh=Math.max(1,Math.abs(y2-y1)/2), r=s.rot||0;
+    strokeTwice(g,s,()=>{ g.beginPath(); if(s.type==="ellipse") g.ellipse(cx,cy,hw,hh,r,0,Math.PI*2);
+      else { const P=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([a,b])=>[cx+a*Math.cos(r)-b*Math.sin(r),cy+a*Math.sin(r)+b*Math.cos(r)]); g.moveTo(...P[0]); P.slice(1).forEach(q=>g.lineTo(...q)); g.closePath(); } }); }
   else if(s.type==="text"){ const fs=s.fs; g.save(); g.font=`bold ${fs}px "Meiryo","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif`; g.textBaseline="middle";
     const tw=g.measureText(s.text).width, pd=fs*.3, w=tw+pd*2, h=fs*1.4, x=x1, y=y1-h/2;
     const dark=s.color==="#ffffff"; g.fillStyle=dark?"rgba(20,20,20,.85)":"rgba(255,255,255,.92)"; g.strokeStyle=dark?"#fff":s.color; g.lineWidth=Math.max(2,fs*.08);
@@ -2627,9 +2628,15 @@ function bbox(s){
   if(s.type==="balloon"){ const r=s.fs*.85; x=Math.min(x,s.x2-r); y=Math.min(y,s.y2-r); X=Math.max(X,s.x2+r); Y=Math.max(Y,s.y2+r); }
   return {x,y,w:X-x,h:Y-y};
 }
+const isBox=s=>s&&(s.type==="rect"||s.type==="ellipse");
+const boxC=s=>({x:(s.x1+s.x2)/2,y:(s.y1+s.y2)/2});
+const rotPt=(p,c,r)=>({x:c.x+(p.x-c.x)*Math.cos(r)-(p.y-c.y)*Math.sin(r),y:c.y+(p.x-c.x)*Math.sin(r)+(p.y-c.y)*Math.cos(r)});
+/* 回転つまみの位置（上辺の中央から少し上） */
+const knobDown=s=>Math.min(s.y1,s.y2)-34/(E.sc||1)<0;   /* 写真の上端に近いときは、つまみを下側に出す */
+function rotKnob(s){ const c=boxC(s), off=34/(E.sc||1), y=knobDown(s)?Math.max(s.y1,s.y2)+off:Math.min(s.y1,s.y2)-off; return rotPt({x:c.x,y},c,s.rot||0); }
 function handles(s){
   if(["arrow","line","balloon"].includes(s.type)) return [{k:"p1",x:s.x1,y:s.y1},{k:"p2",x:s.x2,y:s.y2}];
-  if(["rect","ellipse"].includes(s.type)) return [{k:"tl",x:s.x1,y:s.y1},{k:"tr",x:s.x2,y:s.y1},{k:"bl",x:s.x1,y:s.y2},{k:"br",x:s.x2,y:s.y2}];
+  if(isBox(s)){ const c=boxC(s), r=s.rot||0; return [{k:"tl",x:s.x1,y:s.y1},{k:"tr",x:s.x2,y:s.y1},{k:"bl",x:s.x1,y:s.y2},{k:"br",x:s.x2,y:s.y2}].map(h=>({...h,...rotPt(h,c,r)})).concat([{k:"rot",...rotKnob(s)}]); }
   return [];
 }
 function edDraw(){
@@ -2637,8 +2644,14 @@ function edDraw(){
   g.setTransform(E.dpr*E.sc,0,0,E.dpr*E.sc,0,0); g.drawImage(adjBase(),0,0,iw(),ih());
   E.shapes.forEach(s=>drawShape(g,s)); if(E.drag&&E.drag.kind==="draw") drawShape(g,E.drag.s);
   const px=1/E.sc;
-  if(E.sel&&E.shapes.includes(E.sel)){ const b=bbox(E.sel); g.save(); g.setLineDash([6*px,4*px]); g.lineWidth=1.5*px; g.strokeStyle="#2f7be0"; g.strokeRect(b.x-4*px,b.y-4*px,b.w+8*px,b.h+8*px); g.restore();
-    handles(E.sel).forEach(h=>{ g.beginPath(); g.arc(h.x,h.y,8*px,0,Math.PI*2); g.fillStyle="#fff"; g.fill(); g.lineWidth=2.5*px; g.strokeStyle="#2f7be0"; g.stroke(); }); }
+  if(E.sel&&E.shapes.includes(E.sel)){ const S0=E.sel, b=bbox(S0); g.save(); g.setLineDash([6*px,4*px]); g.lineWidth=1.5*px; g.strokeStyle="#2f7be0";
+    if(isBox(S0)){ const c=boxC(S0); g.translate(c.x,c.y); g.rotate(S0.rot||0); g.strokeRect(-b.w/2-4*px,-b.h/2-4*px,b.w+8*px,b.h+8*px);
+      g.setLineDash([]); const sg=knobDown(S0)?1:-1; g.beginPath(); g.moveTo(0,sg*(b.h/2+4*px)); g.lineTo(0,sg*(b.h/2+34*px-9*px)); g.stroke(); }
+    else g.strokeRect(b.x-4*px,b.y-4*px,b.w+8*px,b.h+8*px);
+    g.restore();
+    handles(S0).forEach(h=>{ g.beginPath(); g.arc(h.x,h.y,(h.k==="rot"?10:8)*px,0,Math.PI*2); g.fillStyle=h.k==="rot"?"#2f7be0":"#fff"; g.fill(); g.lineWidth=2.5*px; g.strokeStyle=h.k==="rot"?"#fff":"#2f7be0"; g.stroke();
+      if(h.k==="rot"){ g.save(); g.fillStyle="#fff"; g.font=`bold ${13*px}px sans-serif`; g.textAlign="center"; g.textBaseline="middle"; g.fillText("↻",h.x,h.y+px); g.restore(); } });
+    if(isBox(S0)&&S0.rot&&E.drag&&E.drag.h==="rot"){ const k=rotKnob(S0); g.save(); g.font=`bold ${15*px}px sans-serif`; g.fillStyle="#fff"; g.strokeStyle="rgba(0,0,0,.6)"; g.lineWidth=3*px; const t=Math.round(S0.rot*180/Math.PI)+"°"; g.strokeText(t,k.x+14*px,k.y-12*px); g.fillText(t,k.x+14*px,k.y-12*px); g.restore(); } }
   if(E.crop){ const c=E.crop; g.save(); g.fillStyle="rgba(0,0,0,.55)"; g.beginPath(); g.rect(0,0,iw(),ih()); g.rect(c.x,c.y,c.w,c.h); g.fill("evenodd");
     g.strokeStyle="#fff"; g.lineWidth=2*px; g.strokeRect(c.x,c.y,c.w,c.h); g.globalAlpha=.5; g.lineWidth=1*px;
     for(let i=1;i<3;i++){ g.beginPath(); g.moveTo(c.x+c.w*i/3,c.y); g.lineTo(c.x+c.w*i/3,c.y+c.h); g.moveTo(c.x,c.y+c.h*i/3); g.lineTo(c.x+c.w,c.y+c.h*i/3); g.stroke(); }
@@ -2651,7 +2664,8 @@ function hitShape(p){ const tol=12/E.sc;
   for(let i=E.shapes.length-1;i>=0;i--){ const s=E.shapes[i];
     if(s.type==="arrow"||s.type==="line"){ if(segDist(p,{x:s.x1,y:s.y1},{x:s.x2,y:s.y2})<tol+s.w/2) return s; continue; }
     if(s.type==="balloon"){ if(Math.hypot(p.x-s.x2,p.y-s.y2)<s.fs*.85+tol||segDist(p,{x:s.x1,y:s.y1},{x:s.x2,y:s.y2})<tol) return s; continue; }
-    const b=bbox(s); if(p.x>=b.x-tol&&p.x<=b.x+b.w+tol&&p.y>=b.y-tol&&p.y<=b.y+b.h+tol) return s; }
+    const q=isBox(s)&&s.rot?rotPt(p,boxC(s),-s.rot):p;
+    const b=bbox(s); if(q.x>=b.x-tol&&q.x<=b.x+b.w+tol&&q.y>=b.y-tol&&q.y<=b.y+b.h+tol) return s; }
   return null; }
 function handleHit(s,p){ const t=16/E.sc; return handles(s).find(h=>Math.hypot(h.x-p.x,h.y-p.y)<t)||null; }
 function cropHandles(){ const c=E.crop; if(!c) return []; const mx=c.x+c.w/2, my=c.y+c.h/2;
@@ -2669,14 +2683,16 @@ function edUI(){
   $("#eUndo").disabled=!E.hist.length; $("#eRedo").disabled=!E.fut.length;
   const s=E.sel&&E.shapes.includes(E.sel)?E.sel:null;
   $("#eSubSel").classList.toggle("show",!!s&&E.tool!=="crop");
-  if(s){ $("#eSelLab").textContent={arrow:"矢印",line:"線",rect:"四角",ellipse:"丸",text:"文字",num:"番号",balloon:"風船番号"}[s.type]+" を選択中"; $("#eTextEdit").hidden=!(s.type==="text"||s.type==="balloon"||s.type==="num"); }
+  if(s){ $("#eSelLab").textContent={arrow:"矢印",line:"線",rect:"四角",ellipse:"丸",text:"文字",num:"番号",balloon:"風船番号"}[s.type]+" を選択中"; $("#eTextEdit").hidden=!(s.type==="text"||s.type==="balloon"||s.type==="num"); $("#eRotBtns").hidden=!isBox(s); }
 }
 eC.onpointerdown=e=>{
   e.preventDefault(); eC.setPointerCapture(e.pointerId); closeText(false);
   const p=pos(e), t=E.tool;
   if(t==="crop"){ const c=E.crop, hs=16/E.sc, h=cropHandles().find(h=>Math.abs(h.x-p.x)<hs&&Math.abs(h.y-p.y)<hs);
     if(h) E.drag={kind:"crop",h:h.k,o:{...c},p0:p}; else if(p.x>c.x&&p.x<c.x+c.w&&p.y>c.y&&p.y<c.y+c.h) E.drag={kind:"crop",h:"move",o:{...c},p0:p}; return; }
-  if(E.sel&&E.shapes.includes(E.sel)){ const h=handleHit(E.sel,p); if(h){ push(); E.drag={kind:"handle",h:h.k,s:E.sel,moved:false}; return; } }
+  if(E.sel&&E.shapes.includes(E.sel)){ const h=handleHit(E.sel,p); if(h){ push(); const s=E.sel; let fix=null;
+      if(isBox(s)&&h.k!=="rot"){ const o={tl:"br",tr:"bl",bl:"tr",br:"tl"}[h.k]; fix=handles(s).find(x=>x.k===o); }
+      E.drag={kind:"handle",h:h.k,s,moved:false,fix}; return; } }
   const hit=hitShape(p);
   if(t==="select"||(hit&&["text","num"].includes(t)&&hit.type===t)){ E.sel=hit; if(hit){ push(); E.drag={kind:"move",s:hit,last:p,moved:false}; } edDraw(); edUI(); return; }
   if(t==="text"){ openText(p,"",v=>{ push(); const s={type:"text",x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit()*E.wk,fs:Math.max(18,Math.max(iw(),ih())/24)*E.wk,text:v}; E.shapes.push(s); E.sel=s; edDraw(); edUI(); }); return; }
@@ -2690,6 +2706,10 @@ eC.onpointermove=e=>{
   else if(d.kind==="move"){ const dx=p.x-d.last.x, dy=p.y-d.last.y; d.s.x1+=dx; d.s.y1+=dy; d.s.x2+=dx; d.s.y2+=dy; d.last=p; if(Math.abs(dx)+Math.abs(dy)>0) d.moved=true; }
   else if(d.kind==="handle"){ const s=d.s; d.moved=true;
     if(d.h==="p1"){ s.x1=p.x; s.y1=p.y; } else if(d.h==="p2"){ s.x2=p.x; s.y2=p.y; }
+    else if(d.h==="rot"){ const c=boxC(s); let r=Math.atan2(p.y-c.y,p.x-c.x)+(knobDown(s)?-1:1)*Math.PI/2; let deg=r*180/Math.PI; deg=((deg%360)+540)%360-180;
+      const sn=Math.round(deg/15)*15; if(Math.abs(deg-sn)<4) deg=sn; s.rot=deg*Math.PI/180; }
+    else if(isBox(s)&&d.fix){ const F=d.fix, c={x:(F.x+p.x)/2,y:(F.y+p.y)/2}, r=s.rot||0, v=rotPt({x:p.x-F.x,y:p.y-F.y},{x:0,y:0},-r);
+      const hw=Math.abs(v.x)/2, hh=Math.abs(v.y)/2; Object.assign(s,{x1:c.x-hw,x2:c.x+hw,y1:c.y-hh,y2:c.y+hh}); }
     else { if(d.h[0]==="t") s.y1=p.y; else s.y2=p.y; if(d.h[1]==="l") s.x1=p.x; else s.x2=p.x; } }
   else if(d.kind==="crop"){ const o=d.o, c=E.crop, dx=p.x-d.p0.x, dy=p.y-d.p0.y, W=iw(), H=ih(), mn=24/E.sc;
     if(d.h==="move"){ c.x=Math.max(0,Math.min(W-o.w,o.x+dx)); c.y=Math.max(0,Math.min(H-o.h,o.y+dy)); }
@@ -2731,6 +2751,8 @@ $("#eBalBig").onclick=()=>sizeBal(1.25); $("#eBalSm").onclick=()=>sizeBal(1/1.25
 $("#eBigger").onclick=()=>sizeSel(1.2); $("#eSmaller").onclick=()=>sizeSel(1/1.2);
 function delSel(){ const s=E.sel; if(!s) return; push(); E.shapes=E.shapes.filter(x=>x!==s); E.sel=null; edDraw(); edUI(); }
 $("#eDel").onclick=delSel;
+const rotSel=d=>{ const s=E.sel; if(!isBox(s)) return; push(); let deg=Math.round(((s.rot||0)*180/Math.PI)/15)*15+d; if(d===null) deg=0; deg=((deg%360)+540)%360-180; s.rot=deg*Math.PI/180; edDraw(); };
+$("#eRotL").onclick=()=>rotSel(-15); $("#eRotR").onclick=()=>rotSel(15); $("#eRot0").onclick=()=>rotSel(null);
 $$("#ed [data-color]").forEach(b=>b.onclick=()=>{ E.color=b.dataset.color; $$("#ed [data-color]").forEach(x=>x.classList.toggle("on",x===b)); if(E.sel){ push(); E.sel.color=E.color; edDraw(); } });
 $$("#ed [data-w]").forEach(b=>b.onclick=()=>{ const nw=+b.dataset.w; $$("#ed [data-w]").forEach(x=>x.classList.toggle("on",x===b));
   if(E.sel){ push(); const f=nw/E.wk; if(["text","num","balloon"].includes(E.sel.type)) E.sel.fs*=f; else E.sel.w=unit()*nw; edDraw(); } E.wk=nw; });
@@ -5045,7 +5067,7 @@ window.addEventListener("resize",schedulePreview);
   }catch(e){ console.error(e); }
   docId=uid(); load(blankState()); showDocName();
 })();
-window.__app={get S(){return S;},balMemo,get docId(){return docId;},saveNow,openDoc,newDoc,getIndex,load,exportXlsx,sheetSpec,pages,renderPreview};
+window.__app={get S(){return S;},get E(){return E;},balMemo,get docId(){return docId;},saveNow,openDoc,newDoc,getIndex,load,exportXlsx,sheetSpec,pages,renderPreview};
 </script>
 <script>
 /* アプリ（PWA）：一度開けば電波がなくても動くように */
