@@ -709,6 +709,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #aiCard details.aiMore{margin:0 0 8px}
 #aiFlow #aiAct{margin:0 0 6px 18px;padding:10px 10px 4px 14px;border-left:3px solid var(--accent);background:#f8fbff;border-radius:0 12px 12px 0}
 #aiTg{margin:0 0 8px;font-size:13px}
+#aiReview{scroll-margin-top:72px}
 .aiDone{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 8px;padding:8px 10px;border-radius:10px;background:#e8f5ec;color:#1d5c37;font-size:14px}
 .afHead{font-size:13px;color:#556;margin:0 0 2px 2px}.afHead b{color:var(--accent);font-size:16px}
 #aiTg .afPh{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:8px;margin:4px 0 0;font-weight:normal;font-size:14px;line-height:1.4}
@@ -3770,11 +3771,24 @@ function aiStages(){
 function renderAiFlow(){
   const box=$("#aiFlow"), act=$("#aiAct"); if(!box||!act) return;
   if(aiFlowDoc!==docId){ aiFlowDoc=docId; aiSel=null; }
-  if(act.parentNode===box) box.parentNode.insertBefore(act,box.nextSibling);   // 書き直す前に「やること」の枠を退避
   const L=aiStages(), first=L.find(x=>x.state==="todo"||x.state==="opt");
   const cur=aiSel||(first?first.k:"check"), C=L.find(x=>x.k===cur), hasPh=S.steps.some(s=>s.photos&&s.photos.length);
   const left=L.filter(x=>x.state==="todo").length;
-  box.innerHTML=`<div class="afHead">${left?`あと <b>${left}</b> つ`:"✓ AIの仕上げは終わりました。必要ならもう一度どうぞ"}</div>`+L.map(x=>`<button type="button" class="afRow ${x.state}${x.k===cur?" cur":""}" data-af="${x.k}"><i>${x.state==="done"?"✓":x.n}</i><span><b>${x.t}</b><small>${esc(x.sub)}</small></span>${x.k===cur?"<em>今ここ</em>":""}</button>`).join("");
+  const rowsH=`<div class="afHead">${left?`あと <b>${left}</b> つ`:"✓ AIの仕上げは終わりました。必要ならもう一度どうぞ"}</div>`+L.map(x=>`<button type="button" class="afRow ${x.state}${x.k===cur?" cur":""}" data-af="${x.k}"><i>${x.state==="done"?"✓":x.n}</i><span><b>${x.t}</b><small>${esc(x.sub)}</small></span>${x.k===cur?"<em>今ここ</em>":""}</button>`).join("");
+  const md=cur==="check"?(hasPh&&aiPhOn?"photo":"text"):cur;
+  if(aiMode()!==md){ const r=document.querySelector(`input[name="aiMode"][value="${md}"]`); if(r){ r.checked=true; aiModeUI(); } }
+  if(md==="gen"){ const ph=!C.list.length||C.list.some(x=>x.s.photos&&x.s.photos.length);
+    $("#aiStep2").innerHTML=ph?"AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIが説明文の下書きを書きます。":"AIの画面に依頼文を<b>貼り付けて</b>送信します（今回は写真なし）。AIが説明文の下書きを書きます。";
+    $("#bAiCopy").textContent=ph?"AIへの依頼文をコピー＋写真の画像を作る":"AIへの依頼文をコピー"; }
+  const sig=rowsH+"|"+C.list.map(x=>x.i+x.why).join()+"|"+aiPhOn;
+  if(box.dataset.sig===sig&&act.parentNode===box) return;          // 変わっていなければ何もしない（画面の大きさが変わるたびに呼ばれる）
+  const fa=document.activeElement;
+  if(fa&&act.contains(fa)&&(fa.tagName==="TEXTAREA"||(fa.tagName==="INPUT"&&!/^(checkbox|radio|button)$/.test(fa.type)))){   // 入力中は動かさず、入力が終わってから描き直す
+    if(!act._waitBlur){ act._waitBlur=1; act.addEventListener("focusout",()=>{ act._waitBlur=0; setTimeout(renderAiFlow,0); },{once:true}); }
+    return; }
+  box.dataset.sig=sig;
+  if(act.parentNode===box) box.parentNode.insertBefore(act,box.nextSibling);   // 書き直す前に「やること」の枠を退避
+  box.innerHTML=rowsH;
   // 「今ここ」の段のすぐ下に、対象の工程と 1→2→3 を出す
   const row=$(`[data-af="${cur}"]`,box); box.insertBefore(act,row.nextSibling);
   const tg=$("#aiTg");
@@ -3790,11 +3804,7 @@ function renderAiFlow(){
     persist(); renderAiFlow(); });
   const sk=$("#afSkip"); if(sk) sk.onclick=()=>{ S.meta.balSkip="1"; aiSel=null; persist(); renderAiFlow(); };
   const pc=$("#aiPh"); if(pc) pc.onchange=()=>{ aiPhOn=pc.checked; renderAiFlow(); };
-  const md=cur==="check"?(hasPh&&aiPhOn?"photo":"text"):cur;
-  if(aiMode()!==md){ const r=document.querySelector(`input[name="aiMode"][value="${md}"]`); if(r){ r.checked=true; aiModeUI(); } }
-  if(md==="gen"){ const ph=!C.list.length||C.list.some(x=>x.s.photos&&x.s.photos.length);
-    $("#aiStep2").innerHTML=ph?"AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIが説明文の下書きを書きます。":"AIの画面に依頼文を<b>貼り付けて</b>送信します（今回は写真なし）。AIが説明文の下書きを書きます。";
-    $("#bAiCopy").textContent=ph?"AIへの依頼文をコピー＋写真の画像を作る":"AIへの依頼文をコピー"; }
+
 }
 /* ---- AIチェック：写真もいっしょに ---- */
 function aiMode(){ const r=document.querySelector('input[name="aiMode"]:checked'); return r?r.value:"text"; }
@@ -4029,9 +4039,13 @@ function keyTokens(s){ return (String(s||"").match(/風船\s*\d+|【\d+】|[A-Za
 let AI=null, aiUndo=null;
 $("#bAiRead").onclick=()=>{
   let d; try{ d=parseAi($("#aiIn").value); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーして貼り付けてください。"); }
-  if(Array.isArray(d.balloons)&&!Array.isArray(d.steps)){ AI=null; BAL=d; return balRender(); }
-  AI=d; BAL=null; renderAiReview();
+  if(Array.isArray(d.balloons)&&!Array.isArray(d.steps)){ AI=null; BAL=d; balRender(); return aiShowTop(); }
+  AI=d; BAL=null; renderAiReview(); aiShowTop();
 };
+/* 結果を読み込んだら、結果の一番上（最初の工程）を画面の上に出す。キーボードが閉じて画面が動いた後にもう一度 */
+function aiShowTop(){ document.activeElement&&document.activeElement.blur&&document.activeElement.blur();
+  const go=()=>{ const r=$("#aiReview"); if(r&&r.firstElementChild) r.scrollIntoView({block:"start"}); };
+  setTimeout(go,60); setTimeout(go,450); }
 /* 反映したあとは、結果の一覧を片付けて「反映しました／元に戻す」だけを出す */
 function renderAiDone(n){
   const box=$("#aiReview");
