@@ -332,6 +332,13 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #fm .shot .mv{position:absolute;left:4px;right:4px;bottom:4px;display:flex;gap:4px}
 #fm .shot .mv button{flex:1;height:30px;padding:0;border:none;border-radius:8px;background:rgba(255,255,255,.92);color:#1f5fae;font-size:15px;font-weight:bold;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 #fm .shot .mv button:disabled{opacity:.35}
+.phLay{margin-top:8px}.phLayT{font-size:12.5px;font-weight:bold;color:#445;margin-bottom:4px}
+.phLayR{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.phLayR .chip,#fm .phLayR .chip{display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 6px;flex:none;height:auto;line-height:1.2;font-size:11.5px;white-space:nowrap;border-radius:10px;background:#fff;border:1.5px solid #d3dae4;cursor:pointer}
+.phLayR .chip small{display:block;font-size:10px;color:#667}
+.phLayR .chip.on,#fm .phLayR .chip.on{border-color:#1f5fae;color:#1f3f6e;outline:2.5px solid #1f5fae;background:#e8f0fb}
+.phLayR svg{display:block}
+.phLayPC{flex-basis:100%;width:100%}
 #fm .shot .ed{position:absolute;left:5px;bottom:5px;font-size:11.5px;background:rgba(0,0,0,.5);color:#fff;border-radius:6px;padding:1px 6px}
 #fm .shot.add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:#fff;border:2px dashed #b9c4d2;color:var(--accent);font-weight:bold;font-size:15px}
 #fm .shot.add.main{background:var(--accent);border:none;color:#fff}
@@ -1246,7 +1253,7 @@ details.fold>summary::before{color:var(--accent)}
 
       <div class="sec">
         <h3><i>2</i>写真 <small>組み付けた状態・3枚まで</small></h3>
-        <div class="shots" id="fpThumbs"></div>
+        <div class="shots" id="fpThumbs"></div><div id="fpLay"></div>
         <div id="fpShotNote" class="tip"></div>
       </div>
 
@@ -1831,24 +1838,63 @@ function fitSize(step,num,r1,r2,capB){
   for(const sz of list){ m.style.fontSize=sz[1]*PT2PX+"px"; m.innerHTML=linesHTML(L,sz); if(m.scrollHeight<=h) return {sz,over:false}; }
   return {sz:list[list.length-1],over:true};
 }
-/* 写真の配置（横並び or 縦並びの大きく写る方） */
-function layoutPhotos(photos,box){
+/* 写真の配置：いくつかの並べ方を試して、いちばん大きく見えるものを選ぶ
+   型：row=横一列 / col=縦一列 / g21=上2枚・下1枚 / g12=上1枚・下2枚 / L12=左に大1枚・右に2枚 / R21=左に2枚・右に大1枚 */
+const PH_LAYS={row:"横一列",col:"縦一列",g21:"上2・下1",g12:"上1・下2",L12:"左に大きく1枚",R21:"右に大きく1枚"};
+function phLayOptions(n){ return n<2?[]:n===2?["row","col"]:["row","col","g21","g12","L12","R21"]; }
+function phGroups(kind,n){
+  const all=[...Array(n).keys()];
+  if(kind==="row") return {dir:"rows",g:[all]};
+  if(kind==="col") return {dir:"cols",g:[all]};
+  if(n!==3) return null;
+  return {g21:{dir:"rows",g:[[0,1],[2]]},g12:{dir:"rows",g:[[0],[1,2]]},L12:{dir:"cols",g:[[0],[1,2]]},R21:{dir:"cols",g:[[0,1],[2]]}}[kind]||null;
+}
+function layoutKind(photos,box,kind){
+  const pad=4, gap=6, W=box.w-pad*2, H=box.h-pad*2, G=phGroups(kind,photos.length); if(!G) return null;
+  const ar=photos.map(p=>(p.w||4)/(p.h||3));
+  const rows=G.dir==="rows";
+  // 各グループ（行 or 列）の、外寸いっぱいに広げたときの太さ
+  const thick=G.g.map(ix=>{ if(rows){ const sa=ix.reduce((a,i)=>a+ar[i],0); return (W-gap*(ix.length-1))/sa; }
+                             const si=ix.reduce((a,i)=>a+1/ar[i],0); return (H-gap*(ix.length-1))/si; });
+  // 2段組み（上2・下1 など）は、3枚を同じ大きさにそろえる
+  if(kind==="g21"||kind==="g12"){ const m=Math.min(...thick); thick.fill(m); }
+  const tot=thick.reduce((a,b)=>a+b,0)+gap*(G.g.length-1), lim=rows?H:W;
+  const k=tot>lim?(lim-gap*(G.g.length-1))/(tot-gap*(G.g.length-1)):1;
+  const t=thick.map(x=>x*k), used=t.reduce((a,b)=>a+b,0)+gap*(G.g.length-1);
+  const out=[]; let off=(rows?box.y+(box.h-used)/2:box.x+(box.w-used)/2);
+  G.g.forEach((ix,j)=>{ const th=t[j];
+    const sizes=ix.map(i=>rows?{w:th*ar[i],h:th}:{w:th,h:th/ar[i]});
+    const len=sizes.reduce((a,b)=>a+(rows?b.w:b.h),0)+gap*(ix.length-1);
+    let q=rows?box.x+(box.w-len)/2:box.y+(box.h-len)/2;
+    ix.forEach((i,m)=>{ const z=sizes[m];
+      out.push(rows?{p:photos[i],x:q,y:off,w:z.w,h:z.h}:{p:photos[i],x:off,y:q,w:z.w,h:z.h}); q+=(rows?z.w:z.h)+gap; });
+    off+=th+gap; });
+  out.sort((a,b)=>photos.indexOf(a.p)-photos.indexOf(b.p));
+  const ars=out.map(o=>o.w*o.h), area=ars.reduce((a,b)=>a+b,0);
+  // 大きさがそろっている方を少しだけ優先（1枚だけ巨大・他が豆粒、を避ける）
+  return {out,score:area*Math.pow(Math.min(...ars)/Math.max(...ars),0.25)};
+}
+function bestPhKind(photos,box){
+  let best=null; for(const k of phLayOptions(photos.length)){ const r=layoutKind(photos,box,k); if(r&&(!best||r.score>best.r.score*1.0001)) best={k,r}; }
+  return best;
+}
+function layoutPhotos(photos,box,kind){
   const n=photos.length; if(!n) return [];
-  const pad=4, gap=6;
-  const tryLay=(dir)=>{
-    const cw = dir==="row" ? (box.w-pad*2-gap*(n-1))/n : box.w-pad*2;
-    const ch = dir==="col" ? (box.h-pad*2-gap*(n-1))/n : box.h-pad*2;
-    const items=photos.map(p=>{ const s=Math.min(cw/p.w,ch/p.h); return {w:p.w*s,h:p.h*s}; });
-    const area=items.reduce((a,b)=>a+b.w*b.h,0);
-    let out=[];
-    if(dir==="row"){ const tot=items.reduce((a,b)=>a+b.w,0)+gap*(n-1); let x=box.x+(box.w-tot)/2;
-      items.forEach((it,i)=>{ out.push({p:photos[i],x,y:box.y+(box.h-it.h)/2,w:it.w,h:it.h}); x+=it.w+gap; }); }
-    else { const tot=items.reduce((a,b)=>a+b.h,0)+gap*(n-1); let y=box.y+(box.h-tot)/2;
-      items.forEach((it,i)=>{ out.push({p:photos[i],x:box.x+(box.w-it.w)/2,y,w:it.w,h:it.h}); y+=it.h+gap; }); }
-    return {area,out};
-  };
-  const a=tryLay("row"), b=tryLay("col");
-  return (a.area>=b.area?a:b).out;
+  if(n===1) return layoutKind(photos,box,"row").out;
+  if(kind&&kind!=="auto"){ const r=layoutKind(photos,box,kind); if(r) return r.out; }
+  return bestPhKind(photos,box).r.out;
+}
+/* 工程の写真枠（並べ方を選ぶ画面でも使う） */
+function stepPhotoBox(){ const [r1,r2]=blockRows(0,perSheet()); return {x:0,y:0,w:colX(PH_C2+1)-colX(PH_C1),h:rowY(r2+1)-rowY(r1)}; }
+/* 並べ方のボタン（小さな見本図つき） */
+function phLayChips(photos,cur){
+  const opts=phLayOptions(photos.length); if(!opts.length) return "";
+  const box=stepPhotoBox(), best=bestPhKind(photos,box).k, sc=58/box.w;
+  const mini=k=>{ const r=layoutKind(photos,box,k); return `<svg viewBox="0 0 ${box.w} ${box.h}" width="58" height="${Math.round(box.h*sc)}"><rect x="1" y="1" width="${box.w-2}" height="${box.h-2}" fill="#fff" stroke="#bbb" stroke-width="3"/>${r.out.map((o,i)=>`<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" fill="#9fb8d6" stroke="#1f5fae" stroke-width="4"/><text x="${o.x+o.w/2}" y="${o.y+o.h/2+16}" font-size="46" text-anchor="middle" fill="#1f3f6e" font-weight="bold">${i+1}</text>`).join("")}</svg>`; };
+  cur=cur&&opts.includes(cur)?cur:"auto";
+  return `<div class="phLay"><div class="phLayT">📐 写真の並べ方</div><div class="phLayR">`+
+    `<button class="chip${cur==="auto"?" on":""}" data-lay="auto">${mini(best)}<span>おまかせ<small>（${PH_LAYS[best]}）</small></span></button>`+
+    opts.map(k=>`<button class="chip${cur===k?" on":""}" data-lay="${k}">${mini(k)}<span>${PH_LAYS[k]}</span></button>`).join("")+`</div></div>`;
 }
 
 /* ================= シート設計図（プレビュー/Excel共通） ================= */
@@ -1932,7 +1978,7 @@ function sheetSpec(pi,steps,startNum,totalPages,prep){
     const fit=fitSize(st,num,r1,r2); st._fit=fit;
     texts.push({st,num,r1,r2,c1:TX_C1,c2:TX_C2,lines:stepLines(st,num),fit,sid:st.id});
     const box={x:colX(PH_C1),y:rowY(r1),w:colX(PH_C2+1)-colX(PH_C1),h:rowY(r2+1)-rowY(r1)};
-    layoutPhotos(st.photos,box).forEach(o=>{o.sid=st.id;imgs.push(o);});
+    layoutPhotos(st.photos,box,st.phLay).forEach(o=>{o.sid=st.id;imgs.push(o);});
   });
   // シート内でそろえる：一番小さい工程のサイズに合わせる
   if(M.uniform!=="0" && (M.fitMode||"auto")!=="fixed" && texts.length>1){
@@ -2139,6 +2185,8 @@ function renderPhotos(st,box){
     x.onclick=()=>{ st.photos.splice(j,1); afterPhoto(st); };
     box.appendChild(d);
   });
+  if(st.photos.length>1){ const w=document.createElement("div"); w.className="phLayPC"; w.innerHTML=phLayChips(st.photos.map(p=>({w:p.w||4,h:p.h||3})),st.phLay);
+    $$("[data-lay]",w).forEach(b=>b.onclick=()=>{ st.phLay=b.dataset.lay==="auto"?"":b.dataset.lay; afterPhoto(st); }); box.appendChild(w); }
   if(st.photos.length<3){
     const dz=document.createElement("div"); dz.className="drop"; dz.innerHTML="<span>写真をドロップ<br>またはクリック<br><small>Ctrl+Vでも可</small></span>";
     const fi=document.createElement("input"); fi.type="file"; fi.accept="image/*"; fi.multiple=true; fi.hidden=true;
@@ -4194,9 +4242,9 @@ function fmDragInit(){
 /* ---- 工程の履歴：上書きされる前の状態を残す（文章は5回分・写真は直前1回分・写真は全体で10MBまで） ---- */
 let HIST=null, histDoc=null, histT=0;
 function stepSnap(st){ const cl=o=>o==null?o:JSON.parse(JSON.stringify(o));
-  return {t:Date.now(),title:st.title||"",body:st.body||"",check:st.check||"",tools:st.tools||"",as:cl(st.as),fa:cl(st.fa),_genBody:st._genBody,_genTools:st._genTools,
+  return {t:Date.now(),title:st.title||"",body:st.body||"",check:st.check||"",tools:st.tools||"",as:cl(st.as),fa:cl(st.fa),_genBody:st._genBody,_genTools:st._genTools,phLay:st.phLay||"",
     photos:(st.photos||[]).map(p=>{ const q=Object.assign({},p); delete q._balDone; return q; })}; }
-const snapSig=v=>JSON.stringify([v.title,v.body,v.check,v.tools])+"|"+(v.photos?v.photos.map(p=>p.id+":"+(p.data||"").length+":"+(p.data||"").slice(-48)+":"+(p.ed?JSON.stringify(p.ed).length:0)).join(","):"-");
+const snapSig=v=>JSON.stringify([v.title,v.body,v.check,v.tools,v.phLay||""])+"|"+(v.photos?v.photos.map(p=>p.id+":"+(p.data||"").length+":"+(p.data||"").slice(-48)+":"+(p.ed?JSON.stringify(p.ed).length:0)).join(","):"-");
 async function histLoad(){
   if(HIST&&histDoc===docId) return HIST; histDoc=docId; HIST={};
   try{ const raw=DB.db&&await DB.get("hist:"+docId); if(raw){ const o=await unpackJSON(raw);
@@ -4239,7 +4287,7 @@ function fmHistRestore(st,k){
   if(!confirm(`${histTime(v.t)} の状態に戻しますか？${v.photos?"":"\n（写真は今のままです）"}\n今の状態も残すので、あとでまた戻せます。`)) return;
   const now=stepSnap(st);
   Object.assign(st,{title:v.title,body:v.body,check:v.check,tools:v.tools,as:v.as,fa:v.fa,_genBody:v._genBody,_genTools:v._genTools});
-  if(v.photos) st.photos=v.photos.map(p=>Object.assign({},p));
+  if(v.photos){ st.phLay=v.phLay||""; } if(v.photos) st.photos=v.photos.map(p=>Object.assign({},p));
   HIST[st.id].splice(k,1); HIST[st.id].unshift(now); HIST[st.id].length=Math.min(HIST[st.id].length,5); HIST[st.id].forEach((x,i)=>{ if(i>0) x.photos=null; }); histSave();
   persist(); try{ renderSteps(); }catch(_){} schedulePreview();
   $("#fmHist").hidden=true; fmLoadStep(st.id); fmToast(`↩ ${histTime(v.t)} の状態に戻しました（戻す前の状態も履歴にあります）`);
@@ -4256,10 +4304,10 @@ function fmTargetIndex(){ if(F.stepId){ const i=S.steps.findIndex(x=>x.id===F.st
   // 途中に空き工程（差し込んだ工程）があればそこ、なければ最後の次
   const e=S.steps.findIndex(stEmpty); return e>=0?e:S.steps.length; }
 function fmLoadStep(id){
-  Object.assign(F,{stepId:null,parts:[],hz:[],action:"",photos:[],checks:[],title:"",body:"",tEd:false,bEd:false,ask:null,orig:null,actTouched:false,gHz:0,gResult:0,gSkip:{}});
+  Object.assign(F,{stepId:null,parts:[],hz:[],action:"",photos:[],phLay:"",checks:[],title:"",body:"",tEd:false,bEd:false,ask:null,orig:null,actTouched:false,gHz:0,gResult:0,gSkip:{}});
   const st=id&&S.steps.find(x=>x.id===id);
   if(st){
-    F.stepId=st.id; F.photos=st.photos.slice(); F.checks=String(st.check||"").split("\n").filter(Boolean);
+    F.stepId=st.id; F.photos=st.photos.slice(); F.phLay=st.phLay||""; F.checks=String(st.check||"").split("\n").filter(Boolean);
     const P=S.meta.parts||[];
     F.parts=(st.as&&st.as.parts||[]).map(tk=>P.find(p=>tk.b&&p.b===tk.b)).filter(Boolean);
     if(!F.parts.length) F.parts=partsInStep(st);
@@ -4303,6 +4351,8 @@ function fmRenderStep(){
   if(F.photos.length<3) ph.push(`<button class="shot add main" id="fpShot"><i>📷</i>撮る</button>`);
   $("#fpThumbs").innerHTML=ph.join("");
   $("#fpShotNote").innerHTML=(F.photos.length<3?`<button class="txtBtn" id="fpShotF">🖼 スマホの中の写真から選ぶ</button>`:"写真は3枚までです。")+(F.photos.length?`<div>写真をタップすると、矢印や文字を書き込めます。${many?"◀ ▶ で写真の順番を入れ替えられます。":""}</div>`:"");
+  $("#fpLay").innerHTML=many?phLayChips(F.photos.map(p=>({w:p.w||4,h:p.h||3})),F.phLay):"";
+  $$("#fpLay [data-lay]").forEach(b=>b.onclick=()=>{ F.phLay=b.dataset.lay==="auto"?"":b.dataset.lay; fmRenderStep(); fmToast("写真の並べ方："+(F.phLay?PH_LAYS[F.phLay]:"おまかせ")+"（保存すると手順書に反映）"); });
   $$("#fpThumbs [data-mv]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const j=+b.dataset.mv, k=j+(+b.dataset.d); if(k<0||k>=F.photos.length) return;
     [F.photos[j],F.photos[k]]=[F.photos[k],F.photos[j]]; fmRenderStep(); fmToast(`写真${j+1}と写真${k+1}を入れ替えました`); });
   $$("#fpThumbs [data-j]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(!confirm("この写真を外しますか？")) return; F.photos.splice(+b.dataset.j,1); fmRenderStep(); });
@@ -4550,7 +4600,7 @@ function fmSaveStep(){
   let st=F.stepId&&S.steps.find(x=>x.id===F.stepId);
   if(!st){ const i=fmTargetIndex(); st=S.steps[i]; if(!st){ st=blankStep(); S.steps.push(st); } }
   const hz=F.hz.filter(h=>h.on);
-  Object.assign(st,{title:F.title,body:F.body,check:F.checks.join("\n"),photos:F.photos.slice(0,3),
+  Object.assign(st,{title:F.title,body:F.body,check:F.checks.join("\n"),photos:F.photos.slice(0,3),phLay:F.phLay||"",
     as:{target:"",parts:F.parts.map(fmToken),verb:"",hz:F.hz,checks:F.checks,note:""},fa:{action:F.action,tEd:F.tEd,bEd:false}});
   const t=toolsFromHz(hz); if(t&&(!st.tools||st.tools===st._genTools)){ st.tools=t; st._genTools=t; }
   st._genBody=st.body; F.stepId=st.id; histPush(st,F.snap); F.snap=stepSnap(st); persist(); return st;
