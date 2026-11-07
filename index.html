@@ -710,6 +710,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #aiFlow #aiAct{margin:0 0 6px 18px;padding:10px 10px 4px 14px;border-left:3px solid var(--accent);background:#f8fbff;border-radius:0 12px 12px 0}
 #aiTg{margin:0 0 8px;font-size:13px}
 #aiReview{scroll-margin-top:72px}
+.ambPick{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px 22px}.ambPick .chip{background:#fff;border:1px solid #e5c56a;text-align:left;white-space:normal}.ambPick small{color:var(--sub)}
 .aiDone{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 8px;padding:8px 10px;border-radius:10px;background:#e8f5ec;color:#1d5c37;font-size:14px}
 .afHead{font-size:13px;color:#556;margin:0 0 2px 2px}.afHead b{color:var(--accent);font-size:16px}
 #aiTg .afPh{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:8px;margin:4px 0 0;font-weight:normal;font-size:14px;line-height:1.4}
@@ -1768,10 +1769,12 @@ function mixParts(src){
   const key=p=>p.pn?"P"+normPn(p.pn):"B"+(p.b||"")+"|"+String(p.name||"").toUpperCase().replace(/\s+/g,"");
   const have=new Set(P.map(key));
   (src.meta.parts||[]).forEach(p=>{ const k=key(p); if(have.has(k)) return;
-    if(p.b&&P.some(q=>q.b===p.b)) clash.push(p.b);
+    if(p.b&&P.some(q=>q.b===p.b&&!samePart(q,p))) clash.push(p.b);
     P.push(JSON.parse(JSON.stringify(p))); have.add(k); add++; });
-  const hn=new Set(H.map(h=>String(h.name||"").toUpperCase().replace(/\s+/g,"")));
-  (src.meta.hozai||[]).forEach(h=>{ const k=String(h.name||"").toUpperCase().replace(/\s+/g,""); if(!k||hn.has(k)) return; H.push(JSON.parse(JSON.stringify(h))); hn.add(k); add++; });
+  const hk=h=>String(h.name||"").toUpperCase().replace(/\s+/g,"")+"|"+(h.b||"")+"|"+normPn(h.pn);
+  const hn=new Set(H.map(hk));
+  (src.meta.hozai||[]).forEach(h=>{ const k=hk(h); if(!String(h.name||"").trim()||hn.has(k)) return; H.push(JSON.parse(JSON.stringify(h))); hn.add(k); add++; });
+  dedupeParts();
   return {add,clash:[...new Set(clash)]};
 }
 $("#mixGo").onclick=async()=>{
@@ -2015,7 +2018,7 @@ function prepCards(add,parts,imgs){
     if(p.photo) layoutPhotos([p.photo],box).forEach(o=>{ o.sid=null; imgs.push(o); });
     else add(r0+5,c1,r0+5,c2,{v:"（写真なし）",sz:9,h:"center",color:"FFAAAAAA"});
     // 情報（ラベル：値 の4行）
-    const hz=(S.meta.hozai||[]).filter(h=>h.b&&h.b===p.b).map(h=>`${h.name}×${hozaiText.qtyOf(h)}`).join("、");
+    const hz=(S.meta.hozai||[]).filter(h=>hzMatch(h,p)).map(h=>`${h.name}×${hozaiText.qtyOf(h)}`).join("、");
     const rows=[["品番",p.pn||"-",{bold:true,sz:10.5}],["数量",p.qty||"-",{bold:true,sz:10.5}],["補材",hz||"-",{sz:8.5}],["備考",p.jp&&p.jp!==p.name?p.jp:"-",{sz:8.5}]];
     rows.forEach(([lab,val,o],i)=>{ const r=r0+9+i+(i>0?0:0);
       add(r,c1,r,c1+2,{v:lab,sz:8,color:GRY,b:{t:i===0?T:undefined}});
@@ -2396,7 +2399,7 @@ function partUsage(){
   const P=S.meta.parts||[], m=new Map();
   P.forEach(p=>m.set(pKey(p),[]));
   S.steps.forEach((st,i)=>{ const txt=[st.title,st.body,st.check].join("\n");
-    P.forEach(p=>{ if(usesPart(txt,p)||(p.b&&(st.as&&st.as.parts||[]).some(tk=>tk.b===p.b))) m.get(pKey(p)).push(i); }); });
+    P.forEach(p=>{ if(usesPart(txt,p)||(p.b&&(st.as&&st.as.parts||[]).some(tk=>samePart(tkPart(tk),p)))) m.get(pKey(p)).push(i); }); });
   return m;
 }
 function renderUsage(){
@@ -2444,7 +2447,11 @@ function collectIssues(){
     if(!st.body) out.push({id:st.id,t:`${tag}：作業内容が空です`});
     if(!st.photos.length) out.push({id:st.id,t:`${tag}：写真がありません`});
     if(st._fit&&st._fit.over) out.push({id:st.id,t:`${tag}：文字が枠からあふれます`});
+    ["body","check"].forEach(f=>balAmbig(st[f]).forEach(x=>out.push({id:st.id,amb:{st,f,x},t:`${tag}：「${x.src}」はどの部品？（同じ風船番号が${x.cands.length}つあります）`})));
   });
+  { const tw=new Set((S.meta.parts||[]).filter(p=>p.b&&bTwins(p).length).map(p=>p.b));
+    const old=(S.meta.hozai||[]).filter(h=>h.b&&tw.has(h.b)&&!h.pn).length;
+    if(old) out.push({tab:"parts",t:`同じ風船番号の部品があり、ボルトがどちらの部品のものか分かりません（${old}件）。部品表を取り込み直すと分かれます`}); }
   if(!S.meta.name) out.unshift({tab:"info",t:"作業名が空です"});
   if(S.meta.prepOn!=="0"){ const np=prepParts().filter(p=>!p.photo).length; if(np) out.push({tab:"parts",t:`準備シート：写真のない部品が ${np}件あります（部品表の📷から登録）`}); }
   if((S.meta.parts||[]).length){ const U=partUsage(), skip=new Set(S.meta.skipParts||[]);
@@ -2456,7 +2463,11 @@ function updateAiOver(){ const n=S.steps.filter(s=>s._fit&&s._fit.over).length; 
 function renderIssues(){
   updateAiOver(); try{ renderAiFlow(); }catch(_){}
   const L=collectIssues(), box=$("#issues");
-  box.innerHTML=L.length?L.map((x,i)=>`<a data-i="${i}"><b>⚠</b> ${esc(x.t)}</a>`).join(""):`<p class="ok">✓ 問題は見つかりませんでした</p>`;
+  box.innerHTML=L.length?L.map((x,i)=>`<a data-i="${i}"><b>⚠</b> ${esc(x.t)}</a>`+(x.amb?`<div class="ambPick">${x.amb.x.cands.map((p,j)=>`<button type="button" class="chip" data-amb="${i}" data-c="${j}"><b>${esc(pName(p)||p.name||"")}</b> <small>${esc(p.pn||"")}</small></button>`).join("")}</div>`:"")).join(""):`<p class="ok">✓ 問題は見つかりませんでした</p>`;
+  $$("[data-amb]",box).forEach(b=>b.onclick=()=>{ const {st,f,x}=L[+b.dataset.amb].amb, p=x.cands[+b.dataset.c];
+    if(String(st[f]||"").substr(x.at,x.src.length)!==x.src) return renderIssues();
+    const b4=stepSnap(st); st[f]=balResolve(st[f],x,p); histPush(st,b4); autoTools(st);
+    persist(); renderSteps(); schedulePreview(); renderIssues(); uiToast(`「${x.src}」を ${pName(p)||p.pn} にしました`); });
   $$("a",box).forEach(a=>a.onclick=()=>{ const x=L[+a.dataset.i]; if(x.use) return $("#useCard").scrollIntoView({behavior:"smooth"}); x.id?openStep(x.id):(!$("#fm").hidden?(x.tab==="parts"&&(fmCloseFin(),fmCur="fmStart",fmOpenParts())):showTab(x.tab)); });
   renderUsage();
 }
@@ -2851,17 +2862,55 @@ function partTextOpt(p,fmt,label,list){
 }
 function partText(p){ const M=S.meta; return partTextOpt(p,M.bFmt||"kakko",M.partLabel||"name_pn",M.partList||"1"); }
 /* 文章の中で使われている部品（風船番号・【番号】・子品番で探す） */
+/* ---- 同じ風船番号の部品が2つ以上あるとき（別々の図面の部品表を取り込んだ時など）----
+   風船番号のすぐ後ろ（次の【 まで）に書いてある品番・品名で見分ける。決められない所は人に選んでもらう（balAmbig） */
+/* 同じ風船番号・同じ品番の部品が2回登録されていたら1つにまとめる（別々の図面に同じ部品が出てくる時など） */
+function dedupeParts(){ const P=S.meta.parts||[], out=[];
+  P.forEach(p=>{ const q=out.find(x=>x.b===p.b&&p.pn&&x.pn&&normPn(x.pn)===normPn(p.pn)); if(q){ ["name","jp","qty","photo"].forEach(k=>{ if(!q[k]&&p[k]) q[k]=p[k]; }); } else out.push(p); });
+  if(out.length!==P.length) S.meta.parts=out; return P.length-out.length; }
+function samePart(a,b){ return a===b||(!!a&&!!b&&a.b===b.b&&(a.pn&&b.pn?normPn(a.pn)===normPn(b.pn):String(a.name||"").toUpperCase()===String(b.name||"").toUpperCase())); }
+function uniqParts(L){ const o=[]; (L||[]).forEach(p=>{ if(!o.some(q=>samePart(q,p))) o.push(p); }); return o; }
+function bTwins(p){ return p&&p.b?(S.meta.parts||[]).filter(q=>q.b===p.b&&!samePart(q,p)):[]; }
+function hzMatch(h,p){ return !!(h&&p&&h.b&&h.b===p.b&&(!h.pn||!p.pn||normPn(h.pn)===normPn(p.pn))); }
+function balSegs(t,b){ const out=[], re=new RegExp(`(風船|【)\\s*${String(b).replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}(?![\\dA-Za-z])\\s*(】|番(?!目))?`,"g"); let m;
+  while((m=re.exec(t))){ let seg=t.slice(m.index+m[0].length,m.index+m[0].length+80); const k=seg.search(/【|風船|\n/); if(k>=0) seg=seg.slice(0,k); out.push({at:m.index,src:m[0],seg}); }
+  return out; }
+function partScore(seg,p){ const s=normPn(seg), u=String(seg).toUpperCase().replace(/[\s\-－・]/g,"");
+  if(p.pn&&normPn(p.pn).length>=4&&s.includes(normPn(p.pn))) return 3;
+  let sc=0; [p.name,p.jp].forEach(nm=>{ const c=String(nm||"").toUpperCase().replace(/[\s\-－・]/g,""); if(c.length>=2&&u.includes(c)) sc=Math.max(sc,1+Math.min(c.length,40)/100); });
+  return sc; }
+function segPick(seg,cands){ const sc=cands.map(p=>partScore(seg,p)), mx=Math.max(...sc); if(!(mx>0)) return null; const w=cands.filter((p,i)=>sc[i]===mx); return w.length===1?w[0]:null; }
 function usesPart(text,p){
   const t=String(text||"");
-  if(p.b&&(new RegExp(`(風船|【)${p.b}(?!\\d)`)).test(t)) return true;
-  return !!(p.pn&&p.pn.length>=6&&t.includes(p.pn));
+  if(p.pn&&p.pn.length>=6&&t.includes(p.pn)) return true;
+  if(!p.b) return false;
+  const segs=balSegs(t,p.b); if(!segs.length) return false;
+  const tw=bTwins(p); if(!tw.length) return true;
+  return segs.some(x=>samePart(segPick(x.seg,uniqParts([p,...tw])),p));
 }
+/* 同じ風船番号の部品が複数あって、文章からはどれか決められない所 */
+function balAmbig(text){
+  const t=String(text||""), P=S.meta.parts||[], out=[];
+  [...new Set(P.filter(p=>p.b&&bTwins(p).length).map(p=>p.b))].forEach(b=>{
+    const cands=uniqParts(P.filter(p=>p.b===b));
+    balSegs(t,b).forEach(x=>{ if(!segPick(x.seg,cands)) out.push({b,src:x.src,at:x.at,cands}); });
+    // 「001」だけ（かっこ・風船なし）の書き方
+    if(/^0\d{2}$/.test(b)) for(const m of t.matchAll(new RegExp(`(^|[^\\d\\w【\\-])(${b})(?![\\d\\w】])`,"g"))){ const at=m.index+m[1].length;
+      let seg=t.slice(at+3,at+83); const k=seg.search(/【|風船|\n/); if(k>=0) seg=seg.slice(0,k);
+      if(!segPick(seg,cands)) out.push({b,src:b,at,cands}); } });
+  return out.sort((a,b)=>a.at-b.at);
+}
+/* 決められない所を、選んだ部品の書き方に置き換える（k番目の出現だけ） */
+function balResolve(text,x,p){ const t=String(text||""); return t.slice(0,x.at)+partText(p)+t.slice(x.at+x.src.length); }
+function tkPart(tk){ const P=S.meta.parts||[]; if(!tk||!tk.b) return null;
+  const c=P.filter(p=>p.b===tk.b); if(c.length<2) return c[0]||null;
+  return (tk.pn&&c.find(p=>normPn(p.pn)===normPn(tk.pn)))||c.find(p=>tk.label&&partText(p)===tk.label)||c.find(p=>tk.name&&pName(p)===tk.name)||c[0]; }
 /* この工程の文章に出てくる部品 */
 function partsInStep(st){ return partsMentioned(st); }
 /* 文章に出てくる部品すべて */
 function partsMentioned(st){
   const P=S.meta.parts||[], txt=(st.body||"")+"\n"+(st.check||""), out=[];
-  P.forEach(p=>{ if(usesPart(txt,p)) out.push(p); });
+  P.forEach(p=>{ if(usesPart(txt,p)&&!out.some(q=>samePart(q,p))) out.push(p); });
   return out;
 }
 /* 入力済みの文章の「風船052（…）」を今の書き方に置き換える */
@@ -2886,7 +2935,7 @@ function relabelAll(){
     if(f!=="fusen") r=r.replace(/風船(\d+)（([^）]*)）/g,(m,b,x)=>{ n++; return f==="kakko"?`【${b}】${x}`:x; });
     return r; };
   S.steps.forEach(st=>{ st.body=fix(st.body); st.check=fix(st.check);
-    if(st.as&&st.as.parts) st.as.parts.forEach(tk=>{ const c=P.filter(p=>p.b&&p.b===tk.b); if(c.length===1){ tk.label=partText(c[0]); tk.name=pName(c[0])||tk.name; } });
+    if(st.as&&st.as.parts) st.as.parts.forEach(tk=>{ const c=uniqParts(P.filter(p=>p.b&&p.b===tk.b)), q=c.length===1?c[0]:(tk.pn?c.find(p=>normPn(p.pn)===normPn(tk.pn)):null); if(q){ tk.label=partText(q); tk.name=pName(q)||tk.name; tk.pn=q.pn||""; } });
     if(st._genBody) st._genBody=fix(st._genBody); });
   return n;
 }
@@ -2926,7 +2975,7 @@ function normHzAll(){
 function isFastener(s){ return FAST_RE.test(String(s||"").trim()); }
 function hozaiText(h){
   const n=String(h.name||"").trim(); let q=String(h.qty||"").trim();
-  if(S.meta.hzPer==="1"&&h.b&&q){ const p=(S.meta.parts||[]).find(x=>x.b===h.b); const pq=p?parseFloat(p.qty):0;
+  if(S.meta.hzPer==="1"&&h.b&&q){ const p=(S.meta.parts||[]).find(x=>hzMatch(h,x)); const pq=p?parseFloat(p.qty):0;
     if(pq>0&&Number(q)%pq===0) q=String(Number(q)/pq); }
   if(/ボルト|ﾎﾞﾙﾄ|ワッシャ|ﾜｯｼｬ|ナット|ﾅｯﾄ/.test(n)) return `${n} ${q}${/ボルト|ﾎﾞﾙﾄ/.test(n)?"本":"個"}`;
   if(/ナット|NUT|^NH\b|^N\s*M\d/i.test(n)) return `${n} ナット${q}個`;
@@ -3009,7 +3058,7 @@ function renderParts(){
 }
 function fillPartRow(row,p,u,sk){
     const fast=isFastener(p.name);
-    const hz=(S.meta.hozai||[]).filter(h=>h.b&&h.b===p.b).map(h=>h.name+(h.qty?"×"+h.qty:"")).join("、");
+    const hz=(S.meta.hozai||[]).filter(h=>hzMatch(h,p)).map(h=>h.name+(h.qty?"×"+h.qty:"")).join("、");
     row.innerHTML=`<span class="pb${p.b?"":" none"}">${p.b?esc(p.b):"－"}</span>
       <div class="pm"><div class="n1">${esc(p.name||p.jp||"（品名なし）")}${p.jp&&p.name&&p.jp!==p.name?`<small>${esc(p.jp)}</small>`:""}${p.manual?`<span class="tagM">手動</span>`:""}</div>
         <div class="n2">${[p.pn,p.qty?"数量 "+p.qty:"",hz?"補材 "+hz:""].filter(Boolean).map(esc).join("　")}</div></div>
@@ -3190,8 +3239,8 @@ function applyMap(replace){
   const P=replace?[]:S.meta.parts.slice(), H=replace?[]:S.meta.hozai.slice();
   let np=0,nh=0;
   const hdrKey=hdr>=0?rows[hdr].join("\t"):null;
-  const addHz=(name,qty,bb)=>{ name=name.trim(); if(!name) return; const ex=H.find(h=>h.name===name&&h.b===bb);
-    if(ex){ if(!ex.qty) ex.qty=qty; } else { H.push({name,qty,b:bb}); nh++; } };
+  const addHz=(name,qty,bb,pn)=>{ name=name.trim(); if(!name) return; const ex=H.find(h=>h.name===name&&h.b===bb&&normPn(h.pn)===normPn(pn));
+    if(ex){ if(!ex.qty) ex.qty=qty; } else { H.push(Object.assign({name,qty,b:bb},pn&&bb?{pn}:{})); nh++; } };
   rows.slice(hdr+1).forEach(r=>{
     if(hdrKey&&r.join("\t")===hdrKey) return;            // ページごとの見出し行
     const o={b:normB(get(r,"b")),pn:fmtPn(get(r,"pn")),name:get(r,"name"),jp:get(r,"jp"),qty:get(r,"qty").replace(/\.0+$/,"")};
@@ -3200,8 +3249,8 @@ function applyMap(replace){
       addHz(isFastener(o.name)?o.name:o.jp,o.qty,""); return;
     }
     // 補材列「(28)HC M5X10,(48)HC M8X12」→ この風船の補材として登録
-    get(r,"hz").split(/[,、，]/).forEach(t=>{ const m=t.trim().match(/^[（(]\s*(\d+)\s*[)）]\s*(.+)$/); if(m) addHz(m[2],m[1],o.b); else if(t.trim()) addHz(t,"",o.b); });
-    const ex=P.find(p=>p.b===o.b&&(p.pn===o.pn||!p.pn||!o.pn));
+    get(r,"hz").split(/[,、，]/).forEach(t=>{ const m=t.trim().match(/^[（(]\s*(\d+)\s*[)）]\s*(.+)$/); if(m) addHz(m[2],m[1],o.b,o.pn); else if(t.trim()) addHz(t,"",o.b,o.pn); });
+    const ex=P.find(p=>p.b===o.b&&(normPn(p.pn)===normPn(o.pn)||!p.pn||!o.pn));
     if(ex) Object.keys(o).forEach(k=>{ if(o[k]) ex[k]=o[k]; }); else { P.push(o); np++; }
   });
   // 手動で追加した部品は、読み込み直しても残す
@@ -3210,8 +3259,8 @@ function applyMap(replace){
   // 同じ子品番の部品写真は引き継ぐ
   (S.meta.parts||[]).forEach(o=>{ if(o.photo&&o.pn){ const n=P.find(x=>x.pn===o.pn&&!x.photo); if(n) n.photo=o.photo; } });
   const oldP=S.meta.parts||[], oldH=S.meta.hozai||[], remap=MP.remap&&replace;
-  const usedOld=remap?oldP.map(o=>S.steps.map((st,i)=>usesPart([st.title,st.body,st.check].join("\n"),o)||(o.b&&(st.as&&st.as.parts||[]).some(tk=>tk.b===o.b))?i:-1).filter(i=>i>=0)):null;
-  S.meta.parts=P; S.meta.hozai=H; MP.remap=false;
+  const usedOld=remap?oldP.map(o=>S.steps.map((st,i)=>usesPart([st.title,st.body,st.check].join("\n"),o)||(o.b&&(st.as&&st.as.parts||[]).some(tk=>tk.b===o.b&&(!tk.pn||!o.pn||normPn(tk.pn)===normPn(o.pn))))?i:-1).filter(i=>i>=0)):null;
+  S.meta.parts=P; S.meta.hozai=H; MP.remap=false; dedupeParts();
   $("#map").classList.remove("show");
   if(remap){ remapDoc(oldP,oldH,usedOld); return; }
   renderParts(); persist(); refreshPickers(); if(!$("#fm").hidden) fmStartInfo();
@@ -3243,7 +3292,7 @@ function remapDoc(oldP,oldH,usedOld){
     PP.forEach(x=>{ if(r.includes(x.v)){ r=r.split(x.v).join(`\u0000${hold.length}\u0000`); hold.push(x.to); if(x.to!==x.v) changes++; } });
     return r.replace(/\u0000(\d+)\u0000/g,(m,i)=>hold[+i]); };
   S.steps.forEach(st=>{ st.title=fix(st.title); st.body=fix(st.body); st.check=fix(st.check); if(st._genBody) st._genBody=fix(st._genBody);
-    if(st.as&&st.as.parts) st.as.parts=st.as.parts.map(tk=>{ const r=res.find(x=>x.n&&x.o.b&&x.o.b===tk.b); return r?{b:r.n.b,label:partText(r.n),name:pName(r.n)||tk.name}:tk; }); });
+    if(st.as&&st.as.parts) st.as.parts=st.as.parts.map(tk=>{ const r=res.find(x=>x.n&&x.o.b&&x.o.b===tk.b&&(!tk.pn||!x.o.pn||normPn(tk.pn)===normPn(x.o.pn))); return r?{b:r.n.b,pn:r.n.pn||"",label:partText(r.n),name:pName(r.n)||tk.name}:tk; }); });
   // 対象外の引き継ぎ
   const skip=new Set(S.meta.skipParts||[]); S.meta.skipParts=res.filter(r=>r.n&&skip.has(pKey(r.o))).map(r=>pKey(r.n));
   // 補材の変化
@@ -3290,8 +3339,8 @@ function insertInto(st,el,text,from,to,newline){
   const pos=s+t.length; el.focus(); el.setSelectionRange(pos,pos);
   st[el.dataset.f]=el.value; persist(); schedulePreview();
 }
-function showHozai(st,card,b){
-  const box=$(".hzbox",card); const list=(S.meta.hozai||[]).filter(h=>h.b&&h.b===b);
+function showHozai(st,card,p){
+  const b=p&&p.b; const box=$(".hzbox",card); const list=(S.meta.hozai||[]).filter(h=>hzMatch(h,p));
   if(!list.length){ box.innerHTML=""; return; }
   box.innerHTML=`<div class="hz"><b>風船${esc(b)}の補材：</b></div>`;
   const hz=$(".hz",box), body=()=>{ const el=tgtEl(st,card); return el.tagName==="TEXTAREA"?el:$("[data-f=body]",card); };
@@ -3314,7 +3363,7 @@ function renderPicker(st,card){
   P.filter(hit).forEach(p=>{ const c=document.createElement("span"); c.className="chip"+(usesPart(st.body+st.check,p)?" used":"");
     c.innerHTML=`<b>${esc(p.b)}</b> ${esc(pName(p))}`; c.title=[p.pn,p.name,p.jp,p.qty?"数量"+p.qty:""].filter(Boolean).join(" / ");
     c.onmousedown=e=>e.preventDefault();
-    c.onclick=()=>{ const el=tgtEl(st,card); insertInto(st,el,textFor(p,el)); if(el.dataset.f!=="title") showHozai(st,card,p.b); renderPicker(st,card); };
+    c.onclick=()=>{ const el=tgtEl(st,card); insertInto(st,el,textFor(p,el)); if(el.dataset.f!=="title") showHozai(st,card,p); renderPicker(st,card); };
     chips.appendChild(c); });
   const hh=H.filter(h=>!q||String(h.name).toLowerCase().includes(q)||String(h.b).includes(q));
   if(hh.length){ const sep=document.createElement("span"); sep.className="hint"; sep.style.cssText="width:100%;margin:4px 0 0"; sep.textContent="補材"; chips.appendChild(sep);
@@ -3364,7 +3413,7 @@ function markSug(){ $$("#sug [data-i]").forEach(d=>d.classList.toggle("on",+d.da
 function pickSug(i){
   const it=SG.items[i]; if(!it) return;
   const {st,card,el,from}=SG; hideSug();
-  if(it.p){ insertInto(st,el,textFor(it.p,el),from,el.selectionStart); if(el.dataset.f!=="title"&&el.dataset.f!=="tools") showHozai(st,card,it.p.b); }
+  if(it.p){ insertInto(st,el,textFor(it.p,el),from,el.selectionStart); if(el.dataset.f!=="title"&&el.dataset.f!=="tools") showHozai(st,card,it.p); }
   else insertInto(st,el,hozaiText(it.h),from,el.selectionStart);
 }
 function sugKey(e){
@@ -3395,7 +3444,7 @@ function toToken(txt){
   if(m){
     const b=normB(m[1]), rest=m[2].trim(); const cands=(S.meta.parts||[]).filter(p=>p.b===b);
     const p=cands.find(c=>rest&&[c.name,c.jp,c.pn].some(v=>v&&rest.includes(v)))||cands[0];
-    if(p&&(!rest||cands.length)) return {b,label:partText(p),name:pName(p)||("風船"+b)};
+    if(p&&(!rest||cands.length)) return {b,pn:p.pn||"",label:partText(p),name:pName(p)||("風船"+b)};
     const f=S.meta.bFmt||"kakko";
     const label=f==="fusen"?(rest?`風船${b}（${rest}）`:`風船${b}`):f==="kakko"?`【${b}】${rest}`:(rest||`【${b}】`);
     return {b,label,name:rest||(f==="fusen"?"風船"+b:`【${b}】`)};
@@ -3404,17 +3453,17 @@ function toToken(txt){
 }
 function hzFor(tokens,old){
   const out=[], seen=new Set();
-  tokens.forEach(tk=>(S.meta.hozai||[]).filter(h=>tk.b&&h.b===tk.b).forEach(h=>{
-    const key=h.name+"|"+h.b; if(seen.has(key)) return; seen.add(key);
-    const o=(old||[]).find(x=>x.key===key);
-    out.push(o||{key,name:h.name,qty:hozaiText.qtyOf?hozaiText.qtyOf(h):h.qty,b:h.b,on:true});
-  }));
+  tokens.forEach(tk=>{ const tp=tkPart(tk)||tk; (S.meta.hozai||[]).filter(h=>hzMatch(h,tp)).forEach(h=>{
+    const key=h.name+"|"+h.b+(h.pn?"|"+normPn(h.pn):""); if(seen.has(key)) return; seen.add(key);
+    const o=(old||[]).find(x=>x.key===key||(x.key===h.name+"|"+h.b&&!h.pn));
+    out.push(o||{key,name:h.name,qty:hozaiText.qtyOf?hozaiText.qtyOf(h):h.qty,b:h.b,pn:h.pn||"",on:true}); });
+  });
   (old||[]).filter(x=>x.manual).forEach(x=>out.push(x));
   return out;
 }
 // hozaiText の本数換算（部品1個あたり設定）を流用
 hozaiText.qtyOf=h=>{ let q=String(h.qty||"").trim();
-  if(S.meta.hzPer==="1"&&h.b&&q){ const p=(S.meta.parts||[]).find(x=>x.b===h.b); const pq=p?parseFloat(p.qty):0; if(pq>0&&Number(q)%pq===0) q=String(Number(q)/pq); }
+  if(S.meta.hzPer==="1"&&h.b&&q){ const p=(S.meta.parts||[]).find(x=>hzMatch(h,x)); const pq=p?parseFloat(p.qty):0; if(pq>0&&Number(q)%pq===0) q=String(Number(q)/pq); }
   return q; };
 /* ---- 文章から使用工具を拾う（音声入力のゆれも吸収） ----
    [正式な名前, 見つける言葉, これがあれば省く名前（より詳しい名前）] */
@@ -3628,7 +3677,7 @@ function renderBatch(){
   const q=$("#bq").value.trim().toLowerCase();
   const P=(S.meta.parts||[]).filter(p=>!q||[p.b,p.pn,p.name,p.jp].some(v=>String(v||"").toLowerCase().includes(q)));
   const used=new Set(S.steps.flatMap(s=>(s.as&&s.as.parts||[]).map(p=>p.b)).concat(S.steps.flatMap(s=>partsInStep(s).map(p=>p.b))));
-  $("#bList").innerHTML=P.map(p=>{ const k=p.b+"|"+p.pn; const hz=(S.meta.hozai||[]).filter(h=>h.b===p.b).map(h=>h.name).join(", ");
+  $("#bList").innerHTML=P.map(p=>{ const k=p.b+"|"+p.pn; const hz=(S.meta.hozai||[]).filter(h=>hzMatch(h,p)).map(h=>h.name).join(", ");
     return `<label><input type="checkbox" data-k="${esc(k)}"${BT.sel.has(k)?" checked":""}><b style="min-width:34px">${esc(p.b)}</b>${esc(pName(p))}<span class="hint" style="margin:0 0 0 auto">${esc(hz)}${used.has(p.b)?"　<span style='color:var(--ok)'>使用済み</span>":""}</span></label>`; }).join("")||`<p class="hint">部品表が空です。先に部品リストを読み込んでください。</p>`;
   $$("#bList [data-k]").forEach(c=>c.onchange=()=>{ c.checked?BT.sel.add(c.dataset.k):BT.sel.delete(c.dataset.k); $("#bCnt").textContent=`${BT.sel.size}件 選択中`; });
   $("#bCnt").textContent=`${BT.sel.size}件 選択中`;
@@ -3866,15 +3915,15 @@ async function aiMakeImages(bal,list){
 function balMemo(st){
   const body=String(st.body||"").trim(); if(!body) return null;
   const P=(S.meta.parts||[]).filter(p=>p.b); if(!P.length) return null;
-  let rest=body.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)); const used=[];
+  let rest=body.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)); const used=[]; let amb=false;
   const take=p=>{ if(!used.includes(p)) used.push(p); };
   // 本文に入っている部品の書き方（風船052（COVER）など）をそのまま取り除く
   P.forEach(p=>{ [partText(p),...(p.pn&&p.pn.length>=6?[p.pn]:[])].forEach(t=>{ if(t&&rest.includes(t)){ rest=rest.split(t).join(" "); take(p); } }); });
   // ボルト表記（HC M6X12）・本数（4本）などは風船番号と間違えないよう先に取り分ける（メモのヒントとして渡す）
   const extra=[]; rest=rest.replace(/[A-Za-zＡ-Ｚａ-ｚ]+\s*M?\d+[^\s、，,。]*|\d+\s*(本|個|か所|ヶ所|カ所|箇所|枚|mm|ミリ|Nm|N)/g,m=>{ extra.push(m.trim()); return " "; });
   // 「風船052」「【052】」「052」「52」など、数字だけの風船番号
-  rest=rest.replace(/(風船|【)?\s*(\d{1,4})\s*(】|番)?(（[^）]*）|\([^)]*\))?/g,(m,a,n)=>{ const p=P.find(q=>q.b===n||(/^\d+$/.test(q.b)&&+q.b===+n)); if(p){ take(p); return " "; } return m; });
-  if(!used.length) return null;
+  rest=rest.replace(/(風船|【)?\s*(\d{1,4})\s*(】|番)?(（[^）]*）|\([^)]*\))?/g,(m,a,n)=>{ const c=uniqParts(P.filter(q=>q.b===n||(/^\d+$/.test(q.b)&&+q.b===+n))); if(c.length===1){ take(c[0]); return " "; } if(c.length>1) amb=true; return m; });
+  if(!used.length||amb) return null;   // 同じ番号の部品が2つ以上 → 先に人が選ぶ（見直しリスト／現場モードの候補）
   // 残りがつなぎ言葉・短い動作だけならメモとみなす
   const left=rest.replace(/[\s、，,。・\/／と&＆+＋\-ー〜~]/g,"").replace(/^(を|の)+|(を|の)+$/g,"");
   return left.length<=8?{parts:used,hint:[left,...extra].filter(Boolean).join("、")}:null;
@@ -4308,7 +4357,7 @@ async function tagRegister(host,pn,f,onDone){
   }catch(e){ stat((e&&e.message||"文字認識でエラーが出ました")+"　品名・風船番号は手で入れてください。",true); }
 }
 
-function fmToken(p){ return p.b?{b:p.b,label:partText(p),name:pName(p)||("風船"+p.b)}:{b:"",label:pName(p)?`${pName(p)}（${p.pn}）`:p.pn,name:pName(p)||p.pn}; }
+function fmToken(p){ return p.b?{b:p.b,pn:p.pn||"",label:partText(p),name:pName(p)||("風船"+p.b)}:{b:"",label:pName(p)?`${pName(p)}（${p.pn}）`:p.pn,name:pName(p)||p.pn}; }
 let fmCur="fmStart"; const fmScroll={};
 const FM_SCR=["fmStart","fmListS","fmStep","fmPrep","fmPrev","fmPartsS","fmFinS"];
 const FM_OVER=["fmPrev","fmPartsS","fmFinS"];      // 上に重ねて開く画面（戻ると元の画面・元の位置へ）
@@ -4691,7 +4740,7 @@ function fmLoadStep(id){
   if(st){
     F.stepId=st.id; F.photos=st.photos.slice(); F.phLay=st.phLay||""; F.checks=String(st.check||"").split("\n").filter(Boolean);
     const P=S.meta.parts||[];
-    F.parts=(st.as&&st.as.parts||[]).map(tk=>P.find(p=>tk.b&&p.b===tk.b)).filter(Boolean);
+    F.parts=uniqParts((st.as&&st.as.parts||[]).map(tkPart).filter(Boolean));
     if(!F.parts.length) F.parts=partsInStep(st);
     F.hz=(st.as&&st.as.hz?st.as.hz:hzFor(F.parts.map(fmToken),[])).map(h=>Object.assign({},h));
     // 現場モードで作った文章がそのままなら「これをどうする？」を復元。PCで作った・直した文章は、文章そのものを「これをどうする？」に入れて直せるようにする
@@ -4801,7 +4850,7 @@ $("#fmHist").onclick=e=>{ if(e.target.id==="fmHist") $("#fmHist").hidden=true; }
 /* 補材：①の部品の分（最初からチェック）＋文章に出てくる部品の分（最初はチェックなし） */
 function fmSyncHz(){ const ment=fmMentioned(), old=F.hz||[];
   F.hz=hzFor(F.parts.concat(ment).map(fmToken),old);
-  F.hz.forEach(h=>{ if(!old.some(o=>o.key===h.key)&&ment.some(p=>p.b===h.b)&&!F.parts.some(p=>p.b===h.b)) h.on=false; }); }
+  F.hz.forEach(h=>{ if(!old.some(o=>o.key===h.key)&&ment.some(p=>hzMatch(h,p))&&!F.parts.some(p=>hzMatch(h,p))) h.on=false; }); }
 function hzBoxes(list){ return list.map(h=>{ const i=F.hz.indexOf(h); return `<label><input type="checkbox" data-hz="${i}"${h.on?" checked":""}>${esc(h.name)} <input class="q" data-hq="${i}" value="${esc(h.qty||"")}"></label>`; }).join(""); }
 function bindHz(root){ $$("[data-hz]",root).forEach(c=>c.onchange=()=>{ F.hz[+c.dataset.hz].on=c.checked; fmCompose(); });
   $$("[data-hq]",root).forEach(c=>c.oninput=()=>{ F.hz[+c.dataset.hq].qty=c.value; fmCompose(); }); }
@@ -4870,12 +4919,14 @@ function kanaToEn(t){ let r=String(t||""), hit=false;
 function fmRefs(){
   fmMent();
   const t=$("#fpAct").value, P=S.meta.parts||[], out=[];
-  const push=(src,p)=>{ if(!out.some(x=>x.p===p)) out.push({src,p}); };
+  const push=(src,p,at)=>{ if(!out.some(x=>x.p===p&&x.at===at)) out.push({src,p,at}); };
+  // 同じ風船番号の部品が2つ以上あって、どれか決まらない所（【001】だけ、など）→ どれか選んでもらう
+  balAmbig(t).forEach(x=>x.cands.forEach(p=>push(x.src,p,x.at)));
   // 「風船031」「31番」「031」→ まだ【031】SPACER（…）の形になっていなければ候補に出す
   const inLabel=(p,i)=>{ const L=partText(p); if(!L) return false; let k=t.indexOf(L); while(k>=0){ if(i>=k&&i<k+L.length) return true; k=t.indexOf(L,k+1); } return false; };
   for(const m of t.matchAll(/風船\s*(\d{1,4})(?:\s*番(?!目))?|(\d{1,4})\s*番(?!目)|(^|[^\d\w【\-])(0\d{2})(?![\d\w】])/g)){
     const pre=m[3]||"", at=m.index+pre.length, src=m[0].slice(pre.length);      // 前の1文字は数えない（古いiPhoneでも動く書き方）
-    const b=normB(m[1]||m[2]||m[4]); P.filter(p=>p.b===b&&!inLabel(p,at)).forEach(p=>push(src,p)); }
+    const b=normB(m[1]||m[2]||m[4]); uniqParts(P.filter(p=>p.b===b&&!inLabel(p,at))).forEach(p=>push(src,p,at)); }
   const sep="[\\s\\-－・]?";
   // すでに部品になっている所（【001】LIFT PLATE（…）など）は名前の候補探しから外す
   let masked=t; P.forEach(p=>{ const pt=partText(p); if(pt&&masked.includes(pt)) masked=masked.split(pt).join("　"); });
@@ -4891,19 +4942,21 @@ function fmRefs(){
   const box=$("#fpRefs");
   out.sort((a,b)=>(F.parts.includes(b.p)?1:0)-(F.parts.includes(a.p)?1:0));      // この工程の部品を先頭に
   const uniq=[...new Set(out.map(x=>x.src))].every(src=>out.filter(x=>x.src===src).length===1);
-  box.innerHTML=out.length?`<div class="refs">部品に置き換えますか？${out.length>1&&uniq?` <button class="chip" id="fpRefAll" style="font-weight:bold">まとめて置き換える</button>`:""}<div class="chipRow">${out.slice(0,8).map((x,i)=>`<button class="chip" data-r="${i}">「${esc(x.src)}」→ <b>${esc(x.p.b?`【${x.p.b}】`:"")}${esc(pName(x.p))}</b> <small style="color:var(--sub)">${esc(x.p.pn||"")}</small></button>`).join("")}</div></div>`:"";
-  $$("#fpRefs [data-r]").forEach(b=>b.onclick=()=>{ const x=out[+b.dataset.r]; const el=$("#fpAct"); el.value=el.value.replace(x.src,partText(x.p)); F.action=el.value; fmRefs(); fmCompose(); });
+  const twin=out.some(x=>out.some(y=>y!==x&&y.at===x.at&&y.src===x.src));
+  box.innerHTML=out.length?`<div class="refs">${twin?"<b>同じ風船番号の部品が2つあります。どちらか選んでください。</b><br>":""}部品に置き換えますか？${out.length>1&&uniq?` <button class="chip" id="fpRefAll" style="font-weight:bold">まとめて置き換える</button>`:""}<div class="chipRow">${out.slice(0,8).map((x,i)=>`<button class="chip" data-r="${i}">「${esc(x.src)}」→ <b>${esc(x.p.b?`【${x.p.b}】`:"")}${esc(pName(x.p))}</b> <small style="color:var(--sub)">${esc(x.p.pn||"")}</small></button>`).join("")}</div></div>`:"";
+  $$("#fpRefs [data-r]").forEach(b=>b.onclick=()=>{ const x=out[+b.dataset.r]; const el=$("#fpAct");
+    el.value=(x.at!=null&&el.value.substr(x.at,x.src.length)===x.src)?balResolve(el.value,x,x.p):el.value.replace(x.src,partText(x.p)); F.action=el.value; fmRefs(); fmCompose(); });
   const all=$("#fpRefAll"); if(all) all.onclick=()=>{ const el=$("#fpAct"); let v=el.value; out.forEach(x=>{ v=v.split(x.src).join(partText(x.p)); }); el.value=v; F.action=v; fmRefs(); fmCompose(); };
 }
 $("#fpAct").oninput=()=>{ F.actTouched=true; F.action=$("#fpAct").value; fmRefs(); fmCompose(); };
 ["focus","click","keyup"].forEach(ev=>$("#fpAct").addEventListener(ev,()=>F.actTouched=true));
 /* 「これをどうする？」に出てくる部品（①の部品欄にないもの）にも部品写真を登録できるように */
-function fmMentioned(){ const t=F.action||""; return (S.meta.parts||[]).filter(p=>usesPart(t,p)&&!F.parts.includes(p)); }
+function fmMentioned(){ const t=F.action||""; return uniqParts((S.meta.parts||[]).filter(p=>usesPart(t,p)&&!F.parts.some(q=>samePart(q,p)))); }
 function fmMent(){
   fmSyncHz();
   const ment=fmMentioned(), L=F.parts.concat(ment), box=$("#fpMent"), act=F.action||"";
-  const extra=F.hz.filter(h=>h.manual&&!L.some(p=>p.b===h.b));
-  box.innerHTML=L.length||extra.length?`<div class="useBox"><div class="useH">使う部品・ボルト <small>ボルトはチェックすると文章に入ります${prepOff()?"":"／📦＝準備シートの部品写真"}</small></div>${L.map((p,i)=>{ const hz=F.hz.filter(h=>h.b===p.b);
+  const extra=F.hz.filter(h=>h.manual&&!L.some(p=>hzMatch(h,p)));
+  box.innerHTML=L.length||extra.length?`<div class="useBox"><div class="useH">使う部品・ボルト <small>ボルトはチェックすると文章に入ります${prepOff()?"":"／📦＝準備シートの部品写真"}</small></div>${L.map((p,i)=>{ const hz=F.hz.filter(h=>h.manual?h.b===p.b:hzMatch(h,p));
       return `<div class="ur"><span class="bn">${esc(p.b||"－")}</span><span class="nm"><b>${esc(pName(p))}</b><small>${esc(p.pn||"")}</small></span>${prepOff()?"":`<button class="ph${p.photo?" has":""}" data-mph="${i}" title="準備シート用の部品写真" style="${p.photo?`background-image:url(${p.photo.data})`:""}">${p.photo?"":"📦"}</button>`}${i<F.parts.length&&!usesPart(act,p)?`<button class="rm" data-rm="${i}" title="この工程から外す">✕</button>`:""}</div>${hz.length?`<div class="hzRow">${hzBoxes(hz)}</div>`:""}`; }).join("")}${extra.length?`<div class="hzRow" style="margin-left:0">${hzBoxes(extra)}</div>`:""}</div>`:"";
   $$("#fpMent [data-mph]").forEach(b=>b.onclick=()=>pickPartPhoto(L[+b.dataset.mph],()=>fmMent()));
   $$("#fpMent [data-rm]").forEach(b=>b.onclick=()=>{ F.parts.splice(+b.dataset.rm,1); fmSyncHz(); fmRenderStep(); });
@@ -5288,6 +5341,7 @@ function load(d){
   if(!S.steps.length) S.steps.push(blankStep());
   if(!(d.meta&&d.meta.plv)){ if(S.meta.partLabel==="name") S.meta.partLabel="name_pn"; S.meta.plv=1; }   // 子品番も入れる書き方へ
   if(d.meta&&!d.meta.bFmt&&(d.steps||[]).some(x=>/風船\d/.test(x.body||""))) S.meta.bFmt="fusen";      // 前の書き方の文章はそのまま
+  dedupeParts();
   activeId=S.steps[0].id; bindMeta(); renderParts(); renderSteps(); showPfEx();
   if(!$("#fm").hidden&&typeof fmStartInfo==="function"){ F.stepId=null; fmStartInfo(); fmShow("fmStart"); }
 }
