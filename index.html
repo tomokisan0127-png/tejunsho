@@ -706,7 +706,16 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 .afSub{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 0 0 4px;font-size:14px}
 #aiFlow .afSub label{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:8px;margin:0;font-weight:normal;font-size:14px;line-height:1.4}
 #aiFlow .afSub input[type=checkbox]{width:20px;height:20px;flex:none;margin:1px 0 0}
-#aiCard details.aiMore{margin:0 0 8px}#aiCard details.aiMore summary{cursor:pointer;color:#556;font-size:13px;padding:4px 0}
+#aiCard details.aiMore{margin:0 0 8px}
+#aiFlow #aiAct{margin:0 0 6px 18px;padding:10px 10px 4px 14px;border-left:3px solid var(--accent);background:#f8fbff;border-radius:0 12px 12px 0}
+#aiTg{margin:0 0 8px;font-size:13px}
+.aiDone{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0 8px;padding:8px 10px;border-radius:10px;background:#e8f5ec;color:#1d5c37;font-size:14px}
+.afHead{font-size:13px;color:#556;margin:0 0 2px 2px}.afHead b{color:var(--accent);font-size:16px}
+#aiTg .afPh{display:flex!important;flex-direction:row!important;align-items:flex-start!important;gap:8px;margin:4px 0 0;font-weight:normal;font-size:14px;line-height:1.4}
+#aiTg .afPh input{width:20px;height:20px;flex:none;margin:1px 0 0}#aiTg .tgH{color:#556;margin-bottom:4px}
+#aiTg .tg{display:inline-flex;align-items:center;gap:2px;margin:0 6px 6px 0;border:1px solid #c9d6e8;border-radius:99px;background:#fff;font-size:13px}
+#aiTg .tg a{padding:4px 4px 4px 10px;cursor:pointer;color:inherit;text-decoration:none}#aiTg .tg a small{color:#778}
+#aiTg .tg button{border:0;background:none;padding:4px 9px 4px 4px;min-height:0!important;font-size:13px!important;color:#889;cursor:pointer}#aiCard details.aiMore summary{cursor:pointer;color:#556;font-size:13px;padding:4px 0}
 .balList{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:8px 0}
 .balCard{border:1px solid #d6dee8;border-radius:12px;padding:8px;background:#fff}
 .balCard.done{opacity:.75}
@@ -1062,7 +1071,7 @@ details.fold>summary::before{color:var(--accent)}
     </div>
     <div class="card" id="aiCard">
       <h2>AIで文章チェック・整理</h2>
-      <p class="hint">社内で使っているAI（Claudeなど）に、上から順に頼みます。「今ここ」の依頼文をコピーして、AIに貼り付けるだけです。風船番号・品番・本数は変えないように指示します。</p>
+      <p class="hint">社内で使っているAI（Claudeなど）に、<b>上から順に</b>頼みます。「今ここ」の下の 1→2→3 をやるだけです。風船番号・品番・本数は変えないように指示します。</p>
       <div id="aiFlow"></div>
       <div class="aiMode">
         <label class="on"><input type="radio" name="aiMode" value="text" checked><b>📝 文章だけチェック</b><small>誤字・表現・枠に収まるか</small></label>
@@ -1070,6 +1079,8 @@ details.fold>summary::before{color:var(--accent)}
         <label><input type="radio" name="aiMode" value="balloon"><b>📍 写真に風船を付けてもらう</b><small>AIが部品の場所を答え、アプリが写真に風船を描きます</small></label>
         <label><input type="radio" name="aiMode" value="gen"><b>✍ 写真から説明文を作ってもらう</b><small>写真だけの工程や、使う部品（風船番号）だけ書いた工程に、タイトル・作業内容・確認ポイントの下書きを書いてもらいます</small></label>
       </div>
+      <div id="aiAct">
+      <div id="aiTg"></div>
       <div class="aistep"><span class="badge">1</span><div>
         <details class="aiMore"><summary>⚙ 詳しい設定（ふだんはそのままでOK）</summary><div class="opts">
           <label><input type="checkbox" id="aiStyle" checked>文体を「〜する。」にそろえる</label>
@@ -1088,6 +1099,7 @@ details.fold>summary::before{color:var(--accent)}
         <button id="bAiRead" style="margin-top:6px">結果を読み込む</button>
       </div></div>
       <div id="aiReview"></div>
+      </div>
     </div>
     <div class="card">
       <h2>出力</h2>
@@ -3716,10 +3728,13 @@ $("#bAiCopy").onclick=async()=>{
   if(aiMode()==="gen"){
     let L=genTargets(false);
     if(!L.length){ L=genTargets(true);
-      if(!L.length) return alert("写真のある工程がありません。先に作業の写真を撮ってください。");
+      if(!L.length) return alert("書いてもらう工程がありません。写真を撮るか、使う部品（風船番号）を書いてください。");
       if(!confirm(`説明がまだの工程はありません。\n写真のある${L.length}工程すべての説明文を、AIに書き直してもらいますか？\n（反映する前に、工程ごとに変更を確認できます）`)) return; }
-    const ok=await copyText(aiGenPrompt(L)); $("#aiCopied").textContent=ok?`✓ 依頼文をコピーしました（対象：${L.length}工程）。続けて写真の画像を用意します…`:"依頼文をコピーできませんでした";
-    return aiMakeImages(true,L); }
+    const LP=L.filter(x=>x.s.photos&&x.s.photos.length);
+    const ok=await copyText(aiGenPrompt(L));
+    if(!LP.length){ $("#aiImgBox").hidden=true; $("#aiCopied").textContent=ok?`✓ 依頼文をコピーしました（対象：${L.length}工程・写真なし）。AIに貼り付けて送信するだけでOKです。`:"依頼文をコピーできませんでした"; return; }
+    $("#aiCopied").textContent=ok?`✓ 依頼文をコピーしました（対象：${L.length}工程）。続けて写真の画像を用意します…`:"依頼文をコピーできませんでした";
+    return aiMakeImages(true,LP); }
   if(aiMode()==="balloon"){
     if(!balTargets().length) return alert("写真があって、文章に風船番号の部品（【052】など）が入っている工程がありません。");
     const ok=await copyText(aiBalloonPrompt()); $("#aiCopied").textContent=ok?"✓ 依頼文をコピーしました。続けて写真の画像を用意します…":"依頼文をコピーできませんでした";
@@ -3736,31 +3751,50 @@ $("#bAiCopy").onclick=async()=>{
 /* ---- 仕上げの流れ：手順書の状態から「今やること」を決める ---- */
 let aiSel=null, aiPhOn=true, aiFlowDoc=null;
 function balLeft(){ return balTargets().filter(x=>!x.s.photos.some(p=>((p.ed&&p.ed.shapes)||[]).some(z=>z.type==="balloon"))); }
+const GEN_WHY={photo:"写真だけ",memo:"風船メモ",added:"風船を追加"};
 function aiStages(){
+  S.steps.forEach(notePartsBase);   // 今「風船なしの文章」の工程を覚えておく（あとで風船を足したら①の対象に）
   const hasPh=S.steps.some(s=>s.photos&&s.photos.length), hasTxt=S.steps.some(s=>String(s.title||"").trim()||String(s.body||"").trim());
-  const g=genTargets(false).length, bT=balTargets().length, bL=balLeft().length, skip=S.meta.balSkip==="1";
+  const G=genTargets(false), bT=balTargets().length, bL=balLeft().length, skip=S.meta.balSkip==="1";
+  const cnt=k=>G.filter(x=>x.why===k).length, noPh=G.filter(x=>!(x.s.photos&&x.s.photos.length)).length;
+  const gs=[["photo","写真だけ"],["memo","風船メモ"],["added","風船を追加"]].filter(([k])=>cnt(k)).map(([k,t])=>`${t} ${cnt(k)}`).join("・");
   return [
-    {k:"gen",n:"①",t:"✍ 写真から説明文を書いてもらう",state:g?"todo":"none",
-      sub:g?`写真だけ・部品メモだけの工程が ${g}件 あります`:hasPh?"説明がまだの工程はありません（書き直したいときは押す）":"写真のある工程がありません"},
-    {k:"balloon",n:"②",t:"📍 写真に風船を付けてもらう",state:!bT?"none":skip?"skip":bL?"opt":"done",
-      sub:!bT?"写真と風船番号の部品がある工程がありません":skip?"スキップしました（押すと付けられます）":bL?`風船がまだの工程が ${bL}件・やらなくてもOK`:"風船を付けました"},
-    {k:"check",n:"③",t:"📝 文章を整える（最後に1回）",state:S.meta.aiChkAt?"done":hasTxt?"todo":"none",
+    {k:"gen",n:"①",t:"✍ 説明文を書いてもらう",state:G.length?"todo":"none",list:G,
+      sub:G.length?`${gs}${noPh?`（うち写真なし ${noPh}）`:""}`:"書いてもらう工程はありません（写真だけ・風船メモだけ・あとから風船を足した工程が対象）"},
+    {k:"balloon",n:"②",t:"📍 写真に風船を描いてもらう",state:!bT?"none":skip?"skip":bL?"opt":"done",list:bL&&!skip?balLeft():[],
+      sub:!bT?"写真と風船番号の部品がある工程がありません":skip?"スキップしました（押すと付けられます）":bL?`風船がまだ ${bL}工程・やらなくてもOK`:"風船を描きました"},
+    {k:"check",n:"③",t:"📝 全体の文章を整える（最後に1回）",state:S.meta.aiChkAt?"done":hasTxt?"todo":"none",list:[],
       sub:S.meta.aiChkAt?"チェック済み（直したら、もう一度どうぞ）":hasTxt?"誤字・表現・枠に収まるか"+(hasPh?"・写真と合っているか":""):"先に工程の文章を入れてください"},
   ];
 }
 function renderAiFlow(){
-  const box=$("#aiFlow"); if(!box) return;
+  const box=$("#aiFlow"), act=$("#aiAct"); if(!box||!act) return;
   if(aiFlowDoc!==docId){ aiFlowDoc=docId; aiSel=null; }
+  if(act.parentNode===box) box.parentNode.insertBefore(act,box.nextSibling);   // 書き直す前に「やること」の枠を退避
   const L=aiStages(), first=L.find(x=>x.state==="todo"||x.state==="opt");
-  const cur=aiSel||(first?first.k:"check"), hasPh=S.steps.some(s=>s.photos&&s.photos.length);
-  box.innerHTML=L.map(x=>`<button type="button" class="afRow ${x.state}${x.k===cur?" cur":""}" data-af="${x.k}"><i>${x.state==="done"?"✓":x.n}</i><span><b>${x.t}</b><small>${esc(x.sub)}</small></span>${x.k===cur?"<em>今ここ</em>":""}</button>`).join("")
-    +(cur==="balloon"&&S.meta.balSkip!=="1"?`<div class="afSub"><button type="button" class="sm" id="afSkip">風船は付けないで ③ へ進む</button></div>`:"")
-    +(cur==="check"&&hasPh?`<div class="afSub"><label><input type="checkbox" id="aiPh"${aiPhOn?" checked":""}> 写真もいっしょに送る（写真と文章が合っているかも見てもらう）</label></div>`:"");
+  const cur=aiSel||(first?first.k:"check"), C=L.find(x=>x.k===cur), hasPh=S.steps.some(s=>s.photos&&s.photos.length);
+  const left=L.filter(x=>x.state==="todo").length;
+  box.innerHTML=`<div class="afHead">${left?`あと <b>${left}</b> つ`:"✓ AIの仕上げは終わりました。必要ならもう一度どうぞ"}</div>`+L.map(x=>`<button type="button" class="afRow ${x.state}${x.k===cur?" cur":""}" data-af="${x.k}"><i>${x.state==="done"?"✓":x.n}</i><span><b>${x.t}</b><small>${esc(x.sub)}</small></span>${x.k===cur?"<em>今ここ</em>":""}</button>`).join("");
+  // 「今ここ」の段のすぐ下に、対象の工程と 1→2→3 を出す
+  const row=$(`[data-af="${cur}"]`,box); box.insertBefore(act,row.nextSibling);
+  const tg=$("#aiTg");
+  let th="";
+  if(cur==="gen"&&C.list.length) th=`<div class="tgH">この工程を書いてもらいます（押すと工程を開きます・✕で今回は外す）</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)} <small>${GEN_WHY[x.why]}${x.s.photos&&x.s.photos.length?"":"・写真なし"}</small></a><button type="button" data-off="${x.i}" title="今回は外す">✕</button></span>`).join("");
+  if(cur==="balloon"&&C.list.length) th=`<div class="tgH">風船を描く工程</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)}</a></span>`).join("")+`<div><button type="button" class="sm" id="afSkip">風船は描かないで ③ へ進む</button></div>`;
+  if(cur==="check") th=`<div class="tgH">全部の工程（${S.steps.filter(s=>!stEmpty(s)).length}工程）を見てもらいます</div>`+(hasPh?`<label class="afPh"><input type="checkbox" id="aiPh"${aiPhOn?" checked":""}> 写真もいっしょに送る（写真と文章が合っているかも見てもらう）</label>`:"");
+  tg.innerHTML=th; tg.hidden=!th;
   $$("[data-af]",box).forEach(b=>b.onclick=()=>{ aiSel=b.dataset.af; if(aiSel==="balloon"&&S.meta.balSkip==="1"){ S.meta.balSkip=""; persist(); } renderAiFlow(); });
+  $$("[data-op]",tg).forEach(a=>a.onclick=()=>openStep(a.dataset.op));
+  $$("[data-off]",tg).forEach(b=>b.onclick=()=>{ const st=S.steps[+b.dataset.off], w=genWhy(st);
+    if(w==="added") st._finParts=partsInStep(st).filter(p=>p.b).map(p=>p.b); else st._genOff=w+"|"+st.title+"|"+st.body;
+    persist(); renderAiFlow(); });
   const sk=$("#afSkip"); if(sk) sk.onclick=()=>{ S.meta.balSkip="1"; aiSel=null; persist(); renderAiFlow(); };
   const pc=$("#aiPh"); if(pc) pc.onchange=()=>{ aiPhOn=pc.checked; renderAiFlow(); };
   const md=cur==="check"?(hasPh&&aiPhOn?"photo":"text"):cur;
   if(aiMode()!==md){ const r=document.querySelector(`input[name="aiMode"][value="${md}"]`); if(r){ r.checked=true; aiModeUI(); } }
+  if(md==="gen"){ const ph=!C.list.length||C.list.some(x=>x.s.photos&&x.s.photos.length);
+    $("#aiStep2").innerHTML=ph?"AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIが説明文の下書きを書きます。":"AIの画面に依頼文を<b>貼り付けて</b>送信します（今回は写真なし）。AIが説明文の下書きを書きます。";
+    $("#bAiCopy").textContent=ph?"AIへの依頼文をコピー＋写真の画像を作る":"AIへの依頼文をコピー"; }
 }
 /* ---- AIチェック：写真もいっしょに ---- */
 function aiMode(){ const r=document.querySelector('input[name="aiMode"]:checked'); return r?r.value:"text"; }
@@ -3835,22 +3869,37 @@ function balMemo(st){
   const left=rest.replace(/[\s、，,。・\/／と&＆+＋\-ー〜~]/g,"").replace(/^(を|の)+|(を|の)+$/g,"");
   return left.length<=8?{parts:used,hint:[left,...extra].filter(Boolean).join("、")}:null;
 }
-function genTargets(all){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&(all||balMemo(x.s)||!(String(x.s.title||"").trim()||String(x.s.body||"").trim()))); }
+/* ①説明文の対象：写真だけ／風船メモだけ（写真なしもOK）／文章のあとから風船を足した工程
+   _finParts …… 「風船の入っていない文章」や「AIで仕上げた文章」の時点で入っていた部品（風船番号）。これより増えたら対象 */
+function partsAdded(st){ if(!Array.isArray(st._finParts)) return []; const base=new Set(st._finParts); return partsInStep(st).filter(p=>p.b&&!base.has(p.b)); }
+function notePartsBase(st){ if(Array.isArray(st._finParts)) return; if((String(st.title||"").trim()||String(st.body||"").trim())&&!balMemo(st)&&!partsInStep(st).some(p=>p.b)) st._finParts=[]; }
+function genWhy(st){
+  const ph=st.photos&&st.photos.length, txt=String(st.title||"").trim()||String(st.body||"").trim();
+  const fin=Array.isArray(st._finParts);   // AIで仕上げた（または風船なしの文章だった）工程は、風船を足した時だけ対象
+  const w=(!fin&&balMemo(st))?"memo":(ph&&!txt)?"photo":(fin&&txt&&partsAdded(st).length)?"added":"";
+  return w&&st._genOff===w+"|"+st.title+"|"+st.body?"":w;   // 「対象から外す」を押した時のままなら外す
+}
+function genTargets(all){ return S.steps.map((s,i)=>({s,i,why:genWhy(s)})).filter(x=>x.why||(all&&x.s.photos&&x.s.photos.length&&String(x.s.body||"").trim())); }
 function aiGenPrompt(L){
   const HZD=hzMaster(), P=(S.meta.parts||[]), H=(S.meta.hozai||[]);
   const parts=P.filter(p=>!isFastener(p.name)).slice(0,150).map(p=>({書き方:partText(p),品名:p.jp||p.name||"",風船:p.b||""}));
   const hz=[...new Set([...H.map(h=>h.name),...P.filter(p=>isFastener(p.name)).map(p=>p.name)].filter(Boolean))].slice(0,60);
   const tools=String(S.meta.tools||"").trim();
-  const steps=L.map(({s,i})=>{ const o={no:i+1,photos:s.photos.length}; const mm=balMemo(s);
+  const steps=L.map(({s,i})=>{ const o={no:i+1,photos:(s.photos||[]).length}; const mm=balMemo(s);
     ["title","body","check","tools"].forEach(k=>{ if(mm&&k==="body") return; if(String(s[k]||"").trim()) o[k]=normHz(s[k],HZD); });
     if(mm){ o.使う部品=mm.parts.map(p=>partText(p)); if(mm.hint) o.メモ=mm.hint; }
+    else { const ad=partsAdded(s); if(ad.length) o.追加した部品=ad.map(p=>partText(p)); }
     return o; });
-  const memoN=steps.filter(x=>x.使う部品).length;
+  const memoN=steps.filter(x=>x.使う部品).length, addN=steps.filter(x=>x.追加した部品).length, phN=steps.filter(x=>x.photos).length, noPhN=steps.length-phN;
+  const extra=[
+    addN?"「追加した部品」がある工程は、すでに書いてある文章に、作業者があとから部品（風船番号）を足したものです。今の文章の作業内容は変えずに、追加した部品を【部品表】の書き方のまま、文章の中の自然な位置に組み込んでください（文の後ろや行末に部品だけが並んでいたら、文章の中に溶け込ませてください）。部品以外の言い回しは、必要な所だけ直してください。":null,
+    noPhN?"photos が 0 の工程は写真がありません。使う部品・メモ・今の文章・前後の工程から、機械組立の一般的な手順として下書きしてください。写真で確かめられない分、推測した所や確認してほしい所は必ず comments に書いてください。":null,
+  ].filter(Boolean);
   const prev=(n)=>{ const a=S.steps[n-2], b=S.steps[n]; return {前:a&&(a.title||String(a.body||"").split("\n")[0])||"", 次:b&&(b.title||String(b.body||"").split("\n")[0])||""}; };
   const ctx=L.map(({i})=>({no:i+1,...prev(i+1)})).filter(x=>x.前||x.次);
   return `あなたは製造現場（機械組立）の作業手順書を書く担当です。
-添付した画像には、作業の写真が並んでいます。写真の左上に「③-1」のような［工程番号-写真番号］のラベルがあります。
-写真を見て、下の【書いてほしい工程】それぞれの「タイトル」「作業内容」「確認ポイント」の下書きを書いてください。
+${phN?`添付した画像には、作業の写真が並んでいます。写真の左上に「③-1」のような［工程番号-写真番号］のラベルがあります。
+写真を見て、`:"（今回は写真はありません。）"}下の【書いてほしい工程】それぞれの「タイトル」「作業内容」「確認ポイント」の下書きを書いてください。
 作業名：${S.meta.name||"（未入力）"}　機種：${S.meta.model||"（未入力）"}
 
 【ルール】
@@ -3862,8 +3911,8 @@ function aiGenPrompt(L){
 6. 写真から分からないことは書かないでください。不鮮明・判断できない写真は comments に書いてください。
 7. すでに書いてある title／body／check／tools がある工程は、それを生かして足りないところだけを補ってください。
 ${memoN?`8. 「使う部品」がある工程は、作業者が「この工程ではこの部品を使う」と指定したものです。その部品を必ず全部、【部品表】の書き方のまま body に入れ、写真で取り付け位置・向き・相手部品を確かめて手順を書いてください（「メモ」があれば作業のヒントです）。写真でその部品が見つからないときも部品は残し、comments にそのことを書いてください。
-`:""}${memoN?9:8}. 工程の数と順番、工程番号（no）は変えないでください。tools は写真で使っている工具が分かれば書き、分からなければ空のままにしてください${tools?`（この手順書でよく使う工具：${tools}）`:""}。
-${memoN?10:9}. 画像が添付されていない場合は何も作らず、comments に「画像が見つかりませんでした」とだけ書いてください。
+`:""}${extra.map((x,k)=>`${(memoN?9:8)+k}. ${x}\n`).join("")}${(memoN?9:8)+extra.length}. 工程の数と順番、工程番号（no）は変えないでください。tools は写真で使っている工具が分かれば書き、分からなければ空のままにしてください${tools?`（この手順書でよく使う工具：${tools}）`:""}。
+${(memoN?10:9)+extra.length}. ${phN?(noPhN?"photos が1以上の工程の画像が添付されていない場合は、その工程は作らず、comments に「画像が見つかりませんでした」と書いてください。":"画像が添付されていない場合は何も作らず、comments に「画像が見つかりませんでした」とだけ書いてください。"):"今回は画像はありません。"}
 
 【返し方】
 次の形式の JSON だけを \`\`\`json のコードブロック1つで返してください（説明文は不要です）。
@@ -3983,6 +4032,15 @@ $("#bAiRead").onclick=()=>{
   if(Array.isArray(d.balloons)&&!Array.isArray(d.steps)){ AI=null; BAL=d; return balRender(); }
   AI=d; BAL=null; renderAiReview();
 };
+/* 反映したあとは、結果の一覧を片付けて「反映しました／元に戻す」だけを出す */
+function renderAiDone(n){
+  const box=$("#aiReview");
+  box.innerHTML=`<div class="aiDone">✓ ${n}工程に反映しました。プレビューで確認してください。<button class="sm" id="aiUndo2">元に戻す</button></div>`;
+  $("#aiUndo2").onclick=()=>{ if(!aiUndo) return;
+    aiUndo.forEach(o=>{ const st=S.steps.find(s=>s.id===o.id); if(st) Object.assign(st,{title:o.title,body:o.body,check:o.check,tools:o.tools||"",_genTools:o._genTools,_aiTools:o._aiTools,_finParts:o._finParts}); });
+    S.meta.aiChkAt=aiUndo.chk; if(!S.meta.aiChkAt) delete S.meta.aiChkAt;
+    aiUndo=null; box.innerHTML=""; renderSteps(); persist(); renderAiFlow(); schedulePreview(); uiToast("反映する前に戻しました"); };
+}
 function renderAiReview(){
   const box=$("#aiReview"); if(!AI){ box.innerHTML=""; return; }
   const cm={}; (AI.comments||[]).forEach(c=>{ (cm[c.no]=cm[c.no]||[]).push(c.text); });
@@ -4020,15 +4078,19 @@ function renderAiReview(){
   $("#aiNone").onclick=()=>$$("[data-ai]",box).forEach(c=>c.checked=false);
   $("#aiApply").onclick=()=>{
     const sel=$$("[data-ai]",box).filter(c=>c.checked).map(c=>+c.dataset.ai); if(!sel.length) return alert("反映する工程にチェックを入れてください");
-    aiUndo=sel.map(i=>{ const st=S.steps[i]; return {id:st.id,title:st.title,body:st.body,check:st.check,tools:st.tools,_genTools:st._genTools,_aiTools:st._aiTools}; });
+    aiUndo=sel.map(i=>{ const st=S.steps[i]; return {id:st.id,title:st.title,body:st.body,check:st.check,tools:st.tools,_genTools:st._genTools,_aiTools:st._aiTools,_finParts:st._finParts}; });
     sel.forEach(i=>{ const st=S.steps[i], r=AI.steps.find(x=>+x.no===i+1); if(!r) return; const b4=stepSnap(st); queueMicrotask(()=>histPush(st,b4));
       if(r.title!=null) st.title=String(r.title); if(r.body!=null) st.body=String(r.body); if(r.check!=null) st.check=String(r.check);
       if(r.tools) st._aiTools=String(r.tools); autoTools(st); });
+    const same=(st,r)=>["title","body","check"].every(k=>r[k]==null||String(r[k])===String(st[k]||""));
+    const fin=new Set(sel); (AI.steps||[]).forEach(r=>{ const i=+r.no-1, st=S.steps[i]; if(st&&!fin.has(i)&&same(st,r)) fin.add(i); });   // AIが「直す所なし」で返した工程も仕上げ済みに
+    fin.forEach(i=>{ const st=S.steps[i]; if(st){ st._finParts=partsInStep(st).filter(p=>p.b).map(p=>p.b); delete st._genOff; } });
+    aiUndo.chk=S.meta.aiChkAt;
     if(aiMode()==="text"||aiMode()==="photo") S.meta.aiChkAt=Date.now();
-    renderSteps(); persist(); renderAiReview(); renderAiFlow();
-    alert(`${sel.length}工程に反映しました。プレビューで確認してください。`);
+    AI=null; $("#aiIn").value=""; renderSteps(); persist(); renderAiDone(sel.length); renderAiFlow(); schedulePreview();
+    uiToast(`✓ ${sel.length}工程に反映しました`);
   };
-  const u=$("#aiUndo"); if(u) u.onclick=()=>{ aiUndo.forEach(o=>{ const st=S.steps.find(s=>s.id===o.id); if(st) Object.assign(st,{title:o.title,body:o.body,check:o.check,tools:o.tools||"",_genTools:o._genTools,_aiTools:o._aiTools}); }); aiUndo=null; renderSteps(); persist(); renderAiReview(); };
+  const u=$("#aiUndo"); if(u) u.onclick=()=>{ aiUndo.forEach(o=>{ const st=S.steps.find(s=>s.id===o.id); if(st) Object.assign(st,{title:o.title,body:o.body,check:o.check,tools:o.tools||"",_genTools:o._genTools,_aiTools:o._aiTools,_finParts:o._finParts}); }); aiUndo=null; renderSteps(); persist(); renderAiReview(); };
 }
 
 /* ================= 現場モード（スマホ）：準備 → 1工程ずつ「部品 → これをどうする？」 ================= */
@@ -4926,7 +4988,7 @@ function fmSaveStep(){
   const hz=F.hz.filter(h=>h.on);
   Object.assign(st,{title:F.title,body:F.body,check:F.checks.join("\n"),photos:F.photos.slice(0,3),phLay:F.phLay||"",
     as:{target:"",parts:F.parts.map(fmToken),verb:"",hz:F.hz,checks:F.checks,note:""},fa:{action:F.action,tEd:F.tEd,bEd:false}});
-  autoTools(st);
+  autoTools(st); notePartsBase(st);
   st._genBody=st.body; F.stepId=st.id; histPush(st,F.snap); F.snap=stepSnap(st); persist(); return st;
 }
 $("#fpNext").onclick=()=>{
@@ -4978,7 +5040,7 @@ function guideCands(scr){
   if(scr==="fmPrev") L.push({k:"prev",once:1,el:"#fvBack2",t:"見終わったら、ここで戻ります",s:"工程の文章をタップすると、その工程を直せます。"});
   if(scr==="fmPartsS") L.push({k:"partsS",once:1,el:"#bPAdd",t:"部品表にない部品は、ここから追加します",s:"追加したら、下の「戻る」で元の画面へ。"});
   if(scr==="fmFinS"){ if(!$("#fnDone").hidden) L.push({k:"finDone",el:"#fnDone",t:"ここから仕上げです",s:"AIで文章を整える → 見直し → Excel出力 → データ保存、の順に案内します。"});
-    L.push({k:"finAi",once:1,el:"#bAiCopy",t:"AIで文章をきれいにします",s:"① ここで依頼文をコピー → ② Claudeアプリなどに貼り付けて送信 → ③ 返事を全部コピーして下に貼り付け →「結果を読み込む」→ 良ければ「反映」。"});
+    L.push({k:"finAi",once:1,el:"#bAiCopy",t:"AIで仕上げます（上から順に）",s:"「今ここ」の段の下で、1 依頼文をコピー → 2 Claudeアプリなどに貼り付けて送信 → 3 返事を全部コピーして貼り付け →「結果を読み込む」→「反映」。終わると次の段に進みます。"});
     if(collectIssues().length) L.push({k:"finIss",once:1,el:"#issues a",t:"見直しリストを確認します",s:"タップするとその工程を直せます。残っていても出力はできます。"});
     L.push({k:"finX",once:1,el:"#bXlsx3",t:"「Excel出力」で手順書のファイルができます",s:"印刷・PDFは横のボタンから。"});
     L.push({k:"finSave",once:1,el:"#bSave2",t:"最後にデータを保存しておきます",s:"PCで続きを直すときや、バックアップに使います（.json）。これで完成です！"}); }
