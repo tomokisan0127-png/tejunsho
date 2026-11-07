@@ -1306,7 +1306,9 @@ details.fold>summary::before{color:var(--accent)}
     <div class="setScroll">
       <div class="setSec"><h4>🔧 設備・工具 <small style="font-weight:normal;color:var(--sub);font-size:12px">全シート共通（各工程の工具は自動で足されます）</small></h4>
         <input data-m="tools" placeholder="例）M6、M5用レンチ、水準器、ネジロック">
-        <div class="chipRow" id="fsetTools"></div></div>
+        <div class="chipRow" id="fsetTools"></div>
+        <button class="pill wide" id="fsetAutoTools" style="margin-top:8px">🔧 文章から各工程の使用工具を拾い直す</button>
+        <p class="hint" style="margin:4px 0 0">「六角レンチで締める」「エアーガンで吹く」のように書くと、保存したときに工程の工具へ自動で入ります。手で直した工程はそのままです。</p></div>
       <div class="setSec"><h4>⏱ 主体作業時間</h4>
         <div class="two"><input data-m="time" placeholder="例）40分"><select data-m="timeAuto"><option value="0">手入力</option><option value="1">工程の合計</option></select></div></div>
       <div class="setSec"><h4>🔴 電子印（作成者・検印）</h4>
@@ -1796,6 +1798,9 @@ function pages(){ const n=perSheet(), out=[]; for(let i=0;i<S.steps.length;i+=n)
 function blockRows(k,n){ const h=Math.floor((BODY_R2-BODY_R1+1)/n); const r1=BODY_R1+k*h; const r2=(k===n-1)?BODY_R2:r1+h-1; return [r1,r2]; }
 function pageTools(steps){
   const set=[]; steps.forEach(s=>String(s.tools||"").split(/[、,，\n]+/).map(x=>x.trim()).filter(Boolean).forEach(t=>{if(!set.includes(t))set.push(t);}));
+  // 「六角レンチ（6mm）」「六角レンチ（5mm）」→「六角レンチ（6・5mm）」にまとめる
+  { const mm={}, keep=[]; set.forEach(t=>{ const m=t.match(/^(.+)（([\d.・]+)mm）$/); if(m){ if(!mm[m[1]]){ mm[m[1]]=new Set(); keep.push({k:m[1]}); } m[2].split("・").forEach(z=>mm[m[1]].add(+z)); } else keep.push(t); });
+    set.splice(0,set.length,...keep.filter(x=>typeof x!=="string"||!mm[x]).map(x=>typeof x==="string"?x:`${x.k}（${[...mm[x.k]].sort((a,b)=>b-a).join("・")}mm）`)); }
   // 「M8用レンチ」「M6用レンチ」→「M8、M6用レンチ」にまとめる
   const sizes=[]; const rest=[];
   set.forEach(t=>{ const m=t.match(/^(M\d+(?:[、,]M\d+)*)(用レンチ)?$/); if(m&&(m[2]||set.some(x=>/用レンチ$/.test(x)))) m[1].split(/[、,]/).forEach(z=>{ if(!sizes.includes(z)) sizes.push(z); }); else rest.push(t); });
@@ -2216,7 +2221,9 @@ function renderSteps(){
         <textarea data-f="check" rows="2" placeholder="例）ブラケットが水平に取り付けられているか"></textarea>
         <div class="row2"><label>使用工具</label><input data-f="tools" placeholder="例）M8用レンチ、水準器"><label>時間(分)</label><input data-f="min" inputmode="decimal" placeholder="分"></div></div>
       </div>`;
-    $$("[data-f]",c).forEach(el=>{ const k=el.dataset.f; el.value=st[k]||""; el.oninput=()=>{st[k]=el.value; if(k==="title") headInfo(st,c); persist();schedulePreview();}; });
+    $$("[data-f]",c).forEach(el=>{ const k=el.dataset.f; el.value=st[k]||""; el.oninput=()=>{st[k]=el.value; if(k==="title") headInfo(st,c);
+      if(k!=="tools"&&autoTools(st)){ const ti=$('[data-f="tools"]',c); if(ti&&document.activeElement!==ti) ti.value=st.tools; }
+      persist();schedulePreview();}; });
     $(".head",c).onclick=e=>{ if(e.target.closest("button")) return; setActive(activeId===st.id?null:st.id); };
     c.addEventListener("focusin",()=>setActive(st.id));
     $$("[data-a]",c).forEach(b=>b.onclick=e=>{ e.stopPropagation(); stepAction(b.dataset.a,i); });
@@ -3380,10 +3387,119 @@ function hzFor(tokens,old){
 hozaiText.qtyOf=h=>{ let q=String(h.qty||"").trim();
   if(S.meta.hzPer==="1"&&h.b&&q){ const p=(S.meta.parts||[]).find(x=>x.b===h.b); const pq=p?parseFloat(p.qty):0; if(pq>0&&Number(q)%pq===0) q=String(Number(q)/pq); }
   return q; };
-function toolsFromHz(hz){
-  const sz=[...new Set(hz.filter(h=>h.on&&isBolt(h.name)).map(h=>(h.name.match(/M(\d+)/i)||[])[1]).filter(Boolean).map(Number))].sort((a,b)=>b-a);
-  return sz.length?sz.map(n=>"M"+n).join("、")+"用レンチ":"";
+/* ---- 文章から使用工具を拾う（音声入力のゆれも吸収） ----
+   [正式な名前, 見つける言葉, これがあれば省く名前（より詳しい名前）] */
+const TOOL_DICT=[
+ ["六角T型レンチ",/六角\s*T\s*型?\s*レンチ|T\s*型\s*(六角\s*)?レンチ|T\s*ハンドル\s*(六角\s*)?レンチ|Tレンチ/i],
+ ["トルクレンチ",/トルク\s*レンチ/],
+ ["六角レンチ",/六角\s*棒?\s*レンチ|ヘキサゴン\s*レンチ|ヘックス\s*レンチ|アーレン\s*キー|L\s*型\s*レンチ/i],
+ ["メガネレンチ",/メガネ\s*レンチ|めがね\s*レンチ|眼鏡\s*レンチ/],
+ ["ソケットレンチ",/ソケット\s*レンチ/],
+ ["ラチェットレンチ",/ラチェット/],
+ ["モンキーレンチ",/モンキー/],
+ ["スパナ",/スパナ/],
+ ["インパクトドライバー",/インパクト/],
+ ["プラスドライバー",/(プラス|[+＋])\s*ドライバ/],
+ ["マイナスドライバー",/(マイナス|[-－])\s*ドライバ/],
+ ["ドライバー",/ドライバ/,["インパクトドライバー","プラスドライバー","マイナスドライバー"]],
+ ["プラスチックハンマー",/プラスチック\s*ハンマー|プラ\s*ハン(?!ド)/],
+ ["銅ハンマー",/銅\s*ハンマー/],
+ ["ゴムハンマー",/ゴム\s*ハンマー/],
+ ["ハンマー",/ハンマー|木づち|木槌|ハンマ/,["プラスチックハンマー","銅ハンマー","ゴムハンマー"]],
+ ["スナップリングプライヤー",/スナップ\s*リング\s*プライヤ|Cリング\s*プライヤ|止め輪\s*プライヤ/i],
+ ["ラジオペンチ",/ラジオ\s*ペンチ/],
+ ["プライヤー",/プライヤ/,["スナップリングプライヤー"]],
+ ["ペンチ",/ペンチ/,["ラジオペンチ"]],
+ ["ニッパー",/ニッパ/],
+ ["カッター",/カッター/],
+ ["ヤスリ",/ヤスリ|やすり|鑢/],
+ ["砥石",/砥石|といし|オイル\s*ストーン/],
+ ["エアーガン",/エアー?\s*ガン|エアー?\s*ブロー/],
+ ["ウエス",/ウエス|ウェス/],
+ ["刷毛",/刷毛|ハケ/],
+ ["グリスガン",/グリ[スー]ス?\s*ガン/],
+ ["ノギス",/ノギス/],
+ ["マイクロメーター",/マイクロ\s*メータ/],
+ ["ダイヤルゲージ",/ダイヤル\s*ゲージ|ダイアル\s*ゲージ/],
+ ["デプスゲージ",/デプス\s*ゲージ/],
+ ["すきまゲージ",/すきま\s*ゲージ|隙間\s*ゲージ|シックネス\s*ゲージ/],
+ ["スケール",/スケール|メジャー|差し?金|さしがね/],
+ ["水準器",/水準器/],
+ ["吊りベルト",/吊り?\s*ベルト|つり\s*ベルト|スリング/],
+ ["クレーン",/クレーン|ホイスト/],
+ ["タップ",/タップ\s*(を|で)?\s*(立て|たて|通|とお)|タップ\s*ハンドル|タップ\s*で/],
+ ["電動ドリル",/ドリル/],
+ ["マーカー",/マーカー|マジック|油性\s*ペン/],
+ ["保護メガネ",/保護\s*(メガネ|めがね|眼鏡)|ゴーグル/],
+ ["バール",/バール/],
+];
+const WRENCH=/レンチ|スパナ|ドライバ|ラチェット/;
+function toolsFromText(st){
+  const txt=[st.title,st.body,st.check].map(x=>String(x||"")).join("\n").replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  const found=[], at={};
+  let mk=txt;   // 拾った言葉は伏せて、短い名前で二重に拾わない（「T型六角レンチ」→六角レンチ も、など）
+  TOOL_DICT.forEach(([n,re,skip])=>{ const g=new RegExp(re.source,re.flags.replace("g","")+"g"); let first=-1;
+    mk=mk.replace(g,(s,...a)=>{ const i=a[a.length-2]; if(first<0) first=i; return "\u0001".repeat(s.length); });
+    if(first>=0&&!(skip||[]).some(x=>found.includes(x))){ found.push(n); at[n]=first; } });
+  // この手順書で使っている工具の名前（設定・他の工程で手入力したもの）も、文章に出てきたら拾う
+  const mine=new Set(); [S.meta.tools,...S.steps.filter(x=>x!==st&&x.tools&&x.tools!==x._genTools).map(x=>x.tools)].forEach(v=>String(v||"").split(/[、,，\n]+/).map(x=>x.trim()).filter(x=>x.length>=2&&!/^M\d/.test(x)).forEach(x=>mine.add(x)));
+  mine.forEach(w=>{ if(!found.includes(w)&&txt.includes(w)&&!found.some(f=>f.includes(w)||w.includes(f))){ found.push(w); at[w]=txt.indexOf(w); } });
+  return found.sort((a,b)=>at[a]-at[b]);   // 文章に出てきた順
 }
+/* 工程の使用工具を自動で入れる（手で直した工程はさわらない） */
+function autoTools(st){
+  if(st.tools&&st.tools!==st._genTools) return false;
+  const hz=(st.as&&st.as.hz)||[], list=toolsFromText(st);
+  String(st._aiTools||"").split(/[、,，\n]+/).map(x=>x.trim()).filter(Boolean).forEach(x=>{ if(!list.some(f=>f===x||f.includes(x)||x.includes(f))) list.push(x); });
+  const out=hzTools(hz,[st.title,st.body,st.check].join("\n"),list);
+  const t=out.join("、");
+  if(t===(st.tools||"")) return false;
+  st.tools=t; st._genTools=t; return true;
+}
+function autoToolsAll(){ let n=0; S.steps.forEach(st=>{ if(!stEmpty(st)&&autoTools(st)) n++; }); return n; }
+/* ---- 補材（ボルト・ナット・止め輪）の種類とサイズから工具を推測 ----
+   二面幅はJIS（六角ボルト・ナットは M10→17、M12→19 の従来JIS）。種類がわからないボルトは「M8用レンチ」 */
+const HEX_SOCKET={2.5:2,3:2.5,4:3,5:4,6:5,8:6,10:8,12:10,14:12,16:14,18:14,20:17,22:17,24:19,30:22};   // 六角穴付きボルト
+const HEX_LOW={3:2,4:2.5,5:3,6:4,8:5,10:6,12:8,16:10,20:12};                                            // 皿・ボタン
+const HEX_HEAD={3:5.5,4:7,5:8,6:10,8:13,10:17,12:19,14:22,16:24,18:27,20:30,22:32,24:36,30:46};         // 六角ボルト・ナット
+const HEX_SET={3:1.5,4:2,5:2.5,6:3,8:4,10:5,12:6,16:8,20:10};                                          // セットねじ（イモネジ）
+// HC=六角穴付き、HS・HB=六角ボルト、HSC=セットねじ、FHC=皿、BHC・OHC=丸頭（ボタン）
+const HZ_TOOL={HC:["六角レンチ",HEX_SOCKET],HSC:["六角レンチ",HEX_SET],FHC:["六角レンチ",HEX_LOW],BHC:["六角レンチ",HEX_LOW],OHC:["六角レンチ",HEX_LOW],
+  HS:["スパナ",HEX_HEAD],HB:["スパナ",HEX_HEAD],NUT:["スパナ",HEX_HEAD]};
+const HZ_FAMILY={"六角レンチ":{use:/六角|T型/,stop:/^$/},"スパナ":{use:/スパナ|メガネ|ソケット|ラチェット/,stop:/モンキー|インパクト/}};
+const HZ_TYPES="SUS\\s*HC|HSC|FHC|BHC|OHC|HC|HS|HB|HH|CB|SB|TB|BT|NH|NUT";
+function hzKind(name){
+  const n=String(name||"").trim().replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  if(/止め輪|スナップ\s*リング|[CＣ]\s*(形|型)?\s*リング|[CＣ]\s*リング/i.test(n)) return {k:"SNAP"};
+  const d=+((n.match(/M\s*(\d+(?:\.\d+)?)/i)||n.match(/^[A-Za-z]{1,4}\s*(\d+(?:\.\d+)?)/)||[])[1]||0);
+  if(/ナット|NUT|^NH\b|^N\s*M\d/i.test(n)) return {k:"NUT",d};
+  const m=n.match(/^(?:SUS\s*)?([A-Za-z]{1,4})\s*M?\s*\d/);
+  if(m&&isBolt(n)) return {k:m[1].toUpperCase(),d,bolt:true};
+  if(/M\d+\s*[xX×＊*]\s*\d+/.test(n)) return {k:"?",d,bolt:true};
+  return null;
+}
+function hzTools(hz,text,list){
+  list=(list||[]).slice();
+  const fz=(hz||[]).filter(h=>h.on!==false&&h.name).map(h=>hzKind(h.name)).filter(Boolean);
+  const txt=String(text||"").replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  for(const m of txt.matchAll(new RegExp(`(?:^|[^A-Za-z])((?:${HZ_TYPES})\\s*M?\\s*\\d+(?:\\.\\d+)?(?:\\s*[xX×]\\s*\\d+)?)`,"g"))) { const f=hzKind(m[1]); if(f) fz.push(f); }
+  for(const m of txt.matchAll(/(?:^|[^A-Za-z])(M\d+(?:\.\d+)?\s*[xX×＊*]\s*\d+)/g)) if(!fz.some(f=>f.d===+m[1].match(/\d+(?:\.\d+)?/)[0])) fz.push({k:"?",d:+m[1].match(/\d+(?:\.\d+)?/)[0],bolt:true});
+  if(/止め輪|スナップ\s*リング|[CＣ]\s*(形|型)?\s*リング/.test(txt)) fz.push({k:"SNAP"});
+  const want={}, unk=new Set();
+  fz.forEach(f=>{ if(f.k==="SNAP") return; const t=HZ_TOOL[f.k];
+    if(t&&t[1][f.d]) (want[t[0]]=want[t[0]]||new Set()).add(t[1][f.d]); else if(f.bolt&&f.d) unk.add(f.d); });
+  const head=[];
+  Object.entries(want).forEach(([tool,set])=>{
+    const sz=[...set].sort((a,b)=>b-a).join("・")+"mm", F=HZ_FAMILY[tool];
+    if(list.some(x=>F.stop.test(x))) return;
+    const i=list.findIndex(x=>F.use.test(x)&&!/トルク/.test(x));
+    if(i>=0){ if(!/mm）$/.test(list[i])) list[i]+=`（${sz}）`; } else head.push(`${tool}（${sz}）`);
+  });
+  if(fz.some(f=>f.k==="SNAP")&&!list.some(x=>/プライヤ/.test(x))) head.push("スナップリングプライヤー");
+  if(unk.size&&!list.some(x=>WRENCH.test(x))) head.unshift([...unk].sort((a,b)=>b-a).map(n=>"M"+n).join("、")+"用レンチ");
+  return head.concat(list);
+}
+function toolsFromHz(hz){ return hzTools(hz,"",[]).join("、"); }
 function genFromAssist(st){
   const A=st.as, v=VERBS.find(x=>x[0]===A.verb)||VERBS[0];
   const parts=A.parts||[], tgt=A.target?toToken(A.target):null;
@@ -3845,14 +3961,14 @@ function renderAiReview(){
   $("#aiNone").onclick=()=>$$("[data-ai]",box).forEach(c=>c.checked=false);
   $("#aiApply").onclick=()=>{
     const sel=$$("[data-ai]",box).filter(c=>c.checked).map(c=>+c.dataset.ai); if(!sel.length) return alert("反映する工程にチェックを入れてください");
-    aiUndo=sel.map(i=>{ const st=S.steps[i]; return {id:st.id,title:st.title,body:st.body,check:st.check,tools:st.tools}; });
+    aiUndo=sel.map(i=>{ const st=S.steps[i]; return {id:st.id,title:st.title,body:st.body,check:st.check,tools:st.tools,_genTools:st._genTools,_aiTools:st._aiTools}; });
     sel.forEach(i=>{ const st=S.steps[i], r=AI.steps.find(x=>+x.no===i+1); if(!r) return; const b4=stepSnap(st); queueMicrotask(()=>histPush(st,b4));
       if(r.title!=null) st.title=String(r.title); if(r.body!=null) st.body=String(r.body); if(r.check!=null) st.check=String(r.check);
-      if(r.tools&&!String(st.tools||"").trim()) st.tools=String(r.tools); });
+      if(r.tools) st._aiTools=String(r.tools); autoTools(st); });
     renderSteps(); persist(); renderAiReview();
     alert(`${sel.length}工程に反映しました。プレビューで確認してください。`);
   };
-  const u=$("#aiUndo"); if(u) u.onclick=()=>{ aiUndo.forEach(o=>{ const st=S.steps.find(s=>s.id===o.id); if(st) Object.assign(st,{title:o.title,body:o.body,check:o.check,tools:o.tools||""}); }); aiUndo=null; renderSteps(); persist(); renderAiReview(); };
+  const u=$("#aiUndo"); if(u) u.onclick=()=>{ aiUndo.forEach(o=>{ const st=S.steps.find(s=>s.id===o.id); if(st) Object.assign(st,{title:o.title,body:o.body,check:o.check,tools:o.tools||"",_genTools:o._genTools,_aiTools:o._aiTools}); }); aiUndo=null; renderSteps(); persist(); renderAiReview(); };
 }
 
 /* ================= 現場モード（スマホ）：準備 → 1工程ずつ「部品 → これをどうする？」 ================= */
@@ -4257,7 +4373,8 @@ async function unfixAll(){
   if(!$("#fm").hidden&&F.stepId) try{ fmLoadStep(F.stepId); }catch(_){}
   alert(`↩ ${L.length}枚の写真の自動補正を外しました。`); try{ fmStartInfo(); fmSetFill&&!$("#fmSet").hidden&&fmSetFill(); }catch(_){}
 }
-$("#fmUnfix").onclick=unfixAll; $("#fsetUnfix").onclick=unfixAll; $("#fsLineMove").onclick=fmMove; $("#fmPaste").onclick=fmPaste; $("#fsPasteGo").onclick=fmPaste;
+$("#fmUnfix").onclick=unfixAll; $("#fsetAutoTools").onclick=()=>{ const n=autoToolsAll(); renderSteps(); persist(); schedulePreview(); fmToast(n?`${n}工程の使用工具を入れました`:"新しく拾える工具はありませんでした"); };
+$("#fsetUnfix").onclick=unfixAll; $("#fsLineMove").onclick=fmMove; $("#fmPaste").onclick=fmPaste; $("#fsPasteGo").onclick=fmPaste;
 $("#fsMoveCopy").onclick=moveCopy; $("#fsMoveFile").onclick=moveFile; $("#fsMoveX").onclick=()=>$("#fsMoveBox").hidden=true;
 $("#fsLineGo").onclick=()=>{ location.href=safariUrl(); };
 $("#fsPasteX").onclick=()=>{ $("#fsPaste").hidden=true; try{ localStorage.removeItem("movePending"); }catch(_){} };
@@ -4749,7 +4866,7 @@ function fmSaveStep(){
   const hz=F.hz.filter(h=>h.on);
   Object.assign(st,{title:F.title,body:F.body,check:F.checks.join("\n"),photos:F.photos.slice(0,3),phLay:F.phLay||"",
     as:{target:"",parts:F.parts.map(fmToken),verb:"",hz:F.hz,checks:F.checks,note:""},fa:{action:F.action,tEd:F.tEd,bEd:false}});
-  const t=toolsFromHz(hz); if(t&&(!st.tools||st.tools===st._genTools)){ st.tools=t; st._genTools=t; }
+  autoTools(st);
   st._genBody=st.body; F.stepId=st.id; histPush(st,F.snap); F.snap=stepSnap(st); persist(); return st;
 }
 $("#fpNext").onclick=()=>{
