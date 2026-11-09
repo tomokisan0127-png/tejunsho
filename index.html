@@ -431,6 +431,7 @@ details.sub>summary{font-size:13px;font-weight:normal;color:var(--sub)}
 #docs{z-index:150}
 #mix{z-index:160}
 #phMv{z-index:400}
+#dlRes{z-index:420}.dlResBtns{display:flex;flex-direction:column;gap:8px}.dlResBtns button{text-align:left;white-space:normal;min-height:46px}
 .step.flash{outline:3px solid #ffb020;outline-offset:2px}
 #phMv .box{max-height:90vh;display:flex;flex-direction:column}
 .phMvHead{display:flex;gap:10px;align-items:center;font-size:14px}
@@ -865,7 +866,7 @@ details.fold>summary::before{color:var(--accent)}
   <button id="bField" title="スマホで現品札を読んで工程を作る">📱 現場モード</button>
   <button id="bPrint">🖨 印刷 / PDF</button>
   <button id="bXlsx" class="primary">📊 Excel出力</button>
-  <input type="file" id="fOpen" accept=".json,application/json" hidden>
+  <input type="file" id="fOpen" accept=".json,.txt,application/json,text/plain" hidden>
 </header>
 <main>
 <section id="editor">
@@ -1441,6 +1442,18 @@ details.fold>summary::before{color:var(--accent)}
   <p class="hint" style="margin:0">このパソコン（ブラウザ）に保存されている手順書です。別のPCへ渡すときは「.json に保存」を使ってください。</p>
   <input id="dq" placeholder="作業名・機種名で絞り込み" style="margin-top:8px">
   <table class="dl"><thead><tr><th>手順書</th><th>工程</th><th>更新</th><th></th></tr></thead><tbody id="dBody"></tbody></table>
+</div></div>
+<div id="dlRes" class="modal"><div class="box" style="max-width:520px">
+  <h2 style="margin:0 0 6px;font-size:17px;display:flex;align-items:center;gap:8px">💾 保存のしかた<span style="flex:1"></span><button class="sm" id="dlResClose">閉じる</button></h2>
+  <p style="margin:4px 0 10px">この端末では、そのままでは保存できませんでした。<b>上から順に</b>試してください。<br><small id="dlResName" style="color:var(--sub)"></small></p>
+  <div class="dlResBtns">
+    <button class="primary" id="dlResShare">① もう一度「共有」→「"ファイル"に保存」</button>
+    <button id="dlResTxt">② 文字ファイルとして「共有」→「"ファイル"に保存」</button>
+    <button id="dlResDl">③ ダウンロードで保存（「ファイル」→ダウンロード に入ります）</button>
+    <button id="dlResTab">④ 新しいタブで開く → 共有ボタン →「"ファイル"に保存」</button>
+  </div>
+  <p class="hint" style="margin-top:10px">保存できたら、このファイルを「手順書を開く」で読み込めます。どれもだめな時は、下の「くわしい情報」を作った人に伝えてください。</p>
+  <p class="hint" id="dlResErr" style="font-size:12px;word-break:break-all"></p>
 </div></div>
 <div id="phMv" class="modal"><div class="box" style="max-width:560px">
   <h2 style="margin:0 0 6px;font-size:17px;display:flex;align-items:center;gap:8px">📤 写真を別の工程へ移す<span style="flex:1"></span><button class="sm" id="phMvClose">やめる</button></h2>
@@ -2975,7 +2988,8 @@ function normHz(text,D){
 function normHzAll(){
   const D=hzMaster(); let n=0;
   S.steps.forEach(st=>{ const b4=stepSnap(st), o=JSON.stringify([st.title,st.body,st.check,st.fa&&st.fa.action]);
-    st.title=normHz(st.title,D); st.body=normHz(st.body,D); st.check=normHz(st.check,D); if(st._genBody!=null) st._genBody=st.body; if(st.fa&&st.fa.action) st.fa.action=normHz(st.fa.action,D);
+    const same=st._genBody===st.body;   // 現場モードで作ったままの文章か（AIやPCで直した文章を「作ったまま」扱いにしない）
+    st.title=normHz(st.title,D); st.body=normHz(st.body,D); st.check=normHz(st.check,D); if(st._genBody!=null) st._genBody=same?st.body:normHz(st._genBody,D); if(st.fa&&st.fa.action) st.fa.action=normHz(st.fa.action,D);
     if(JSON.stringify([st.title,st.body,st.check,st.fa&&st.fa.action])!==o){ n++; histPush(st,b4); } });
   if(n){ renderSteps(); persist(); schedulePreview(); if(!$("#fm").hidden&&F.stepId) fmLoadStep(F.stepId); }
   return n;
@@ -4752,7 +4766,10 @@ function fmLoadStep(id){
     if(!F.parts.length) F.parts=partsInStep(st);
     F.hz=(st.as&&st.as.hz?st.as.hz:hzFor(F.parts.map(fmToken),[])).map(h=>Object.assign({},h));
     // 現場モードで作った文章がそのままなら「これをどうする？」を復元。PCで作った・直した文章は、文章そのものを「これをどうする？」に入れて直せるようにする
-    const useAct=st.fa&&st.fa.action&&!st.fa.bEd&&st.body===st._genBody;
+    let useAct=st.fa&&st.fa.action&&!st.fa.bEd&&st.body===st._genBody;
+    if(useAct){ // 念のため：「これをどうする？」から作り直した文章が今の文章と違えば（AIなどで直した後）、今の文章を入れる
+      F.action=st.fa.action; F.tEd=true; fmCompose(); const D=hzMaster();
+      if(normHz(F.body,D).replace(/\s+/g,"")!==normHz(st.body,D).replace(/\s+/g,"")){ useAct=false; st._genBody=null; } }
     if(useAct) F.action=st.fa.action;
     else{ const lines=String(st.body||"").split("\n"), on=F.hz.filter(h=>h.on&&h.name);
       if(on.length){ const k=lines.findIndex(l=>l.trim()===hzLine(on,lines.join("\n"))); if(k>=0) lines.splice(k,1); else F.hz.forEach(h=>h.on=false); }
@@ -5308,9 +5325,30 @@ function addHozaiSheet(wb){
   });
 }
 const inLine=()=>/\bLine\//i.test(navigator.userAgent);
+/* iPhoneは「共有」→「"ファイル"に保存」。古いiOSでは共有が失敗したり、失敗のあとのダウンロードが（タップ扱いでないため）黙って止まることがあるので、
+   失敗したら「保存のしかた」画面を出して、もう一度タップしてもらう */
 function download(blob,name){
-  if(isIOS()||inLine()){ try{ const f=new File([blob],name,{type:blob.type||"application/octet-stream"}); if(navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share({files:[f]}).catch(e=>{ if(e&&e.name!=="AbortError") dlA(blob,name); }); return; } }catch(_){} }
+  if(isIOS()||inLine()){
+    let f=null; try{ f=new File([blob],name,{type:blob.type||"application/octet-stream"}); }catch(_){}
+    let can=false; try{ can=!!(f&&navigator.canShare&&navigator.canShare({files:[f]})); }catch(_){}
+    if(can){ navigator.share({files:[f]}).catch(e=>{ if(e&&e.name==="AbortError") return; dlRescue(blob,name,e); }); return; }
+    if(isIOS()) return dlRescue(blob,name,null);
+  }
   dlA(blob,name);
+}
+function dlRescue(blob,name,err){
+  const m=$("#dlRes"), mb=(blob.size/1048576).toFixed(1), ios=(navigator.userAgent.match(/OS (\d+)_(\d+)/)||[]).slice(1).join(".");
+  $("#dlResName").textContent=`${name}（${mb}MB）`;
+  $("#dlResErr").textContent=`くわしい情報：${err?(err.name+" "+(err.message||"")).trim():"共有が使えない"}／iOS ${ios||"?"}${matchMedia("(display-mode: standalone)").matches?"／ホーム画面から起動":""}`;
+  const share=type=>{ let f; try{ f=new File([blob],name,{type}); }catch(e){ return alert("この端末では使えません: "+e.message); }
+    navigator.share({files:[f]}).then(()=>m.classList.remove("show")).catch(e=>{ if(e&&e.name!=="AbortError"){ $("#dlResErr").textContent+=` → ${e.name}`; alert("うまくいきませんでした。下の方法を試してください。"); } }); };
+  $("#dlResShare").hidden=!navigator.share; $("#dlResTxt").hidden=!navigator.share;
+  $("#dlResShare").onclick=()=>share(blob.type||"application/octet-stream");
+  $("#dlResTxt").onclick=()=>share("text/plain");
+  $("#dlResDl").onclick=()=>dlA(blob,name);
+  $("#dlResTab").onclick=()=>{ const u=URL.createObjectURL(blob); const w=window.open(u,"_blank"); if(!w) location.href=u; };
+  $("#dlResClose").onclick=()=>m.classList.remove("show");
+  m.classList.add("show");
 }
 function dlA(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000); }
 $("#bXlsx").onclick=exportXlsx;
@@ -5320,8 +5358,8 @@ $("#bPrint").onclick=()=>{ renderPreview(); window.print(); };
 
 /* ================= ファイル保存/読込 ================= */
 $("#bSave").onclick=()=>{
-  const clean=JSON.parse(JSON.stringify(S,(k,v)=>k==="_fit"||k==="_tgt"?undefined:v));
-  download(new Blob([JSON.stringify({app:"sagyo-tejunsho",ver:1,data:clean})],{type:"application/json"}),`手順書データ_${S.meta.name||"無題"}.json`.replace(/[\\/:*?"<>|]/g,"_"));
+  const txt=JSON.stringify({app:"sagyo-tejunsho",ver:1,data:S},(k,v)=>k==="_fit"||k==="_tgt"?undefined:v);   // 1回だけ文字にする（写真入りで大きいので）
+  download(new Blob([txt],{type:"application/json"}),`手順書データ_${S.meta.name||"無題"}.json`.replace(/[\\/:*?"<>|]/g,"_"));
 };
 $("#bOpen").onclick=()=>$("#fOpen").click();
 $("#fOpen").onchange=async e=>{
