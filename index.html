@@ -3810,7 +3810,7 @@ $("#bAiCopy").onclick=async()=>{
   if(aiMode()==="balloon"){
     if(!balTargets().length) return alert("写真があって、文章に風船番号の部品（【052】など）が入っている工程がありません。");
     const ok=await copyText(aiBalloonPrompt()); $("#aiCopied").textContent=ok?"✓ 依頼文をコピーしました。続けて写真の画像を用意します…":"依頼文をコピーできませんでした";
-    return aiMakeImages(true); }
+    return aiMakeImages(true,balWork()); }
   if(!S.steps.some(s=>s.body||s.title)) return alert("先に工程の文章を入れてください");
   // 枠が小さすぎると、AIは確認ポイントを削るしかなくなるので先に知らせる
   if($("#aiFit").checked){ renderPreview(); const caps=S.steps.map((st,i)=>st._fit&&st._fit.over?stepCapacity(st,i).lines:99); const mn=Math.min(...caps);
@@ -3923,11 +3923,16 @@ async function aiMakeImages(bal,list){
     const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.85));
     aiFiles.push(new File([blob],`${name}_写真${aiFiles.length+1}.jpg`,{type:"image/jpeg"}));
   }
-  const canShare=!!(navigator.canShare&&navigator.canShare({files:aiFiles}));
-  box.innerHTML=`<p class="aiImgNote">✓ 写真の画像が<b>${aiFiles.length}枚</b>できました（写真のある工程：${L.length}件）。${aiFiles.length>10?"<br>※ AIによっては一度に送れる画像は10枚くらいまでです。多いときは2回に分けて送ってください。":""}</p>
-    <div class="aiImgBtns">${canShare?`<button class="primary" id="aiShare">📤 画像をAIアプリに送る</button>`:""}<button id="aiSave">💾 画像を保存する</button><button id="aiView">👁 画像を見る</button></div>
-    <p class="hint">${canShare?"「送る」でAIアプリ（ChatGPT・Claudeなど）を選ぶと画像が添付されます。メッセージ欄に依頼文を貼り付けて送信してください。":"保存した画像を、AIの画面に添付（ドラッグ）して、依頼文と一緒に送信してください。"}</p>`;
-  const sh=$("#aiShare"); if(sh) sh.onclick=async()=>{ try{ await navigator.share({files:aiFiles,title:"手順書の写真"}); }catch(e){ if(e.name!=="AbortError") alert("送れませんでした。「画像を保存する」から保存して添付してください。"); } };
+  // 共有は一度に10ファイル・合計およそ50MBまで（Androidのブラウザの決まり）→ 超えたら分けて送る
+  const B=[]; aiFiles.forEach(f=>{ const g=B[B.length-1]; if(g&&g.length<10&&g.reduce((s,x)=>s+x.size,0)+f.size<45e6) g.push(f); else B.push([f]); });
+  const canShare=!!(navigator.canShare&&B.every(g=>{ try{ return navigator.canShare({files:g}); }catch(_){ return false; } }));
+  const btns=canShare?(B.length===1?`<button class="primary" data-sh="0">📤 画像をAIアプリに送る</button>`
+    :B.map((g,j)=>{ const a=B.slice(0,j).reduce((s,x)=>s+x.length,0); return `<button class="${j?"":"primary"}" data-sh="${j}">📤 ${j+1}回目を送る（画像${g.length>1?`${a+1}〜${a+g.length}`:a+1}）</button>`; }).join("")):"";
+  box.innerHTML=`<p class="aiImgNote">✓ 写真の画像が<b>${aiFiles.length}枚</b>できました（写真のある工程：${L.length}件）。${B.length>1?`<br>※ 一度に送れるのは10枚までなので、<b>${B.length}回に分けて</b>送ります。1回目は依頼文といっしょに、2回目からは「続きの画像です」と書いて同じ会話に送ってください。`:""}</p>
+    <div class="aiImgBtns">${btns}<button id="aiSave">💾 画像を保存する</button><button id="aiView">👁 画像を見る</button></div>
+    <p class="hint">${canShare?"「送る」でAIアプリ（ChatGPT・Claudeなど）を選ぶと画像が添付されます。メッセージ欄に依頼文を貼り付けて送信してください。":"保存した画像を、AIの画面に添付（ドラッグ＆ドロップ）してください。"}</p>`;
+  $$("[data-sh]",box).forEach(b=>b.onclick=async()=>{ try{ await navigator.share({files:B[+b.dataset.sh],title:"手順書の写真"}); b.textContent="✓ "+b.textContent.replace(/^📤 /,""); }
+    catch(e){ if(e.name!=="AbortError") alert(`送れませんでした（${e.name}）。「画像を保存する」から保存して添付してください。`); } });
   $("#aiSave").onclick=()=>aiFiles.forEach((f,j)=>setTimeout(()=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000); },j*400));
   $("#aiView").onclick=()=>{ const u=URL.createObjectURL(aiFiles[0]); window.open(u,"_blank"); };
 }
@@ -4017,8 +4022,10 @@ ${hz.length?`【補材】${hz.join("、")}`:""}`;
 /* ---- 写真に風船を付けてもらう：AIは場所（%）だけ答える → アプリが元の写真に描く ---- */
 function balParts(st){ return partsInStep(st).filter(p=>p.b); }
 function balTargets(){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&balParts(x.s).length); }
+/* 風船を頼む工程：まだ風船が無い工程だけ（全部付いていたら、全部をやり直し） */
+function balWork(){ const L=balLeft(); return L.length?L:balTargets(); }
 function aiBalloonPrompt(){
-  const L=balTargets();
+  const L=balWork();
   return `あなたは製造現場（機械組立）の作業手順書の写真に、部品の風船番号を付ける担当です。
 添付した画像には、各工程の写真が並んでいます。写真の左上に「③-1」のような［工程番号-写真番号］のラベルがあり、写真のまわりに灰色の枠があります。
 下の【工程と部品】を見て、それぞれの写真の中で、その部品がどこに写っているかを探してください。
