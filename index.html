@@ -1151,6 +1151,7 @@ details.fold>summary::before{color:var(--accent)}
   <div class="ebar">
     <button class="tool" data-tool="select"><i>👆</i>選択・移動</button>
     <button class="tool on" data-tool="arrow"><i>➚</i>矢印</button>
+    <button class="tool" data-tool="pen"><i>✎</i>手書き</button>
     <button class="tool" data-tool="line"><i>／</i>線</button>
     <button class="tool" data-tool="rect"><i>▭</i>四角</button>
     <button class="tool" data-tool="ellipse"><i>◯</i>丸</button>
@@ -2590,7 +2591,7 @@ $("#bCap").onclick=()=>{
 const E={st:null,j:0,done:null,bases:[],bi:0,base:null,adj:{b:0,c:0},shapes:[],sel:null,tool:"arrow",color:"#ff1a1a",wk:1,
   hist:[],fut:[],drag:null,sc:1,dpr:1,crop:null,asp:0,adjC:null,adjK:"",txt:null};
 const eC=$("#eC"), eG=eC.getContext("2d");
-const ED_TIPS={select:"図形をタップで選んでドラッグで移動。端の○で大きさ・向きを変えられます。四角・丸は上の青い↻をドラッグすると回せます",arrow:"根元から先に向かってドラッグ",line:"ドラッグで線",rect:"ドラッグで四角",ellipse:"ドラッグで丸",
+const ED_TIPS={pen:"指でなぞって自由に書けます。続けて何本でも書けます（消すときは「👆選択・移動」でタップして🗑）",select:"図形をタップで選んでドラッグで移動。端の○で大きさ・向きを変えられます。四角・丸は上の青い↻をドラッグすると回せます",arrow:"根元から先に向かってドラッグ",line:"ドラッグで線",rect:"ドラッグで四角",ellipse:"ドラッグで丸",
   text:"文字を置きたい所をタップ",num:"タップするたびに 1,2,3… の番号を置きます",balloon:"部品の所から、番号札を置きたい所までドラッグ",crop:"枠の角・辺をドラッグして範囲を決め「✓ 切り抜く」"};
 const iw=()=>E.base.naturalWidth||E.base.width, ih=()=>E.base.naturalHeight||E.base.height;
 const unit=()=>Math.max(3,Math.max(iw(),ih())/220);
@@ -2681,9 +2682,17 @@ const isLight=c=>/^#(ff|fe|fd)(ff|d4|fe)/i.test(c)||c.toLowerCase()==="#ffffff"|
 function strokeTwice(g,s,path){ g.save(); g.lineCap="round"; g.lineJoin="round";
   g.strokeStyle=isLight(s.color)?"rgba(0,0,0,.55)":"rgba(255,255,255,.9)"; g.lineWidth=s.w*1.6; path(); g.stroke();
   g.strokeStyle=s.color; g.lineWidth=s.w; path(); g.stroke(); g.restore(); }
+/* 手書き：点をなめらかにつなぐ */
+function penPath(g,P){ g.beginPath(); if(!P.length) return; g.moveTo(P[0][0],P[0][1]);
+  if(P.length<3){ P.forEach(q=>g.lineTo(q[0],q[1])); if(P.length===1) g.lineTo(P[0][0]+.01,P[0][1]); return; }
+  for(let i=1;i<P.length-1;i++){ const mx=(P[i][0]+P[i+1][0])/2, my=(P[i][1]+P[i+1][1])/2; g.quadraticCurveTo(P[i][0],P[i][1],mx,my); }
+  const L=P[P.length-1]; g.lineTo(L[0],L[1]); }
+function penBox(s){ const P=s.pts||[]; if(!P.length) return; let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9; P.forEach(([x,y])=>{ if(x<x1)x1=x; if(y<y1)y1=y; if(x>x2)x2=x; if(y>y2)y2=y; }); Object.assign(s,{x1,y1,x2,y2}); }
+const penMove=(s,dx,dy)=>{ if(s.pts) s.pts.forEach(q=>{ q[0]+=dx; q[1]+=dy; }); };
 function drawShape(g,s){
   const {x1,y1,x2,y2}=s;
-  if(s.type==="line") strokeTwice(g,s,()=>{ g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); });
+  if(s.type==="pen") strokeTwice(g,s,()=>penPath(g,s.pts||[]));
+  else if(s.type==="line") strokeTwice(g,s,()=>{ g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); });
   else if(s.type==="arrow"){ const a=Math.atan2(y2-y1,x2-x1), hl=Math.max(s.w*4.2,14), bx=x2-Math.cos(a)*hl*.7, by=y2-Math.sin(a)*hl*.7;
     const head=()=>{ g.beginPath(); g.moveTo(x2,y2); g.lineTo(x2-hl*Math.cos(a-.5),y2-hl*Math.sin(a-.5)); g.lineTo(x2-hl*Math.cos(a+.5),y2-hl*Math.sin(a+.5)); g.closePath(); };
     g.save(); g.lineCap="round"; g.lineJoin="round"; const ol=isLight(s.color)?"rgba(0,0,0,.55)":"rgba(255,255,255,.9)";
@@ -2746,6 +2755,7 @@ const pos=e=>{ const r=eC.getBoundingClientRect(); return {x:(e.clientX-r.left)/
 function segDist(p,a,b){ const dx=b.x-a.x, dy=b.y-a.y, l=dx*dx+dy*dy; let t=l?((p.x-a.x)*dx+(p.y-a.y)*dy)/l:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy)); }
 function hitShape(p){ const tol=12/E.sc;
   for(let i=E.shapes.length-1;i>=0;i--){ const s=E.shapes[i];
+    if(s.type==="pen"){ const P=s.pts||[]; for(let k=0;k<P.length;k++){ const a={x:P[k][0],y:P[k][1]}, b=P[k+1]?{x:P[k+1][0],y:P[k+1][1]}:a; if(segDist(p,a,b)<tol+s.w/2) return s; } continue; }
     if(s.type==="arrow"||s.type==="line"){ if(segDist(p,{x:s.x1,y:s.y1},{x:s.x2,y:s.y2})<tol+s.w/2) return s; continue; }
     if(s.type==="balloon"){ if(Math.hypot(p.x-s.x2,p.y-s.y2)<s.fs*.85+tol||segDist(p,{x:s.x1,y:s.y1},{x:s.x2,y:s.y2})<tol) return s; continue; }
     const q=isBox(s)&&s.rot?rotPt(p,boxC(s),-s.rot):p;
@@ -2767,7 +2777,7 @@ function edUI(){
   $("#eUndo").disabled=!E.hist.length; $("#eRedo").disabled=!E.fut.length;
   const s=E.sel&&E.shapes.includes(E.sel)?E.sel:null;
   $("#eSubSel").classList.toggle("show",!!s&&E.tool!=="crop");
-  if(s){ $("#eSelLab").textContent={arrow:"矢印",line:"線",rect:"四角",ellipse:"丸",text:"文字",num:"番号",balloon:"風船番号"}[s.type]+" を選択中"; $("#eTextEdit").hidden=!(s.type==="text"||s.type==="balloon"||s.type==="num"); $("#eRotBtns").hidden=!isBox(s); }
+  if(s){ $("#eSelLab").textContent={pen:"手書き",arrow:"矢印",line:"線",rect:"四角",ellipse:"丸",text:"文字",num:"番号",balloon:"風船番号"}[s.type]+" を選択中"; $("#eTextEdit").hidden=!(s.type==="text"||s.type==="balloon"||s.type==="num"); $("#eRotBtns").hidden=!isBox(s); }
 }
 eC.onpointerdown=e=>{
   e.preventDefault(); eC.setPointerCapture(e.pointerId); closeText(false);
@@ -2782,12 +2792,15 @@ eC.onpointerdown=e=>{
   if(t==="text"){ openText(p,"",v=>{ push(); const s={type:"text",x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit()*E.wk,fs:Math.max(18,Math.max(iw(),ih())/24)*E.wk,text:v}; E.shapes.push(s); E.sel=s; edDraw(); edUI(); }); return; }
   if(t==="num"){ push(); const n=E.shapes.filter(s=>s.type==="num").reduce((m,s)=>Math.max(m,+s.text||0),0)+1;
     const s={type:"num",x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit(),fs:Math.max(18,Math.max(iw(),ih())/17)*E.wk,text:String(n)}; E.shapes.push(s); E.sel=s; E.drag={kind:"move",s,last:p,moved:true}; edDraw(); edUI(); return; }
+  if(t==="pen"){ E.sel=null; E.drag={kind:"draw",s:{type:"pen",pts:[[p.x,p.y]],x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit()*E.wk}}; edDraw(); edUI(); return; }
   E.sel=null; E.drag={kind:"draw",s:{type:t,x1:p.x,y1:p.y,x2:p.x,y2:p.y,color:E.color,w:unit()*E.wk,fs:Math.max(18,Math.max(iw(),ih())/(t==="balloon"?15:26))*E.wk}}; edDraw(); edUI();
 };
 eC.onpointermove=e=>{
   const d=E.drag; if(!d) return; const p=pos(e);
-  if(d.kind==="draw"){ d.s.x2=p.x; d.s.y2=p.y; }
-  else if(d.kind==="move"){ const dx=p.x-d.last.x, dy=p.y-d.last.y; d.s.x1+=dx; d.s.y1+=dy; d.s.x2+=dx; d.s.y2+=dy; d.last=p; if(Math.abs(dx)+Math.abs(dy)>0) d.moved=true; }
+  if(d.kind==="draw"&&d.s.type==="pen"){ const P=d.s.pts, L=P[P.length-1];
+    (e.getCoalescedEvents?e.getCoalescedEvents():[e]).forEach(ev=>{ const q=pos(ev), Z=P[P.length-1]; if(Math.hypot(q.x-Z[0],q.y-Z[1])>=1.2/E.sc) P.push([Math.round(q.x*10)/10,Math.round(q.y*10)/10]); }); }
+  else if(d.kind==="draw"){ d.s.x2=p.x; d.s.y2=p.y; }
+  else if(d.kind==="move"){ const dx=p.x-d.last.x, dy=p.y-d.last.y; d.s.x1+=dx; d.s.y1+=dy; d.s.x2+=dx; d.s.y2+=dy; penMove(d.s,dx,dy); d.last=p; if(Math.abs(dx)+Math.abs(dy)>0) d.moved=true; }
   else if(d.kind==="handle"){ const s=d.s; d.moved=true;
     if(d.h==="p1"){ s.x1=p.x; s.y1=p.y; } else if(d.h==="p2"){ s.x2=p.x; s.y2=p.y; }
     else if(d.h==="rot"){ const c=boxC(s); let r=Math.atan2(p.y-c.y,p.x-c.x)+(knobDown(s)?-1:1)*Math.PI/2; let deg=r*180/Math.PI; deg=((deg%360)+540)%360-180;
@@ -2807,6 +2820,7 @@ eC.onpointermove=e=>{
 };
 eC.onpointerup=eC.onpointercancel=()=>{
   const d=E.drag; E.drag=null; if(!d) return;
+  if(d.kind==="draw"&&d.s.type==="pen"){ const s=d.s; penBox(s); push(); E.shapes.push(s); E.sel=null; edDraw(); edUI(); return; }
   if(d.kind==="draw"){ const s=d.s, len=Math.hypot(s.x2-s.x1,s.y2-s.y1);
     if(s.type==="balloon"){ if(len<6/E.sc){ s.x2=s.x1; s.y2=s.y1; }
       const used=E.st&&E.st.body!=null?partsInStep(E.st).map(p=>p.b).filter(Boolean):[], done=E.shapes.filter(x=>x.type==="balloon").map(x=>x.text);
@@ -2846,12 +2860,13 @@ function applyAsp(){ const c=E.crop; if(!c||!E.asp) return; const cx=c.x+c.w/2, 
 $$("#ed [data-asp]").forEach(b=>b.onclick=()=>{ E.asp=+b.dataset.asp; $$("#ed [data-asp]").forEach(x=>x.classList.toggle("on",x===b)); if(E.crop){ if(E.asp){ E.crop={x:0,y:0,w:iw(),h:ih()}; } applyAsp(); edDraw(); } });
 function doCrop(){ const c=E.crop; if(!c) return; push();
   const cv=document.createElement("canvas"); cv.width=Math.max(1,Math.round(c.w)); cv.height=Math.max(1,Math.round(c.h)); cv.getContext("2d").drawImage(E.base,c.x,c.y,c.w,c.h,0,0,cv.width,cv.height);
-  E.shapes.forEach(s=>{ s.x1-=c.x; s.x2-=c.x; s.y1-=c.y; s.y2-=c.y; s._bb=null; });
+  E.shapes.forEach(s=>{ s.x1-=c.x; s.x2-=c.x; s.y1-=c.y; s.y2-=c.y; penMove(s,-c.x,-c.y); s._bb=null; });
   E.bases.push(cv); E.bi=E.bases.length-1; E.base=cv; E.crop=null; E.adjC=null; setTool("arrow"); }
 $("#eCropOk").onclick=doCrop;
 $("#eCropCancel").onclick=()=>{ E.crop=null; setTool("arrow"); };
 $("#eRot").onclick=()=>{ push(); const W=iw(), H=ih(), cv=document.createElement("canvas"); cv.width=H; cv.height=W; const g=cv.getContext("2d"); g.translate(H,0); g.rotate(Math.PI/2); g.drawImage(E.base,0,0);
   E.shapes.forEach(s=>{ [[ "x1","y1"],["x2","y2"]].forEach(([a,b])=>{ const x=s[a], y=s[b]; s[a]=H-y; s[b]=x; }); s._bb=null;
+    if(s.pts){ s.pts=s.pts.map(([x,y])=>[H-y,x]); penBox(s); }
     if(s.type==="rect"||s.type==="ellipse"){ const x1=Math.min(s.x1,s.x2),x2=Math.max(s.x1,s.x2),y1=Math.min(s.y1,s.y2),y2=Math.max(s.y1,s.y2); Object.assign(s,{x1,x2,y1,y2}); } });
   E.bases.push(cv); E.bi=E.bases.length-1; E.base=cv; E.crop=null; E.adjC=null; if(E.tool==="crop") setTool("arrow"); edSize(); edDraw(); };
 /* ---- 保存・やめる ---- */
