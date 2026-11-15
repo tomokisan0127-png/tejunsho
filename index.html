@@ -1103,7 +1103,8 @@ details.fold>summary::before{color:var(--accent)}
       <div class="aistep"><span class="badge">2</span><div id="aiStep2">AIの画面に貼り付けて（Ctrl+V）送信します。</div></div>
       <div class="aistep"><span class="badge">3</span><div style="flex:1">
         返ってきた答えを<b>全部コピー</b>して、ここに貼り付けます。
-        <textarea id="aiIn" rows="4" placeholder="AIの返事をそのまま貼り付け"></textarea>
+        <button class="primary" id="bAiPaste" style="margin:6px 0">📋 貼り付けて読み込む</button>
+        <textarea id="aiIn" rows="3" placeholder="うまくいかない時は、ここに長押しで貼り付けて「結果を読み込む」"></textarea>
         <button id="bAiRead" style="margin-top:6px">結果を読み込む</button>
       </div></div>
       <div id="aiReview"></div>
@@ -3883,7 +3884,9 @@ function renderAiFlow(){
   const left=L.filter(x=>x.state==="todo").length;
   const rowsH=`<div class="afHead">${left?`あと <b>${left}</b> つ`:"✓ AIの仕上げは終わりました。必要ならもう一度どうぞ"}</div>`+L.map(x=>`<button type="button" class="afRow ${x.state}${x.k===cur?" cur":""}" data-af="${x.k}"><i>${x.state==="done"?"✓":x.n}</i><span><b>${x.t}</b><small>${esc(x.sub)}</small></span>${x.k===cur?"<em>今ここ</em>":""}</button>`).join("");
   const md=cur==="check"?(hasPh&&aiPhOn?"photo":"text"):cur;
-  if(aiMode()!==md){ const r=document.querySelector(`input[name="aiMode"][value="${md}"]`); if(r){ r.checked=true; aiModeUI(); } }
+  if(aiMode()!==md){ const r=document.querySelector(`input[name="aiMode"][value="${md}"]`); if(r){ r.checked=true; aiModeUI(); }
+    $("#aiIn").value="";
+    if(BAL&&!(md==="balloon")){ let left=1; try{ left=balGroups().filter(g=>!g.ph._balDone).length; }catch(_){} if(!left){ BAL=null; $("#aiReview").innerHTML=""; } } }
   if(md==="gen"){ const ph=!C.list.length||C.list.some(x=>x.s.photos&&x.s.photos.length);
     $("#aiStep2").innerHTML=ph?"AIの画面に依頼文を<b>貼り付け</b>、写真の画像を<b>添付</b>して送信します。AIが説明文の下書きを書きます。":"AIの画面に依頼文を<b>貼り付けて</b>送信します（今回は写真なし）。AIが説明文の下書きを書きます。";
     $("#bAiCopy").textContent=ph?"AIへの依頼文をコピー＋写真の画像を作る":"AIへの依頼文をコピー"; }
@@ -4102,6 +4105,7 @@ function balGroups(){
   return [...G.values()].filter(g=>g.items.length);
 }
 async function balRender(){
+  if(!BAL) return;   // 片付けた後（③へ進んだ時など）
   const box=$("#aiReview"), Gs=balGroups(), cm=BAL.comments||[];
   if(!Gs.length){ box.innerHTML=`<p class="hint">AIの返事に、風船の位置がありませんでした。</p>`; return; }
   box.innerHTML=`<div class="aiTop"><b>AIが付けた風船（写真${Gs.length}枚）</b><span style="flex:1"></span>
@@ -4153,8 +4157,15 @@ function keyTokens(s){ return (String(s||"").match(/風船\s*\d+|【\d+】|[A-Za
 let AI=null, aiUndo=null;
 $("#bAiRead").onclick=()=>{
   let d; try{ d=parseAi($("#aiIn").value); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーして貼り付けてください。"); }
+  $("#aiIn").value="";   // 読み込めたら空にする（次の段で貼り直しやすいように）
   if(Array.isArray(d.balloons)&&!Array.isArray(d.steps)){ AI=null; BAL=d; balRender(); return aiShowTop(); }
   AI=d; BAL=null; renderAiReview(); aiShowTop();
+};
+/* 📋 貼り付けて読み込む：コピーしたAIの返事を、ボタン1つで貼り付け＋読み込み */
+$("#bAiPaste").onclick=async()=>{
+  let t=""; try{ t=await navigator.clipboard.readText(); }catch(_){}
+  if(!t.trim()){ $("#aiIn").focus(); return alert("コピーした文字を読み取れませんでした。\n下の欄を長押しして「ペースト」で貼り付け、「結果を読み込む」を押してください。"); }
+  $("#aiIn").value=t; $("#bAiRead").click();
 };
 /* 結果を読み込んだら、結果の一番上（最初の工程）を画面の上に出す。キーボードが閉じて画面が動いた後にもう一度 */
 function aiShowTop(){ document.activeElement&&document.activeElement.blur&&document.activeElement.blur();
