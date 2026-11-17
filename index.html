@@ -850,6 +850,12 @@ details.fold>summary::before{color:var(--accent)}
 #pcToast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:128;background:#1f2a3a;color:#fff;border-radius:999px;padding:10px 20px;font-size:14.5px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.25);width:max-content;max-width:92vw}
 #pcToast.ng{background:var(--warn)}
 @media (max-width:700px){ header h1{font-size:15px} #bGuidePC{display:none} }
+#busyOv{position:fixed;inset:0;z-index:2147483000;background:rgba(20,28,38,.38);display:none;align-items:center;justify-content:center}
+#busyOv.show{display:flex}
+#busyOv .bx{background:#fff;border-radius:14px;padding:20px 22px;min-width:220px;max-width:86vw;display:flex;flex-direction:column;align-items:center;gap:8px;box-shadow:0 8px 30px rgba(0,0,0,.25);text-align:center}
+#busyOv i{width:34px;height:34px;border-radius:50%;border:4px solid #d7e2f0;border-top-color:#1f5fae;animation:bsp 1s linear infinite}
+#busyOv b{font-size:15px;color:#1d2733} #busyOv small{color:#667;font-size:12px} #busyOv button{margin-top:6px}
+@keyframes bsp{to{transform:rotate(360deg)}}
 /* ===== 改善シート・ワンポイントシート（手順書とは別の画面） ===== */
 #kz{position:fixed;inset:0;background:#f2f4f7;z-index:125;overflow-y:auto;font-size:16px;-webkit-tap-highlight-color:transparent;overscroll-behavior:contain}
 #kz[hidden]{display:none}
@@ -1705,19 +1711,30 @@ let S = blankState();
 let activeId = null;
 
 /* ================= 保存（IndexedDB） ================= */
+/* iPhoneのSafariは、アプリを裏に回してしばらくすると保存先（IndexedDB）とのつながりが切れたり、
+   返事が来なくなったりすることがある → 時間切れ・エラーなら一度だけつなぎ直してやり直す（アプリを落とさなくても直る） */
+const DBT=(p,ms)=>new Promise((ok,ng)=>{ const t=setTimeout(()=>ng(new Error("保存先の応答がありません")),ms); p.then(v=>{clearTimeout(t);ok(v);},e=>{clearTimeout(t);ng(e);}); });
 const DB = {
-  db:null,
-  open(){ return new Promise((ok,ng)=>{ const q=indexedDB.open("sagyo-tejunsho",1);
+  db:null, _op:null,
+  open(){ if(this._op) return this._op; this._op=new Promise((ok,ng)=>{ const q=indexedDB.open("sagyo-tejunsho",1);
     q.onupgradeneeded=()=>q.result.createObjectStore("kv");
-    q.onsuccess=()=>{this.db=q.result;ok();}; q.onerror=()=>ng(q.error); }); },
-  get(k){ return new Promise((ok,ng)=>{ const t=this.db.transaction("kv").objectStore("kv").get(k); t.onsuccess=()=>ok(t.result); t.onerror=()=>ng(t.error);}); },
-  set(k,v){ return new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"); tx.objectStore("kv").put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}); },
-  setMany(list){ return new Promise((ok,ng)=>{ if(!list.length) return ok(); const tx=this.db.transaction("kv","readwrite"), os=tx.objectStore("kv"); list.forEach(([k,v])=>os.put(v,k)); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}); },
-  del(k){ return new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"); tx.objectStore("kv").delete(k); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}); },
-  keys(prefix){ return new Promise((ok,ng)=>{ const st=this.db.transaction("kv").objectStore("kv"), r=IDBKeyRange.bound(prefix,prefix+"\uffff"), q=st.getAllKeys?st.getAllKeys(r):null;
+    q.onsuccess=()=>{ const db=q.result; db.onclose=()=>{ if(this.db===db) this.db=null; }; db.onversionchange=()=>{ try{db.close();}catch(_){} if(this.db===db) this.db=null; }; this.db=db; ok(); };
+    q.onerror=()=>ng(q.error); q.onblocked=()=>ng(new Error("blocked")); }).finally(()=>{ this._op=null; }); return this._op; },
+  async reopen(){ try{ this.db&&this.db.close(); }catch(_){} this.db=null; await DBT(this.open(),6000); },
+  async run(fn,ms){
+    try{ if(!this.db) await DBT(this.open(),6000); return await DBT(fn(),ms); }
+    catch(e){ console.warn("DB retry",e); await this.reopen(); return await DBT(fn(),ms); } },
+  get(k){ return this.run(()=>new Promise((ok,ng)=>{ const t=this.db.transaction("kv").objectStore("kv").get(k); t.onsuccess=()=>ok(t.result); t.onerror=()=>ng(t.error);}),15000); },
+  set(k,v){ return this.run(()=>new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"); tx.objectStore("kv").put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error); tx.onabort=()=>ng(tx.error||new Error("abort"));}),30000); },
+  setMany(list){ if(!list.length) return Promise.resolve(); return this.run(()=>new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"), os=tx.objectStore("kv"); list.forEach(([k,v])=>os.put(v,k)); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error); tx.onabort=()=>ng(tx.error||new Error("abort"));}),60000); },
+  del(k){ return this.run(()=>new Promise((ok,ng)=>{ const tx=this.db.transaction("kv","readwrite"); tx.objectStore("kv").delete(k); tx.oncomplete=()=>ok(); tx.onerror=()=>ng(tx.error);}),15000); },
+  keys(prefix){ return this.run(()=>new Promise((ok,ng)=>{ const st=this.db.transaction("kv").objectStore("kv"), r=IDBKeyRange.bound(prefix,prefix+"\uffff"), q=st.getAllKeys?st.getAllKeys(r):null;
     if(q){ q.onsuccess=()=>ok(q.result); q.onerror=()=>ng(q.error); return; }
-    const out=[], c=st.openKeyCursor?st.openKeyCursor(r):st.openCursor(r); c.onsuccess=()=>{ const x=c.result; if(x){ out.push(x.key); x.continue(); } else ok(out); }; c.onerror=()=>ng(c.error); }); }
+    const out=[], c=st.openKeyCursor?st.openKeyCursor(r):st.openCursor(r); c.onsuccess=()=>{ const x=c.result; if(x){ out.push(x.key); x.continue(); } else ok(out); }; c.onerror=()=>ng(c.error); }),15000); }
 };
+/* アプリに戻ってきたとき、保存先が生きているか確かめる（だめならつなぎ直す） */
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState!=="visible"||!DB.db) return;
+  DBT(new Promise((ok,ng)=>{ try{ const t=DB.db.transaction("kv").objectStore("kv").get("curDoc"); t.onsuccess=ok; t.onerror=()=>ng(t.error); }catch(e){ ng(e); } }),3000).catch(()=>DB.reopen().catch(()=>{})); });
 /* ---- 写真は別の場所に1回だけ保存（手順書の中には「@img:番号」だけ書く）→ 文章を直すたびに写真まで保存し直さない ---- */
 const _imgKey=new Map();
 async function packJSON(obj){
@@ -1755,7 +1772,7 @@ async function getIndex(){ try{ return JSON.parse(await DB.get("docIndex")||"[]"
 async function docSummary(){
   const ph=(S.steps.find(x=>x.photos&&x.photos[0])||{photos:[]}).photos[0];
   let photo=""; if(ph){ photo=_thumbs.get(ph.data)||""; if(!photo){ try{ const im=await loadImg(ph.data); const c=document.createElement("canvas"), k=64/Math.max(im.naturalWidth,im.naturalHeight);
-    c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); photo=c.toDataURL("image/jpeg",.7); _thumbs.set(ph.data,photo); }catch(e){} } }
+    c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); photo=c.toDataURL("image/jpeg",.7); cvFree(c); _thumbs.set(ph.data,photo); }catch(e){} } }
   return {id:docId,name:S.meta.name||"",model:S.meta.model||"",updated:Date.now(),steps:S.steps.filter(x=>x.title||x.body||(x.photos&&x.photos.length)).length,photo};
 }
 const _thumbs=new Map();
@@ -1764,16 +1781,32 @@ function persist(){
   $("#saveState").textContent="保存中…"; showDocName();
   saveTimer=setTimeout(saveNow,600);
 }
+/* 保存は1回ずつ（大きな手順書で保存が重なると、同じ写真を何度も書き込んで固まる）。保存中に変更があれば終わってからもう一度 */
+let _saving=null, _saveAgain=false;
 async function saveNow(){
   clearTimeout(saveTimer);
+  if(_saving){ _saveAgain=true; return _saving; }
+  _saving=(async()=>{ do{ _saveAgain=false; await saveNow1(); }while(_saveAgain); })();
+  try{ return await _saving; } finally{ _saving=null; }
+}
+/* 写真の文字（data:…）→保存場所 の対応表から、もう使っていない写真を外す（AI仕上げ・書き込みのたびに古い写真がメモリに残り続けていた） */
+function imgKeyPrune(){
+  if(_imgKey.size<48) return; const live=new Set(), seen=new WeakSet();
+  const walk=x=>{ if(typeof x==="string"){ if(x.length>4096&&x.startsWith("data:")) live.add(x); return; }
+    if(!x||typeof x!=="object"||seen.has(x)||x.nodeType) return; seen.add(x); for(const k in x){ try{ walk(x[k]); }catch(_){} } };
+  walk(S); try{ walk(HIST); }catch(_){} try{ walk(BAL&&BAL.undo); }catch(_){} try{ walk(KZ); }catch(_){}
+  for(const k of [..._imgKey.keys()]) if(!live.has(k)) _imgKey.delete(k);
+}
+async function saveNow1(){
   try{
+    if(!DB.db) await DB.open().catch(()=>{});
     if(!DB.db) return;
     if(!docId) docId=uid();
     await DB.set("doc:"+docId,await packJSON(S));
     const sm=await docSummary(), idx=await getIndex(), i=idx.findIndex(x=>x.id===docId);
     if(i>=0){ if(!sm.photo) sm.photo=idx[i].photo; idx[i]=sm; } else idx.push(sm);
     await DB.set("docIndex",JSON.stringify(idx)); await DB.set("curDoc",docId);
-    $("#saveState").textContent="自動保存済み "+hm(new Date());
+    $("#saveState").textContent="自動保存済み "+hm(new Date()); imgKeyPrune();
   }catch(e){ $("#saveState").textContent="⚠ 自動保存できません（.json に保存してください）"; }
 }
 function showDocName(){ const e=$("#docName"); if(e) e.textContent=[S.meta.name||"（無題）",S.meta.model].filter(Boolean).join(" / "); }
@@ -1902,6 +1935,20 @@ $("#docs").addEventListener("mousedown",e=>{ if(e.target.id==="docs") $("#docs")
 /* ================= 小物 ================= */
 function hm(d){ return d.getHours()+":"+String(d.getMinutes()).padStart(2,"0"); }
 function $(s,root=document){return root.querySelector(s);}
+/* ---- 重い処理（Excel・保存など）の間は「作っています…」を出す。二度押しで同じ処理が重ならないようにする ---- */
+let _busy=0, _lastTap=0;
+document.addEventListener("pointerdown",()=>{ _lastTap=Date.now(); },true); document.addEventListener("click",()=>{ _lastTap=Date.now(); },true);
+const paint=()=>new Promise(r=>{ let d=0; const go=()=>{ if(!d){ d=1; setTimeout(r,30); } }; requestAnimationFrame(go); setTimeout(go,120); });
+function busyMsg(t){ const el=document.getElementById("busyOv"); if(el) el.querySelector("b").textContent=t; }
+function busyShow(t){ let el=document.getElementById("busyOv");
+  if(!el){ el=document.createElement("div"); el.id="busyOv"; el.innerHTML=`<div class="bx"><i></i><b></b><small>そのままお待ちください</small><button type="button" hidden>閉じる</button></div>`; document.body.appendChild(el);
+    el.querySelector("button").onclick=()=>{ _busy=0; el.classList.remove("show"); }; }
+  busyMsg(t); el.querySelector("button").hidden=true; el.classList.add("show");
+  clearTimeout(el._t); el._t=setTimeout(()=>{ el.querySelector("button").hidden=false; el.querySelector("small").textContent="時間がかかっています。終わらないときは［閉じる］"; },25000); }
+function busyHide(){ const el=document.getElementById("busyOv"); if(el){ clearTimeout(el._t); el.classList.remove("show"); el.querySelector("small").textContent="そのままお待ちください"; } }
+async function busyRun(msg,fn){
+  if(_busy) return; _busy=1; busyShow(msg); await paint();
+  try{ return await fn(); } finally{ _busy=0; busyHide(); } }
 function $$(s,root=document){return [...root.querySelectorAll(s)];}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function circled(n){ if(n>=1&&n<=20) return String.fromCharCode(0x2460+n-1); if(n<=35) return String.fromCharCode(0x3251+n-21); if(n<=50) return String.fromCharCode(0x32B1+n-36); return "("+n+")"; }
@@ -2579,11 +2626,18 @@ $("#bSave2").onclick=()=>ioSaveOpen();
 
 /* ================= 画像取り込み ================= */
 function loadImg(src){ return new Promise((ok,ng)=>{ const im=new Image(); im.onload=()=>ok(im); im.onerror=ng; im.src=src; }); }
+/* 使い終わったキャンバスはすぐ0×0にしてメモリを返す。
+   iPhoneは写真用のメモリ（キャンバス）の合計に上限があり（メモリの少ない機種ほど低い）、返さずにためると
+   以後の写真処理・保存が静かに失敗して「反応しない」状態になる（アプリを落とすまで直らない） */
+function cvFree(...cs){ for(const c of cs){ try{ if(c&&c.tagName==="CANVAS"&&c.id!=="eC"){ c.width=0; c.height=0; } }catch(_){} } }
+function cv2d(c){ const g=c.getContext("2d"); if(!g) throw new Error("写真用のメモリが足りません（アプリを開き直してください）"); return g; }
 function toJpeg(srcCanvasOrImg,w,h,max=1280){
   const s=Math.min(1,max/Math.max(w,h)); const c=document.createElement("canvas");
   c.width=Math.round(w*s); c.height=Math.round(h*s);
-  const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(srcCanvasOrImg,0,0,c.width,c.height);
-  return {data:c.toDataURL("image/jpeg",0.82),w:c.width,h:c.height};
+  const g=cv2d(c); g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(srcCanvasOrImg,0,0,c.width,c.height);
+  const out={data:c.toDataURL("image/jpeg",0.82),w:c.width,h:c.height}; cvFree(c);
+  if(out.data.length<100) throw new Error("写真を作れませんでした（メモリ不足）");
+  return out;
 }
 async function fileToPhoto(f){
   const url=URL.createObjectURL(f);
@@ -2593,7 +2647,7 @@ async function fileToPhoto(f){
 async function autoFixPhoto(ph){
   if(!ph||S.meta.autoFix==="0") return ph;
   try{ const im=await loadImg(ph.data), adj={b:0,c:0,auto:autoParams(im)}, cv=bakeWith(im,adj,[]);
-    const src=ph.data; Object.assign(ph,toJpeg(cv,cv.width,cv.height),{src,ed:{adj,shapes:[]}}); }catch(_){}
+    const src=ph.data; Object.assign(ph,toJpeg(cv,cv.width,cv.height),{src,ed:{adj,shapes:[]}}); cvFree(cv); }catch(_){}
   return ph;
 }
 async function addFiles(st,files){
@@ -2663,6 +2717,7 @@ async function openEditor(st,j,done,tool){
   E.st=st;E.j=j;E.done=done||null;
   const ph=st.photos[j], re=!!(ph.src&&ph.ed);      // 元の写真＋書き込みが残っていれば、動かせる状態で開く
   const im=await loadImg(re?ph.src:ph.data);
+  cvFree(E.adjC,...(E.bases||[]));      // 前の編集で使ったキャンバスを返す
   Object.assign(E,{bases:[im],bi:0,base:im,adj:re?Object.assign({b:+ph.ed.adj?.b||0,c:+ph.ed.adj?.c||0},ph.ed.adj?.auto?{auto:ph.ed.adj.auto}:{}):{b:0,c:0},shapes:re?JSON.parse(JSON.stringify(ph.ed.shapes||[])):[],sel:null,hist:[],fut:[],crop:null,adjC:null,adjK:"",drag:null});
   $("#eBri").value=E.adj.b; $("#eCon").value=E.adj.c; autoUI(); $("#eSubAdj").classList.remove("show"); $("#eAdjBtn").classList.remove("on");
   $("#ed").classList.add("show"); setTool(tool||"arrow"); edSize(); edDraw(); edUI();
@@ -2698,13 +2753,13 @@ function adjBase(){
     for(let y=1;y<H-1;y++) for(let x=1;x<W-1;x++){ const i=(y*W+x)*4;
       for(let ch=0;ch<3;ch++){ const v=src[i+ch], bl=(src[i+ch-4]+src[i+ch+4]+src[i+ch-W*4]+src[i+ch+W*4])/4; a[i+ch]=v+(v-bl)*k; } }
   }
-  g.putImageData(d,0,0); E.adjC=cv; E.adjK=key; return cv;
+  g.putImageData(d,0,0); if(E.adjC&&E.adjC!==cv) cvFree(E.adjC); E.adjC=cv; E.adjK=key; return cv;
 }
 /* 写真を見て、自動補正の中身を決める */
 function autoParams(img){
   const k=Math.min(1,320/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)), cv=document.createElement("canvas");
   cv.width=Math.max(1,Math.round((img.naturalWidth||img.width)*k)); cv.height=Math.max(1,Math.round((img.naturalHeight||img.height)*k));
-  const g=cv.getContext("2d"); g.drawImage(img,0,0,cv.width,cv.height); const a=g.getImageData(0,0,cv.width,cv.height).data;
+  const g=cv.getContext("2d"); g.drawImage(img,0,0,cv.width,cv.height); const a=g.getImageData(0,0,cv.width,cv.height).data; cvFree(cv);
   // 色かぶり：中くらいの明るさの所の平均を灰色に近づける（控えめ・最大±12%）
   let sr=0,sg=0,sb=0,n=0; for(let i=0;i<a.length;i+=4){ const l=.299*a[i]+.587*a[i+1]+.114*a[i+2]; if(l>35&&l<225){ sr+=a[i]; sg+=a[i+1]; sb+=a[i+2]; n++; } }
   let wb=[1,1,1]; if(n>50){ const m=[sr/n,sg/n,sb/n], gr=(m[0]+m[1]+m[2])/3; wb=m.map(v=>{ const f=Math.max(.88,Math.min(1.12,gr/Math.max(1,v))); return 1+(f-1)*.7; }); }
@@ -2945,12 +3000,12 @@ $("#eOk").onclick=()=>{ if(E.crop&&confirm("切り抜きの範囲を確定して
   else{ Object.assign(p,toJpeg(c,c.width,c.height));
     if(clean){ delete p.src; delete p.ed; }
     else{ p.src=src; p.ed={adj:{...E.adj},shapes:JSON.parse(JSON.stringify(E.shapes,(k,v)=>k==="_bb"?undefined:v))}; } }
-  edClose(); if(E.done) E.done(p); else afterPhoto(E.st); };
+  cvFree(c); edClose(); if(E.done) E.done(p); else afterPhoto(E.st); };
 /* 写真編集を開かずに、元の写真＋書き込みから1枚の画像を作る（AIの風船を付けるとき） */
 function bakeWith(base,adj,shapes){ const sv={base:E.base,adj:E.adj,bi:E.bi,adjK:E.adjK,adjC:E.adjC,bases:E.bases};
   Object.assign(E,{base,adj:adj||{b:0,c:0},bi:-1,adjK:"",adjC:null,bases:[base]});
-  try{ const cv=document.createElement("canvas"); cv.width=iw(); cv.height=ih(); const g=cv.getContext("2d"); g.drawImage(adjBase(),0,0); shapes.forEach(x=>drawShape(g,x)); return cv; }
-  finally{ Object.assign(E,sv); } }
+  try{ const cv=document.createElement("canvas"); cv.width=iw(); cv.height=ih(); const g=cv2d(cv); g.drawImage(adjBase(),0,0); shapes.forEach(x=>drawShape(g,x)); return cv; }
+  finally{ if(E.adjC&&E.adjC!==sv.adjC) cvFree(E.adjC); Object.assign(E,sv); } }
 document.addEventListener("keydown",e=>{ if(!$("#ed").classList.contains("show")) return; if(document.activeElement===$("#eTextIn")) return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="z"){ e.preventDefault(); e.shiftKey?$("#eRedo").click():$("#eUndo").click(); }
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="y"){ e.preventDefault(); $("#eRedo").click(); }
@@ -4022,7 +4077,8 @@ async function aiMakeImages(bal,list){
       }
       y+=HEAD+PH+GAP;
     }
-    const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.85));
+    const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.85)); cvFree(c);
+    if(!blob) throw new Error("画像を作れませんでした（メモリ不足）。アプリを開き直してからもう一度お試しください");
     aiFiles.push(new File([blob],`${name}_写真${aiFiles.length+1}.jpg`,{type:"image/jpeg"}));
   }
   // 共有は一度に10ファイル・合計およそ50MBまで（Androidのブラウザの決まり）→ 超えたら分けて送る
@@ -4170,6 +4226,7 @@ function balGroups(){
 async function balRender(){
   if(!BAL) return;   // 片付けた後（③へ進んだ時など）
   const box=$("#aiReview"), Gs=balGroups(), cm=BAL.comments||[];
+  $$("canvas[data-bc]",box).forEach(c=>cvFree(c));      // 前に描いた確認用の写真を返す
   if(!Gs.length){ box.innerHTML=`<p class="hint">AIの返事に、風船の位置がありませんでした。</p>`; return; }
   box.innerHTML=`<div class="aiTop"><b>AIが付けた風船（写真${Gs.length}枚）</b><span style="flex:1"></span>
     <button class="primary sm" id="balAll">まだの写真に全部このまま付ける</button>${BAL.undo&&BAL.undo.length?`<button class="sm" id="balUndo">付けた風船を元に戻す</button>`:""}</div>
@@ -4178,13 +4235,14 @@ async function balRender(){
       <canvas data-bc="${k}"></canvas>${g.ph._balDone?`<div class="balDone">✓ 付けました</div>`:`<div class="balBtns"><button data-be="${k}">✏️ 確かめて付ける</button><button class="primary" data-ba="${k}">✓ このまま付ける</button></div>`}</div>`).join("")}</div>
     ${cm.length?`<div class="balCm"><b>AIからのコメント</b>${cm.map(c=>`<div>${c.no?`工程${stepNo(+c.no)}：`:""}${esc(c.text||"")}</div>`).join("")}</div>`:""}`;
   for(const [k,g] of Gs.entries()){ try{ const im=await loadImg(g.ph.data), W=im.naturalWidth,H=im.naturalHeight, c=$(`canvas[data-bc="${k}"]`); if(!c) continue;      // 写真の大きさは、元の写真と同じ
-    c.width=W; c.height=H; const x=c.getContext("2d"); x.drawImage(im,0,0); if(!g.ph._balDone) balShapes(W,H,g.items).forEach(sh=>drawShape(x,sh)); }catch(_){} }
+    const q=Math.min(1,720/Math.max(W,H)); c.width=Math.round(W*q); c.height=Math.round(H*q);      // 確認用なので小さく描く（元の大きさのままだと写真の枚数ぶんメモリを使う）
+    const x=cv2d(c); x.scale(q,q); x.drawImage(im,0,0); if(!g.ph._balDone) balShapes(W,H,g.items).forEach(sh=>drawShape(x,sh)); }catch(_){} }
   $$("[data-ba]",box).forEach(b=>b.onclick=()=>balApply([Gs[+b.dataset.ba]]));
   $$("[data-be]",box).forEach(b=>b.onclick=async()=>{ const g=Gs[+b.dataset.be];
     const b4=stepSnap(g.st);
     await openEditor(g.st,g.j,()=>{ g.ph._balDone=true; histPush(g.st,b4); balSaved(); },"select");
     E.shapes=E.shapes.concat(balShapes(iw(),ih(),g.items).map(x=>{ delete x.conf; return x; })); E.sel=null; edDraw(); edUI(); });
-  const all=$("#balAll"); if(all) all.onclick=()=>balApply(Gs.filter(g=>!g.ph._balDone));
+  const all=$("#balAll"); if(all) all.onclick=()=>busyRun("🎈 風船を写真に付けています…",()=>balApply(Gs.filter(g=>!g.ph._balDone)));
   const un=$("#balUndo"); if(un) un.onclick=()=>{ BAL.undo.forEach(u=>{ Object.assign(u.ph,{data:u.data,w:u.w,h:u.h}); if(u.src) u.ph.src=u.src; else delete u.ph.src; if(u.ed) u.ph.ed=u.ed; else delete u.ph.ed; delete u.ph._balDone; }); BAL.undo=[]; balSaved(); fmToast?.("風船を付ける前に戻しました"); };
 }
 async function balApply(list){
@@ -4193,7 +4251,7 @@ async function balApply(list){
     const adj=re?p.ed.adj:{b:0,c:0}, old=re?p.ed.shapes:[], add=balShapes(base.naturalWidth,base.naturalHeight,g.items).map(x=>{ delete x.conf; return x; });
     BAL.undo.push({ph:p,data:p.data,w:p.w,h:p.h,src:p.src,ed:p.ed});
     const cv=bakeWith(base,adj,old.concat(add)); const src=re?p.src:p.data;
-    Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(old.concat(add)))}}); p._balDone=true; histPush(g.st,b4); }catch(_){} }
+    Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(old.concat(add)))}}); cvFree(cv); p._balDone=true; histPush(g.st,b4); }catch(_){} }
   balSaved();
 }
 function balSaved(){ try{ renderAiFlow(); }catch(_){} persist(); try{ renderSteps(); }catch(_){} schedulePreview(); if(!$("#fm").hidden&&!$("#fmStep").hidden) try{ fmRenderStep(); }catch(_){} balRender(); }
@@ -4707,7 +4765,7 @@ async function unfixAll(){
   for(const {st,p} of L){ i++; if(i%5===0){ try{ fmToast(`↩ 自動補正を外しています… ${i}/${L.length}`); }catch(_){} await new Promise(r=>setTimeout(r,0)); }
     try{ const adj={b:p.ed.adj.b||0,c:p.ed.adj.c||0}, sh=p.ed.shapes||[];
       if(!sh.length&&!adj.b&&!adj.c){ const im=await loadImg(p.src); Object.assign(p,{data:p.src,w:im.naturalWidth,h:im.naturalHeight}); delete p.src; delete p.ed; }      // 撮ったままに戻す
-      else{ const im=await loadImg(p.src), cv=bakeWith(im,adj,sh); Object.assign(p,toJpeg(cv,cv.width,cv.height,Math.max(cv.width,cv.height))); p.ed={adj,shapes:sh}; }      // 書き込みは残して描き直す
+      else{ const im=await loadImg(p.src), cv=bakeWith(im,adj,sh); Object.assign(p,toJpeg(cv,cv.width,cv.height,Math.max(cv.width,cv.height))); cvFree(cv); p.ed={adj,shapes:sh}; }      // 書き込みは残して描き直す
     }catch(_){} }
   b4.forEach((snap,st)=>histPush(st,snap));      // 外す前の状態を「前の状態に戻す」に残す
   persist(); try{ renderSteps(); }catch(_){} schedulePreview(); setTimeout(imgGC,3000);
@@ -5370,7 +5428,8 @@ instUI();
 if(window.matchMedia("(max-width:700px)").matches) setTimeout(()=>{ if(!$("#fm").hidden) return; if(isStandalone()) return fmOpen(); if(confirm("スマホ用の「現場モード」で開きますか？")) fmOpen(); },800);
 
 /* ================= Excel出力 ================= */
-async function exportXlsx(){
+async function exportXlsx(){ return busyRun("📄 Excelを作っています…",exportXlsxRun); }
+async function exportXlsxRun(){
   if(typeof ExcelJS==="undefined") return alert("Excel出力ライブラリが読み込まれていません");
   const btn=$("#bXlsx"); btn.disabled=true; btn.textContent="作成中…";
   try{
@@ -5436,7 +5495,8 @@ async function exportXlsx(){
       });
     });
     if(S.meta.hzSheet!=="0"&&(S.meta.hozai||[]).length) addHozaiSheet(wb);
-    const buf=await wb.xlsx.writeBuffer();
+    busyMsg("📄 Excelにまとめています…"); await paint();
+    const buf=await wb.xlsx.writeBuffer({zip:{compression:"STORE"}});      // 写真（JPEG）は圧縮しても小さくならないので、圧縮しない＝速い
     const name=`作業手順書_${S.meta.name||"無題"}${S.meta.model?"_"+S.meta.model:""}.xlsx`.replace(/[\\/:*?"<>|]/g,"_");
     download(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),name);
   }catch(e){ console.error(e); alert("Excel出力でエラーが出ました: "+e.message); }
@@ -5462,6 +5522,7 @@ const inLine=()=>/\bLine\//i.test(navigator.userAgent);
 /* iPhoneは「共有」→「"ファイル"に保存」。古いiOSでは共有が失敗したり、失敗のあとのダウンロードが（タップ扱いでないため）黙って止まることがあるので、
    失敗したら「保存のしかた」画面を出して、もう一度タップしてもらう */
 function download(blob,name){
+  if(isIOS()&&Date.now()-_lastTap>2500) return dlRescue(blob,name,null,true);      // 作るのに時間がかかった → 「共有」はもう一度押してもらう（押した直後でないとiPhoneは共有を開けない）
   if(isIOS()||inLine()){
     let f=null; try{ f=new File([blob],name,{type:blob.type||"application/octet-stream"}); }catch(_){}
     let can=false; try{ can=!!(f&&navigator.canShare&&navigator.canShare({files:[f]})); }catch(_){}
@@ -5495,10 +5556,17 @@ $("#bPrint3").onclick=()=>$("#bPrint").click();
 $("#bPrint").onclick=()=>{ renderPreview(); window.print(); };
 
 /* ================= ファイル保存/読込 ================= */
-$("#bSave").onclick=()=>{ ioClose();
-  const txt=JSON.stringify({app:"sagyo-tejunsho",ver:1,data:S},(k,v)=>k==="_fit"||k==="_tgt"?undefined:v);   // 1回だけ文字にする（写真入りで大きいので）
-  download(new Blob([txt],{type:"application/json"}),`手順書データ_${S.meta.name||"無題"}.json`.replace(/[\\/:*?"<>|]/g,"_"));
-};
+/* 写真の文字は大きいので、手順書の文章だけ文字にして、写真はそのまま部品としてつなぐ（巨大な文字を1本作らない＝速い・メモリを食わない） */
+function jsonBlob(obj,drop){
+  const imgs=[]; const txt=JSON.stringify(obj,(k,v)=>{ if(drop&&drop(k)) return undefined;
+    if(typeof v==="string"&&v.length>4096&&v.startsWith("data:")&&/^data:[\w/+.-]+;base64,[A-Za-z0-9+/=]+$/.test(v.slice(0,200))){ imgs.push(v); return "\u0001IMG"+(imgs.length-1)+"\u0001"; } return v; });
+  const parts=[], re=/"\\u0001IMG(\d+)\\u0001"/g; let at=0, m;
+  while((m=re.exec(txt))){ parts.push(txt.slice(at,m.index),'"',imgs[+m[1]],'"'); at=m.index+m[0].length; }
+  parts.push(txt.slice(at)); return new Blob(parts,{type:"application/json"});
+}
+$("#bSave").onclick=()=>{ ioClose(); busyRun("💾 保存するファイルを作っています…",async()=>{
+  const blob=jsonBlob({app:"sagyo-tejunsho",ver:1,data:S},k=>k==="_fit"||k==="_tgt");
+  download(blob,`手順書データ_${S.meta.name||"無題"}.json`.replace(/[\\/:*?"<>|]/g,"_")); }); };
 /* ---- 送る用に軽く保存：手順書はそのまま、保存するファイルだけ軽くする ----
    ・書き込み前の元写真（src）は入れない（書き込みは写真に焼き込んだ状態で渡す）
    ・写真の枚数に合わせて大きさを決め、合計およそ15MBに収める（長い辺 1024〜560・画質0.6）
@@ -5527,9 +5595,10 @@ async function liteJson(onProg){
   const S2=Object.assign({},S,{meta,steps});
   return JSON.stringify({app:"sagyo-tejunsho",ver:1,lite:1,data:S2},(k,v)=>drop(k)?undefined:v);
 }
-async function sendLite(){
+function sendLite(){ return busyRun("📨 送る用のファイルを作っています…",sendLiteRun); }
+async function sendLiteRun(){
   try{ fmKeepEditing(); }catch(_){}
-  const toast=t=>{ try{ uiToast(t); }catch(_){} };
+  const toast=t=>{ busyMsg(t); try{ uiToast(t); }catch(_){} };
   toast("📨 送る用のファイルを作っています…");
   const txt=await liteJson((i,n)=>toast(`📨 写真を小さくしています… ${i}/${n}`));
   const blob=new Blob([txt],{type:"application/json"}), name=`手順書データ_${S.meta.name||"無題"}_送る用.json`.replace(/[\\/:*?"<>|]/g,"_");
@@ -5625,10 +5694,10 @@ const kzTitle=k=>k?(k.kind==="kaizen"?k.f.theme:k.f.sagyo)||"（無題）":"";
 /* ---------- 保存 ---------- */
 async function kzIndex(){ try{ return JSON.parse(await DB.get("kzIndex")||"[]"); }catch(_){ return []; } }
 function kzPersist(){ if(!KZ) return; KZ.updated=Date.now(); clearTimeout(kzTimer); kzTimer=setTimeout(kzSaveNow,500); }
-async function kzSaveNow(){ clearTimeout(kzTimer); if(!KZ||!DB.db) return;
+async function kzSaveNow(){ clearTimeout(kzTimer); if(!KZ) return; if(!DB.db) await DB.open().catch(()=>{}); if(!DB.db) return;
   try{ await DB.set("kz:"+KZ.id,await packJSON(KZ));
     const ph=(KZ.kind==="kaizen"?(KZ.after[0]||KZ.before[0]):KZ.photos[0]); let th="";
-    if(ph){ try{ const im=await loadImg(ph.data), c=document.createElement("canvas"), k=72/Math.max(im.naturalWidth,im.naturalHeight); c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); th=c.toDataURL("image/jpeg",.7); }catch(_){} }
+    if(ph){ try{ const im=await loadImg(ph.data), c=document.createElement("canvas"), k=72/Math.max(im.naturalWidth,im.naturalHeight); c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); th=c.toDataURL("image/jpeg",.7); cvFree(c); }catch(_){} }
     const idx=await kzIndex(), sm={id:KZ.id,kind:KZ.kind,title:kzTitle(KZ),updated:KZ.updated,photo:th}, i=idx.findIndex(x=>x.id===KZ.id);
     if(i>=0) idx[i]=sm; else idx.push(sm); await DB.set("kzIndex",JSON.stringify(idx));
   }catch(e){ kzToast("⚠ 保存できませんでした"); } }
@@ -5785,7 +5854,8 @@ const kzOwn=c=>{ c.style=JSON.parse(JSON.stringify(c.style||{})); return c; };  
 const kzFont=(c,sz,name)=>{ kzOwn(c); c.font=Object.assign({},c.font||{},{size:sz},name?{name}:{}); };
 async function kzExcel(){
   if(typeof ExcelJS==="undefined") return alert("Excel出力ライブラリが読み込まれていません");
-  await kzSaveNow(); const K=KZ, wb=new ExcelJS.Workbook(); await wb.xlsx.load(kzB64(KZ_TPL[K.kind])); const ws=wb.worksheets[0], D=kzDims(ws);
+  await DBT(kzSaveNow(),5000).catch(()=>{});      // 保存先が固まっていても、Excelは作る
+  const K=KZ, wb=new ExcelJS.Workbook(); await wb.xlsx.load(kzB64(KZ_TPL[K.kind])); const ws=wb.worksheets[0], D=kzDims(ws);
   const setT=(addr,v,sz,al)=>{ const c=kzOwn(ws.getCell(addr)); c.value=v||null; if(sz) kzFont(c,sz); if(al) c.alignment=Object.assign({},c.alignment||{},al); };
   if(K.kind==="kaizen"){
     const f=K.f, G=(c0,c1)=>kzGeo(D,c0,c1,0,1).W;
@@ -5897,7 +5967,7 @@ async function kzMakeImgs(){ const out=[];
   for(const {p,lab} of kzAiPhotos()){ try{ const im=await loadImg(p.data), s=Math.min(1,1280/Math.max(im.naturalWidth,im.naturalHeight)), c=document.createElement("canvas");
     c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s); const g=c.getContext("2d"); g.drawImage(im,0,0,c.width,c.height);
     const fs=Math.max(22,Math.round(c.width/22)); g.font=`bold ${fs}px sans-serif`; const tw=g.measureText(lab).width; g.fillStyle="rgba(0,0,0,.72)"; g.fillRect(0,0,tw+fs*.8,fs*1.5); g.fillStyle="#fff"; g.textBaseline="middle"; g.fillText(lab,fs*.4,fs*.75);
-    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.85)); out.push(new File([blob],`${lab}.jpg`,{type:"image/jpeg"})); }catch(_){} }
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.85)); cvFree(c); if(!blob) continue; out.push(new File([blob],`${lab}.jpg`,{type:"image/jpeg"})); }catch(_){} }
   return out; }
 function kzAiScr(){
   const K=KZ; $("#kzTitle").textContent="AIに下書きしてもらう"; $("#kzBack").textContent="‹ 編集に戻る"; $("#kzBar").hidden=true;
@@ -5947,7 +6017,7 @@ async function kzApply(){ const K=KZ, A=kzAI; if(!A) return; let n=0;
     try{ const p=x.p, re=!!(p.src&&p.ed), base=await loadImg(re?p.src:p.data), W=base.naturalWidth, H=base.naturalHeight, adj=re?p.ed.adj:{b:0,c:0};
       const fs=Math.max(18,Math.max(W,H)/24), s={type:"text",x1:W*.04,y1:H*.06+fs*.7,x2:W*.04,y2:H*.06+fs*.7,color:"#e53935",w:Math.max(W,H)/300,fs,text:c.t};
       const shapes=(re?p.ed.shapes:[]).concat([s]), cv=bakeWith(base,adj,shapes), src=re?p.src:p.data;
-      Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(shapes))}}); n++; }catch(_){} }
+      Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(shapes))}}); cvFree(cv); n++; }catch(_){} }
   kzAI=null; kzPersist(); await kzSaveNow(); kzToast(`✓ ${n}か所に反映しました`); kzGo("edit"); }
 /* ---------- 保存・送る（.json） ---------- */
 function kzSaveJson(){ kzSaveNow(); const K=KZ; const txt=JSON.stringify({app:"kaizen-sheet",ver:1,doc:K});
@@ -5958,7 +6028,7 @@ async function kzImport(j){ const d=j.doc; if(!d||!KZ_KIND[d.kind]) throw new Er
 /* ---------- 起動 ---------- */
 $("#kzBack").onclick=()=>{ if(kzScr==="list") return kzClose(); if(kzScr==="edit"){ kzSaveNow(); KZ=null; return kzGo("list"); } kzGo("edit"); };
 $("#kzViewB").onclick=()=>kzGo("view");
-$("#kzXlsx").onclick=()=>kzExcel().catch(e=>alert("Excelを作れませんでした："+e.message));
+$("#kzXlsx").onclick=()=>busyRun("📄 Excelを作っています…",()=>kzExcel().catch(e=>alert("Excelを作れませんでした："+e.message)));
 $("#kzSaveB").onclick=kzSaveJson;
 $("#fmKz").onclick=kzOpen; $("#bKz").onclick=()=>{ $("#fileMenu").hidden=true; kzOpen(); };
 
