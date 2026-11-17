@@ -850,6 +850,61 @@ details.fold>summary::before{color:var(--accent)}
 #pcToast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:128;background:#1f2a3a;color:#fff;border-radius:999px;padding:10px 20px;font-size:14.5px;font-weight:bold;box-shadow:0 6px 20px rgba(0,0,0,.25);width:max-content;max-width:92vw}
 #pcToast.ng{background:var(--warn)}
 @media (max-width:700px){ header h1{font-size:15px} #bGuidePC{display:none} }
+/* ===== 改善シート・ワンポイントシート（手順書とは別の画面） ===== */
+#kz{position:fixed;inset:0;background:#f2f4f7;z-index:125;overflow-y:auto;font-size:16px;-webkit-tap-highlight-color:transparent;overscroll-behavior:contain}
+#kz[hidden]{display:none}
+#kz .kzTop{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border-bottom:1px solid #dde3ea}
+#kz .kzTop b{font-size:17px}
+#kz .kzTop button{min-height:40px}
+#kz .kzBody{max-width:880px;margin:0 auto;padding:12px 12px 120px}
+#kz .kzCard{background:#fff;border-radius:14px;padding:14px;margin:0 0 12px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+#kz .kzCard h3{margin:0 0 10px;font-size:16px;display:flex;align-items:center;gap:8px}
+#kz .kzCard h3 .no{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;flex:none}
+#kz label.kzF{display:block;margin:0 0 10px;font-size:13px;color:#556}
+#kz label.kzF input,#kz label.kzF textarea,#kz label.kzF select{display:block;width:100%;box-sizing:border-box;margin-top:4px;font-size:16px;padding:9px 10px;border:1px solid #c9d3df;border-radius:9px;background:#fff;color:#111;font-family:inherit}
+#kz label.kzF textarea{min-height:84px;resize:vertical;line-height:1.5}
+#kz .kzRow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){ #kz .kzRow.k3{grid-template-columns:1fr 1fr} }
+#kz .kzRow.k3{grid-template-columns:1fr 1fr 1fr}
+#kz .kzBig{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;border-radius:14px;border:2px solid #d3dae4;background:#fff;font:inherit;color:inherit;margin:0 0 10px;cursor:pointer}
+#kz .kzBig i{font-style:normal;font-size:28px;flex:none}
+#kz .kzBig b{display:block;font-size:16px}#kz .kzBig small{color:#667;font-size:13px}
+#kz .kzBig.primary{border-color:var(--accent);background:#eef4fc}
+#kz .kzList .it{display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #eef1f4}
+#kz .kzList .it .th{width:54px;height:40px;border-radius:6px;flex:none;background:#eef1f4 center/cover}
+#kz .kzList .it .nm{flex:1;min-width:0}#kz .kzList .it .nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#kz .kzList .it small{color:#778;font-size:12px}
+#kz .kzTag{display:inline-block;font-size:11px;font-weight:bold;border-radius:99px;padding:1px 8px;margin-right:4px;color:#fff;background:#2e7d4f}
+#kz .kzTag.op{background:#c77700}
+#kz .kzPh{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+#kz .kzPh .p{position:relative;border-radius:10px;overflow:hidden;background:#eef1f4;aspect-ratio:4/3;cursor:pointer;border:2px solid transparent}
+#kz .kzPh .p img{width:100%;height:100%;object-fit:contain;display:block;background:#222}
+#kz .kzPh .p.sel{border-color:var(--accent)}
+#kz .kzPh .p .lb{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;border-radius:6px;padding:1px 6px}
+#kz .kzPh .add{display:grid;place-items:center;border:2px dashed #b8c4d3;border-radius:10px;aspect-ratio:4/3;color:#556;font-size:14px;cursor:pointer;background:#fafbfd;text-align:center;padding:4px}
+#kz .kzPhOps{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+#kz .kzItems .r{display:flex;gap:6px;align-items:flex-start;margin:0 0 8px}
+#kz .kzItems .r select{width:auto;flex:none;font-size:16px;padding:8px 4px;border:1px solid #c9d3df;border-radius:9px;background:#fff}
+#kz .kzItems .r textarea{flex:1;min-height:44px;font-size:16px;padding:8px 10px;border:1px solid #c9d3df;border-radius:9px;font-family:inherit;resize:vertical;line-height:1.45}
+#kz .kzItems .r button{flex:none}
+#kz .kzEff{margin:4px 0 10px;padding:8px 10px;border-radius:10px;background:#e8f5ec;color:#1d5c37;font-size:14px}
+#kz .kzBar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;gap:8px;justify-content:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid #dde3ea}
+#kz .kzBar button{flex:1;max-width:280px;min-height:48px;font-size:15px}
+#kz .kzAiSt{display:flex;gap:10px;margin:0 0 12px}#kz .kzAiSt .badge{flex:none}
+#kz .kzRv{border:1px solid #dde3ea;border-radius:10px;margin:0 0 8px;overflow:hidden}
+#kz .kzRv .h{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f5f7fa;font-weight:bold}
+#kz .kzRv .b{padding:8px 10px;font-size:14px;line-height:1.55;white-space:pre-wrap}
+#kz .kzRv del{color:#b03030;background:#fde8e8;text-decoration:line-through}#kz .kzRv ins{color:#1d5c37;background:#e3f4e8;text-decoration:none}
+#kz .kzCm{padding:8px 10px;border-radius:10px;background:#fff7e0;font-size:14px;margin:0 0 8px}
+#kz .kzHint{font-size:13px;color:#667;margin:4px 0 8px}
+/* できあがり（Excelのイメージ） */
+#kz .kzPv{background:#fff;border:1px solid #999;margin:0 auto;position:relative;font-family:"MS PGothic","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;color:#000;overflow:hidden}
+#kz .kzPv .c{position:absolute;border:0;outline:1px solid #000;outline-offset:-.5px;box-sizing:border-box;overflow:hidden;line-height:1.3;white-space:pre-wrap;word-break:break-all}
+#kz .kzPv .t{position:absolute;overflow:hidden;line-height:1.3;white-space:pre-wrap;word-break:break-all}
+#kz .kzPv img{position:absolute;object-fit:contain}
+
+/* 改善シートの画面を開いている間は、手順書のガイドを出さない */
+body.kzOn #gdTip,body.kzOn #gdRing{display:none!important}
 </style>
 </head>
 <body>
@@ -863,6 +918,7 @@ details.fold>summary::before{color:var(--accent)}
       <hr>
       <button id="bIOOpen">📥 開く・取り込む…</button>
       <button id="bIOSave">📤 保存・送る…</button>
+      <hr><button id="bKz">📈 改善シート・ワンポイントシート…</button>
       <hr><button id="bSample">サンプルを開く</button>
     </div></div>
   <span class="sp"></span>
@@ -1265,6 +1321,7 @@ details.fold>summary::before{color:var(--accent)}
         <button id="fmIOSave"><i>📤</i><span>保存・送る<small>LINE・メールで送る／バックアップ／別のスマホへ</small></span></button>
         <button id="fmIOOpen"><i>📥</i><span>開く・取り込む<small>送られてきたファイル／コピーしたデータ</small></span></button>
         <button id="fmDocs2"><i>📚</i><span>手順書を切り替える<small>このスマホに保存されている手順書</small></span></button>
+        <button id="fmKz"><i>📈</i><span>改善シート・ワンポイントシート<small>手順書とは別に作れます（写真とAIで下書き）</small></span></button>
         <button id="fsNewDoc"><i>＋</i><span>新しい手順書を作る</span></button>
       </div>
       <details class="menuMore"><summary>🛠 写真の調整（必要な時だけ）</summary><div class="menuCard">
@@ -1466,6 +1523,12 @@ details.fold>summary::before{color:var(--accent)}
     <button class="ioBig" id="fmPaste"><b>📋 コピーしたデータを貼り付ける</b><small>「全部の手順書を移す」でコピーしたものを、こちらで取り込む</small></button>
   </div>
 </div></div>
+<div id="kz" hidden>
+  <div class="kzTop"><button id="kzBack">‹ 戻る</button><b id="kzTitle">改善シート・ワンポイントシート</b></div>
+  <div class="kzBody" id="kzMain"></div>
+  <div class="kzBar" id="kzBar" hidden><button id="kzViewB">👁 できあがり</button><button class="primary" id="kzXlsx">📄 Excel</button><button id="kzSaveB">💾 保存・送る</button></div>
+  <div id="kzToast" hidden style="position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:9;background:#1d2733;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;max-width:90vw"></div>
+</div>
 <div id="dlRes" class="modal"><div class="box" style="max-width:520px">
   <h2 style="margin:0 0 6px;font-size:17px;display:flex;align-items:center;gap:8px">💾 保存のしかた<span style="flex:1"></span><button class="sm" id="dlResClose">閉じる</button></h2>
   <p style="margin:4px 0 10px"><span id="dlResMsg"></span><br><small id="dlResName" style="color:var(--sub)"></small></p>
@@ -1681,7 +1744,7 @@ async function readDoc(id){ return unpackJSON(await DB.get("doc:"+id)); }
 async function imgGC(){
   try{ const keys=await DB.keys("img:"); if(!keys.length) return; const used=new Set();
     const scan=raw=>{ if(raw) for(const m of String(raw).matchAll(/"@(img:[0-9a-z]+)"/g)) used.add(m[1]); };
-    for(const k of await DB.keys("doc:")) scan(await DB.get(k)); for(const k of await DB.keys("hist:")) scan(await DB.get(k));
+    for(const k of await DB.keys("doc:")) scan(await DB.get(k)); for(const k of await DB.keys("hist:")) scan(await DB.get(k)); for(const k of await DB.keys("kz:")) scan(await DB.get(k));
     for(const v of _imgKey.values()) used.add(v);
     const del=keys.filter(k=>!used.has(k)); for(const k of del) await DB.del(k);
   }catch(e){ console.warn(e); }
@@ -5482,7 +5545,8 @@ $("#fOpen").onchange=async e=>{
 };
 /* .json の中身（1つの手順書／引っ越し用のまとめ）を取り込む */
 async function importText(t){
-  const j=JSON.parse(String(t||"").trim()); const list=Array.isArray(j.docs)?j.docs:[j.data||j];
+  const j=JSON.parse(String(t||"").trim()); if(j&&j.app==="kaizen-sheet") return kzImport(j);
+  const list=Array.isArray(j.docs)?j.docs:[j.data||j];
   const ok=list.filter(d=>d&&d.meta&&d.steps); if(!ok.length) throw new Error("形式が違います");
   for(const d of ok) await newDoc(d);
   alert(ok.length>1?`${ok.length}件の手順書を取り込みました。\n（「手順書を切り替える」から選べます）`:`「${ok[0].meta.name||"（無題）"}」を新しい手順書として取り込みました。`);
@@ -5536,6 +5600,363 @@ window.addEventListener("resize",schedulePreview);
   docId=uid(); load(blankState()); showDocName();
 })();
 window.__app={get S(){return S;},get E(){return E;},balMemo,get docId(){return docId;},saveNow,openDoc,newDoc,getIndex,load,exportXlsx,sheetSpec,pages,renderPreview};
+/* =====================================================================
+   改善シート・ワンポイントシート（手順書とは別の画面・別の保存場所）
+   ・保存：kzIndex（一覧）と kz:<id>（中身）。手順書のデータ（S）にはさわらない
+   ・写真編集・AIのコピー貼り付け・保存/共有は、手順書の仕組みを呼び出して使う
+   ===================================================================== */
+const KZ_TPL={kaizen:"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",onepoint:"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"};
+const KZ_KIND={kaizen:"改善シート",onepoint:"ワンポイントシート"};
+/* テンプレートの列幅・行高（ExcelJSで読んだ値。できあがり表示をExcelと同じ並びにするため） */
+const KZ_DIM={kaizen:{cols:[9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9],rows:[14,14,14.25,14.25,14.25,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14.25,14.25,14,14,14,14,14.25,14,14,14,14,14,13.5,13.5,13.5]},
+  onepoint:{cols:[1.59,10.59,10.59,8.72,8.72,8.72,13.59,14.25,8.59,9.85,9.99,1.59,8.85,8.85,8.85,8.85,8.85,8.85],rows:[36.75,16.5,18,16.5,16.5,16.15,16.15,16.15,17.25,17.25,18,18,18,17.25,17.25,16.15,16.15,16.15,16.15,17.25,16.15,16.15,16.15,18,17.25,17.25,18,16.15,16.15,18,17.25,17.25,18,16.15,16.15,15,17.25,18,19.15,19.15,27.4,19.15,19.15,19.15,19.15,19.15,3.75]}};
+const kzDims=ws=>({cols:[...Array(18)].map((_,i)=>ws.getColumn(i+1).width),rows:[...Array(47)].map((_,i)=>ws.getRow(i+1).height)});
+const KZ_MARK={"●":"ポイント","＊":"確認","■":"規格"};
+let KZ=null, kzScr="list", kzTimer=null, kzAI=null, kzAiFiles=[], kzPhSel=null;
+const kzDefs=()=>{ try{ return JSON.parse(localStorage.getItem("kzDef")||"{}"); }catch(_){ return {}; } };
+const kzSetDef=o=>{ try{ localStorage.setItem("kzDef",JSON.stringify(Object.assign(kzDefs(),o))); }catch(_){} };
+function kzToast(t){ const el=$("#kzToast"); if(!el) return; el.textContent=t; el.hidden=false; clearTimeout(kzToast.t); kzToast.t=setTimeout(()=>el.hidden=true,2600); }
+function kzBlank(kind){
+  const d=kzDefs();
+  if(kind==="kaizen") return {id:uid(),kind,updated:Date.now(),f:{bumon:d.bumon||"",theme:"",tanto:d.tanto||"",shokuba:d.shokuba||"",kotei:"",mondai:"",naiyo:"",kouka:"",tb:"",ta:"",memo:""},before:[],after:[]};
+  return {id:uid(),kind,updated:Date.now(),f:{sagyo:"",kishu:"",memo:"",sdate:today(),author:d.author||"",no:""},photos:[],items:[{m:"●",t:""}],revs:[]};
+}
+const kzTitle=k=>k?(k.kind==="kaizen"?k.f.theme:k.f.sagyo)||"（無題）":"";
+/* ---------- 保存 ---------- */
+async function kzIndex(){ try{ return JSON.parse(await DB.get("kzIndex")||"[]"); }catch(_){ return []; } }
+function kzPersist(){ if(!KZ) return; KZ.updated=Date.now(); clearTimeout(kzTimer); kzTimer=setTimeout(kzSaveNow,500); }
+async function kzSaveNow(){ clearTimeout(kzTimer); if(!KZ||!DB.db) return;
+  try{ await DB.set("kz:"+KZ.id,await packJSON(KZ));
+    const ph=(KZ.kind==="kaizen"?(KZ.after[0]||KZ.before[0]):KZ.photos[0]); let th="";
+    if(ph){ try{ const im=await loadImg(ph.data), c=document.createElement("canvas"), k=72/Math.max(im.naturalWidth,im.naturalHeight); c.width=Math.round(im.naturalWidth*k); c.height=Math.round(im.naturalHeight*k); c.getContext("2d").drawImage(im,0,0,c.width,c.height); th=c.toDataURL("image/jpeg",.7); }catch(_){} }
+    const idx=await kzIndex(), sm={id:KZ.id,kind:KZ.kind,title:kzTitle(KZ),updated:KZ.updated,photo:th}, i=idx.findIndex(x=>x.id===KZ.id);
+    if(i>=0) idx[i]=sm; else idx.push(sm); await DB.set("kzIndex",JSON.stringify(idx));
+  }catch(e){ kzToast("⚠ 保存できませんでした"); } }
+async function kzOpenDoc(id){ await kzSaveNow(); const d=await unpackJSON(await DB.get("kz:"+id)); if(!d) return alert("データが見つかりません"); KZ=d; kzGo("edit"); }
+/* ---------- 画面 ---------- */
+function kzOpen(){ try{ if(!$("#fm").hidden) fmKeepEditing(); }catch(_){} $("#kz").hidden=false; document.body.classList.add("kzOn"); kzGo(KZ?"edit":"list"); }
+function kzClose(){ kzSaveNow(); $("#kz").hidden=true; document.body.classList.remove("kzOn"); }
+function kzGo(scr){ kzScr=scr; kzPhSel=null; ({list:kzList,edit:kzEdit,ai:kzAiScr,view:kzView})[scr](); $("#kz").scrollTop=0; }
+async function kzList(){
+  $("#kzTitle").textContent="改善シート・ワンポイントシート"; $("#kzBack").textContent="‹ 戻る"; $("#kzBar").hidden=true;
+  const idx=(await kzIndex()).sort((a,b)=>b.updated-a.updated);
+  $("#kzMain").innerHTML=`
+    <button class="kzBig primary" data-new="kaizen"><i>📈</i><span><b>＋ 改善シートを作る</b><small>改善前・改善後の写真と、問題点・改善内容・改善効果</small></span></button>
+    <button class="kzBig primary" data-new="onepoint"><i>💡</i><span><b>＋ ワンポイントシートを作る</b><small>写真1〜2枚と「＊確認 ●ポイント ■規格」の箇条書き</small></span></button>
+    <div class="kzCard"><h3>作ったシート</h3><div class="kzList">${idx.map(x=>`<div class="it"><span class="th" style="${x.photo?`background-image:url(${x.photo})`:""}"></span>
+      <span class="nm"><b><span class="kzTag${x.kind==="onepoint"?" op":""}">${x.kind==="onepoint"?"ワンポイント":"改善"}</span>${esc(x.title||"（無題）")}</b><small>${(d=>`${d.getMonth()+1}/${d.getDate()} ${hm(d)}`)(new Date(x.updated))}</small></span>
+      <button class="sm primary" data-op="${x.id}">開く</button><button class="sm" data-del="${x.id}">🗑</button></div>`).join("")||`<p class="kzHint">まだありません</p>`}</div>
+      <button class="sm" id="kzImp" style="margin-top:10px">📂 送られてきたファイル（.json）を開く</button></div>`;
+  $$("[data-new]").forEach(b=>b.onclick=async()=>{ await kzSaveNow(); KZ=kzBlank(b.dataset.new); await kzSaveNow(); kzGo("edit"); });
+  $$("[data-op]",$("#kzMain")).forEach(b=>b.onclick=()=>kzOpenDoc(b.dataset.op));
+  $$("[data-del]",$("#kzMain")).forEach(b=>b.onclick=async()=>{ const x=idx.find(y=>y.id===b.dataset.del); if(!confirm(`「${x.title||"（無題）"}」を削除します。元に戻せません。よろしいですか？`)) return;
+    await DB.set("kzIndex",JSON.stringify((await kzIndex()).filter(y=>y.id!==x.id))); await DB.del("kz:"+x.id); if(KZ&&KZ.id===x.id) KZ=null; kzList(); });
+  $("#kzImp").onclick=()=>$("#fOpen").click();
+}
+/* 入力欄 */
+const kzIn=(k,lab,ph,area)=>`<label class="kzF">${lab}${area?`<textarea data-k="${k}" placeholder="${ph||""}" rows="${area}">${esc(KZ.f[k]||"")}</textarea>`:`<input data-k="${k}" value="${esc(KZ.f[k]||"")}" placeholder="${ph||""}">`}</label>`;
+function kzPhotos(key,lab,max){ const L=KZ[key];
+  return `<div class="kzPh" data-ph="${key}">${L.map((p,j)=>`<div class="p${kzPhSel&&kzPhSel.k===key&&kzPhSel.j===j?" sel":""}" data-pj="${j}"><img src="${p.data}"><span class="lb">${lab}${"①②③④"[j]}</span></div>`).join("")}
+    ${L.length<max?`<label class="add">📷 写真を追加<br><small>（${max}枚まで）</small><input type="file" accept="image/*" multiple hidden data-addph="${key}"></label>`:""}</div>
+    ${kzPhSel&&kzPhSel.k===key?`<div class="kzPhOps"><button class="sm primary" data-pe="edit">✏️ 書き込み（矢印・文字・丸・手書き）</button><button class="sm" data-pe="left">◀</button><button class="sm" data-pe="right">▶</button><button class="sm" data-pe="del">🗑 外す</button></div>`:""}`; }
+function kzEff(){ const b=parseFloat(KZ.f.tb), a=parseFloat(KZ.f.ta); if(!(b>0)||!(a>=0)) return "";
+  const d=b-a; return `改善前 ${b}分 → 改善後 ${a}分　<b>${d>=0?`${d}分の短縮（${Math.round(d/b*100)}%減）`:`${-d}分の増加`}</b>`; }
+function kzEffText(){ const b=parseFloat(KZ.f.tb), a=parseFloat(KZ.f.ta); if(!(b>0)||!(a>=0)) return "";
+  const h=m=>m>=60&&m%30===0?`（${m/60}H）`:""; return `改善前\n${b}分${h(b)}\n改善後\n${a}分${h(a)}\n\n${b-a}分の短縮（${Math.round((b-a)/b*100)}%減）`; }
+function kzEdit(){
+  const K=KZ, kz=K.kind==="kaizen";
+  $("#kzTitle").textContent=KZ_KIND[K.kind]; $("#kzBack").textContent="‹ 一覧"; $("#kzBar").hidden=false;
+  $("#kzMain").innerHTML=kz?`
+    <div class="kzCard"><h3><span class="no">1</span>テーマ・担当</h3>
+      ${kzIn("theme","改善テーマ","例：治具の高さ出し改善（AIに考えてもらうこともできます）")}
+      <div class="kzRow">${kzIn("bumon","部署名（シート左上）","例：製造課")}${kzIn("tanto","担当","名前")}</div>
+      <div class="kzRow">${kzIn("shokuba","職場名","例：ファイバー")}${kzIn("kotei","工程名","例：パレットSA")}</div></div>
+    <div class="kzCard"><h3><span class="no">2</span>改善前・改善後の写真</h3>
+      <p class="kzHint">写真をタップすると、矢印・文字（吹き出し）・丸・手書きで書き込めます。</p>
+      <b style="font-size:14px">改善前</b>${kzPhotos("before","改善前",4)}
+      <b style="font-size:14px;display:block;margin-top:12px">改善後</b>${kzPhotos("after","改善後",4)}</div>
+    <div class="kzCard"><h3><span class="no">3</span>メモ・作業時間</h3>
+      ${kzIn("memo","AIへのメモ（箇条書き・話し言葉でOK）","例：前は治具を下から叩いて高さを合わせていた。調整がカンコツで3〜10時間かかった。アルミフレームの治具を作って載せるだけで高さが決まるようにした。",4)}
+      <div class="kzRow">${kzIn("tb","改善前の作業時間（分）","例：600")}${kzIn("ta","改善後の作業時間（分）","例：120")}</div>
+      <div class="kzEff" id="kzEff"${kzEff()?"":" hidden"}>${kzEff()}</div></div>
+    <div class="kzCard"><h3><span class="no">4</span>シートの文章</h3>
+      <button class="kzBig primary" id="kzAiGo"><i>🤖</i><span><b>AIに下書きしてもらう</b><small>写真とメモから、テーマ・問題点・改善内容・改善効果を作ります</small></span></button>
+      ${kzIn("mondai","問題点","・",4)}${kzIn("naiyo","改善内容","・",4)}${kzIn("kouka","改善効果","",5)}
+      <button class="sm" id="kzKouka">⏱ 作業時間から改善効果の文を入れる</button></div>`
+  :`
+    <div class="kzCard"><h3><span class="no">1</span>作業名・機種名</h3>
+      <div class="kzRow">${kzIn("sagyo","作業名","例：ボールねじの挿入")}${kzIn("kishu","機種名","例：L81")}</div></div>
+    <div class="kzCard"><h3><span class="no">2</span>写真</h3>
+      <p class="kzHint">1〜2枚がおすすめです。タップすると矢印・丸・文字・手書きで書き込めます。</p>${kzPhotos("photos","写真",3)}</div>
+    <div class="kzCard"><h3><span class="no">3</span>メモ</h3>
+      ${kzIn("memo","AIへのメモ（箇条書き・話し言葉でOK）","例：ねじ部をぶつけやすいので反対側から入れる。軸端はベアリングの内輪にまっすぐ。回して重さを確認。",4)}
+      <button class="kzBig primary" id="kzAiGo"><i>🤖</i><span><b>AIに下書きしてもらう</b><small>写真とメモから、作業名と「＊確認 ●ポイント ■規格」を作ります</small></span></button></div>
+    <div class="kzCard"><h3><span class="no">4</span>ポイント（＊確認 ●ポイント ■規格）</h3>
+      <div class="kzItems" id="kzItems"></div>
+      <div class="kzPhOps"><button class="sm" data-addit="●">＋ ●ポイント</button><button class="sm" data-addit="＊">＋ ＊確認</button><button class="sm" data-addit="■">＋ ■規格</button></div></div>
+    <div class="kzCard"><h3><span class="no">5</span>作成日・作成者</h3>
+      <div class="kzRow k3"><label class="kzF">作成日<input type="date" data-k="sdate" value="${esc(K.f.sdate||"")}"></label>${kzIn("author","作成者","名前")}${kzIn("no","No.","")}</div>
+      <details><summary class="kzHint" style="cursor:pointer">改定履歴（3行まで）</summary><div id="kzRevs"></div><button class="sm" id="kzRevAdd">＋ 改定を追加</button></details></div>`;
+  // 入力
+  $$("[data-k]",$("#kzMain")).forEach(el=>el.oninput=()=>{ K.f[el.dataset.k]=el.value;
+    if(["tanto","shokuba","author","bumon"].includes(el.dataset.k)) kzSetDef({[el.dataset.k]:el.value});
+    if(el.dataset.k==="tb"||el.dataset.k==="ta"){ const e=$("#kzEff"); e.innerHTML=kzEff(); e.hidden=!kzEff(); }
+    kzPersist(); });
+  // 写真
+  $$("[data-addph]",$("#kzMain")).forEach(inp=>inp.onchange=async()=>{ const key=inp.dataset.addph, max=key==="photos"?3:4;
+    for(const f of [...inp.files].filter(f=>f.type.startsWith("image/"))){ if(K[key].length>=max) break; try{ K[key].push(await fileToPhoto(f)); }catch(_){} }
+    kzPersist(); kzEdit(); });
+  $$("[data-pj]",$("#kzMain")).forEach(el=>el.onclick=()=>{ const key=el.closest("[data-ph]").dataset.ph, j=+el.dataset.pj;
+    kzPhSel=kzPhSel&&kzPhSel.k===key&&kzPhSel.j===j?null:{k:key,j}; kzEdit(); });
+  $$("[data-pe]",$("#kzMain")).forEach(b=>b.onclick=()=>{ const {k,j}=kzPhSel, L=K[k], a=b.dataset.pe;
+    if(a==="edit") return openEditor({photos:L},j,()=>{ kzPersist(); kzEdit(); },"arrow");
+    if(a==="del"){ if(!confirm("この写真を外しますか？")) return; L.splice(j,1); kzPhSel=null; }
+    if(a==="left"&&j>0){ [L[j-1],L[j]]=[L[j],L[j-1]]; kzPhSel.j=j-1; }
+    if(a==="right"&&j<L.length-1){ [L[j+1],L[j]]=[L[j],L[j+1]]; kzPhSel.j=j+1; }
+    kzPersist(); kzEdit(); });
+  $("#kzAiGo").onclick=()=>kzGo("ai");
+  if(kz){ $("#kzKouka").onclick=()=>{ const t=kzEffText(); if(!t) return alert("先に改善前・改善後の作業時間（分）を入れてください");
+      if(K.f.kouka.trim()&&!confirm("今の改善効果の文を置き換えますか？")) return; K.f.kouka=t; kzPersist(); kzEdit(); }; }
+  else { kzItemsUI(); kzRevsUI(); $$("[data-addit]").forEach(b=>b.onclick=()=>{ K.items.push({m:b.dataset.addit,t:""}); kzPersist(); kzItemsUI(true); }); }
+}
+function kzItemsUI(focusLast){ const box=$("#kzItems"); if(!box) return;
+  box.innerHTML=KZ.items.map((it,i)=>`<div class="r"><select data-im="${i}">${Object.keys(KZ_MARK).map(m=>`<option value="${m}"${it.m===m?" selected":""}>${m}${KZ_MARK[m]}</option>`).join("")}</select>
+    <textarea data-it="${i}" rows="1" placeholder="${KZ_MARK[it.m]}を短く">${esc(it.t)}</textarea><button class="sm" data-iu="${i}" title="上へ">↑</button><button class="sm" data-ix="${i}">🗑</button></div>`).join("")||`<p class="kzHint">まだありません。下のボタンで追加、またはAIに下書きしてもらえます。</p>`;
+  $$("[data-im]",box).forEach(s=>s.onchange=()=>{ KZ.items[+s.dataset.im].m=s.value; kzPersist(); });
+  $$("[data-it]",box).forEach(t=>t.oninput=()=>{ KZ.items[+t.dataset.it].t=t.value; kzPersist(); });
+  $$("[data-ix]",box).forEach(b=>b.onclick=()=>{ KZ.items.splice(+b.dataset.ix,1); kzPersist(); kzItemsUI(); });
+  $$("[data-iu]",box).forEach(b=>b.onclick=()=>{ const i=+b.dataset.iu; if(i>0){ [KZ.items[i-1],KZ.items[i]]=[KZ.items[i],KZ.items[i-1]]; kzPersist(); kzItemsUI(); } });
+  if(focusLast){ const t=$$("[data-it]",box).pop(); if(t) t.focus(); }
+}
+function kzRevsUI(){ const box=$("#kzRevs"); if(!box) return;
+  box.innerHTML=KZ.revs.map((r,i)=>`<div class="kzRow k3" style="margin-top:8px"><label class="kzF">改定日<input type="date" data-rv="${i}|d" value="${esc(r.d||"")}"></label><label class="kzF">改定内容<input data-rv="${i}|t" value="${esc(r.t||"")}"></label><label class="kzF">改定者<input data-rv="${i}|p" value="${esc(r.p||"")}"></label></div>`).join("");
+  $$("[data-rv]",box).forEach(el=>el.oninput=()=>{ const [i,k]=el.dataset.rv.split("|"); KZ.revs[+i][k]=el.value; kzPersist(); });
+  $("#kzRevAdd").hidden=KZ.revs.length>=3; $("#kzRevAdd").onclick=()=>{ KZ.revs.push({d:today(),t:"",p:kzDefs().author||""}); kzPersist(); kzRevsUI(); };
+}
+/* ---------- 写真の並べ方（Excelとできあがり表示で共通） ---------- */
+function kzLayout(asp,W,H,gap){ const n=asp.length; if(!n) return [];
+  let best=null;
+  for(let cols=1;cols<=n;cols++){ const rows=Math.ceil(n/cols), cw=(W-gap*(cols-1))/cols, ch=(H-gap*(rows-1))/rows; let area=0; const S=[];
+    for(let i=0;i<n;i++){ const a=asp[i], w=Math.min(cw,ch*a), h=w/a; area+=w*h; S.push({w,h}); }
+    if(!best||area>best.area) best={area,cols,rows,S}; }
+  // 行ごとに写真を詰めて並べ、全体を枠の真ん中に
+  const {cols,rows,S}=best, R=[], rowH=[];
+  for(let r=0;r<rows;r++) rowH.push(Math.max(...S.slice(r*cols,r*cols+cols).map(x=>x.h)));
+  let y=(H-(rowH.reduce((a,b)=>a+b,0)+gap*(rows-1)))/2;
+  for(let r=0;r<rows;r++){ const L=S.slice(r*cols,r*cols+cols), tw=L.reduce((a,x)=>a+x.w,0)+gap*(L.length-1); let x=(W-tw)/2;
+    L.forEach(s=>{ R.push({x,y:y+(rowH[r]-s.h)/2,w:s.w,h:s.h}); x+=s.w+gap; }); y+=rowH[r]+gap; }
+  return R; }
+const kzAsp=p=>(p.w&&p.h)?p.w/p.h:4/3;
+/* 文字が枠に入る大きさ（全角1・半角0.55で数える） */
+function kzLines(text,cpl){ return String(text||"").split("\n").reduce((n,l)=>{ let w=0; for(const ch of l) w+=/[\x20-\x7e]/.test(ch)?.55:1; return n+Math.max(1,Math.ceil(w/cpl)); },0); }
+function kzFit(text,Wpx,Hpx,sizes){ for(const pt of sizes){ const px=pt*4/3, cpl=Math.max(4,Math.floor((Wpx-8)/px)), lines=kzLines(text,cpl); if(lines*px*1.3<=Hpx-4) return pt; } return sizes[sizes.length-1]; }
+/* ワンポイントのポイントを、枠の幅で行に分ける（1行の高さに収まる大きさ：12pt→11→10） */
+function kzOpLines(items,Wpx,maxLines){
+  for(const pt of [12,11,10,9]){ const cpl=(Wpx-34)/(pt*4/3), L=[];
+    items.forEach(x=>{ const head=x.m+" ", ind="　 "; let cur=head, w=kzVW(head);
+      for(const ch of String(x.t).replace(/\n/g," ")){ const cw=kzVW(ch); if(w+cw>cpl){ L.push({m:x.m,t:cur}); cur=ind+ch; w=kzVW(ind)+cw; } else { cur+=ch; w+=cw; } }
+      L.push({m:x.m,t:cur}); });
+    if(L.length<=maxLines||pt===9) return {pt,L}; } }
+/* ---------- Excel ---------- */
+const kzColPx=w=>Math.floor((w||8.38)*7+5), kzRowPx=h=>(h||13.5)*4/3;   // 列の幅：1文字7px（元の改善シートの図形の大きさから実測：幅9の列＝約66px）
+const kzVW=t=>{ let w=0; for(const ch of String(t||"")) w+=/[\x20-\x7e｡-ﾟ]/.test(ch)?.55:1; return w; };   // 見た目の幅（全角1）
+const kzFit1=(t,wpx,maxPt,minPt)=>Math.max(minPt,Math.min(maxPt,Math.floor(wpx/Math.max(1,kzVW(t))*.75)));   // 1行に収まる大きさ
+function kzGeo(D,c0,c1,r0,r1){ // D＝{cols,rows}。0始まり。c1・r1は含まない
+  const cx=[0], ry=[0]; for(let c=c0;c<c1;c++) cx.push(cx[cx.length-1]+kzColPx(D.cols[c]));
+  for(let r=r0;r<r1;r++) ry.push(ry[ry.length-1]+kzRowPx(D.rows[r]));
+  const at=(arr,base,v)=>{ for(let i=0;i<arr.length-1;i++) if(v<=arr[i+1]) return base+i+(v-arr[i])/(arr[i+1]-arr[i]); return base+arr.length-1; };
+  // 写真の位置：ExcelJSの小数の位置は換算がずれる（列幅×10000で計算している）ので、セル＋EMUで直接指定する
+  const nat=(arr,base,v)=>{ let i=0; while(i<arr.length-2&&v>arr[i+1]) i++; return [base+i,Math.round(Math.max(0,v-arr[i])*9525)]; };
+  return {W:cx[cx.length-1],H:ry[ry.length-1],cx,ry,col:x=>at(cx,c0,x),row:y=>at(ry,r0,y),
+    anchor:(x,y)=>{ const [c,co]=nat(cx,c0,x), [r,ro]=nat(ry,r0,y); return {nativeCol:c,nativeColOff:co,nativeRow:r,nativeRowOff:ro}; }}; }
+function kzPlace(photos,g,pad,top){ const R=kzLayout(photos.map(kzAsp),g.W-pad*2,g.H-pad*2,8), dy=top&&R.length?Math.min(...R.map(x=>x.y)):0;
+  return R.map(r=>({a:g.anchor(pad+r.x,pad+r.y-dy),w:Math.round(r.w),h:Math.round(r.h),bottom:pad+r.y-dy+r.h})); }
+function kzPutPhotos(wb,ws,photos,P){ photos.forEach((p,i)=>{ const id=wb.addImage({base64:p.data,extension:/^data:image\/png/.test(p.data)?"png":"jpeg"});
+    ws.addImage(id,{tl:P[i].a,ext:{width:P[i].w,height:P[i].h},editAs:"oneCell"}); }); }
+/* ワンポイント：写真の場所とポイントを書き始める行（Excelとできあがりで共通） */
+function kzOpPlan(K,D){ const items=K.items.filter(x=>String(x.t||"").trim()), area=kzGeo(D,1,11,5,42), lines=kzOpLines(items,area.W,K.photos.length?22:35);
+  let r=6, P=[];
+  if(K.photos.length){ const g=kzGeo(D,1,11,5,Math.max(8,42-lines.L.length-1)); P=kzPlace(K.photos,g,10,true);
+    const bottom=Math.max(...P.map(x=>x.bottom))+6; let k=0; while(k<g.ry.length-1&&g.ry[k]<bottom) k++; r=Math.min(42-lines.L.length+1,6+k); }
+  return {P,lines,r:Math.max(6,r)}; }
+function kzB64(s){ const b=atob(s), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u.buffer; }
+const kzOwn=c=>{ c.style=JSON.parse(JSON.stringify(c.style||{})); return c; };   // テンプレートのセルは書式を共有している → 自分の分を複製してから変える
+const kzFont=(c,sz,name)=>{ kzOwn(c); c.font=Object.assign({},c.font||{},{size:sz},name?{name}:{}); };
+async function kzExcel(){
+  if(typeof ExcelJS==="undefined") return alert("Excel出力ライブラリが読み込まれていません");
+  await kzSaveNow(); const K=KZ, wb=new ExcelJS.Workbook(); await wb.xlsx.load(kzB64(KZ_TPL[K.kind])); const ws=wb.worksheets[0], D=kzDims(ws);
+  const setT=(addr,v,sz,al)=>{ const c=kzOwn(ws.getCell(addr)); c.value=v||null; if(sz) kzFont(c,sz); if(al) c.alignment=Object.assign({},c.alignment||{},al); };
+  if(K.kind==="kaizen"){
+    const f=K.f, G=(c0,c1)=>kzGeo(D,c0,c1,0,1).W;
+    setT("B2",(f.bumon?f.bumon+"\n　　":"")+"改善シート",f.bumon?16:18,{wrapText:true,vertical:"middle",horizontal:"left",indent:1}); setT("E3",f.theme,kzFit1(f.theme,G(4,10)-20,18,10),{wrapText:true}); setT("L2",f.tanto,kzFit1(f.tanto,G(11,13)-16,18,10)); setT("O3",f.shokuba,kzFit1(f.shokuba,G(14,17)-10,12,8)); setT("O5",f.kotei,kzFit1(f.kotei,G(14,17)-10,12,8));
+    const box=(addr,c0,c1,r0,r1,t)=>{ const g=kzGeo(D,c0,c1,r0,r1); setT(addr,t,kzFit(t,g.W-24,g.H-6,[12,11,10,9,8]),{wrapText:true,vertical:"middle",horizontal:"left",indent:1}); };
+    box("C33",2,9,32,38,f.mondai); box("C39",2,9,38,44,f.naiyo); box("K33",10,17,32,44,f.kouka);
+    kzPutPhotos(wb,ws,K.before,kzPlace(K.before,kzGeo(D,1,9,8,31),12)); kzPutPhotos(wb,ws,K.after,kzPlace(K.after,kzGeo(D,9,17,8,31),12));
+  }else{
+    const f=K.f, G=(c0,c1)=>kzGeo(D,c0,c1,0,1).W; setT("C3",f.sagyo,kzFit1(f.sagyo,G(2,7)-16,18,9)); setT("I3",f.kishu,kzFit1(f.kishu,G(8,11)-16,22,9)); setT("J44",f.author,kzFit1(f.author,G(9,10)-6,14,7));
+    const d=s=>s?s.replace(/^(\d+)-(\d+)-(\d+)$/,(m,y,mo,da)=>`${y}/${+mo}/${+da}`):"";
+    setT("H44",d(f.sdate)); setT("I46",f.no);
+    K.revs.slice(0,3).forEach((r,i)=>{ setT("B"+(44+i),d(r.d),11); setT("C"+(44+i),r.t,11); setT("G"+(44+i),r.p,11); });
+    // 写真は上に寄せ、ポイントは写真のすぐ下から。ポイントは自分で行に分けて、B列に1行ずつ書く（セルを結合しない＝罫線にさわらない）
+    const plan=kzOpPlan(K,D), lines=plan.lines; let r=plan.r; kzPutPhotos(wb,ws,K.photos,plan.P);
+    lines.L.forEach(ln=>{ if(r>42) return; const c=kzOwn(ws.getCell(r,2)); c.value=ln.t;
+      c.font={name:"HG丸ｺﾞｼｯｸM-PRO",size:lines.pt,bold:ln.m==="●",color:{argb:ln.m==="■"?"FF1F4E9A":ln.m==="＊"?"FF9C2A00":"FF000000"}};
+      c.alignment={wrapText:false,vertical:"middle",horizontal:"left",indent:1}; r++; });
+  }
+  const buf=await wb.xlsx.writeBuffer(); const name=`${KZ_KIND[K.kind]}_${kzTitle(K)}.xlsx`.replace(/[\\/:*?"<>|]/g,"_");
+  download(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),name); kzToast("📄 Excelを作りました");
+}
+/* ---------- できあがり（Excelのイメージをそのまま縮小表示） ---------- */
+function kzView(){
+  const K=KZ, f=K.f, D=KZ_DIM[K.kind]; $("#kzTitle").textContent="できあがり"; $("#kzBack").textContent="‹ 編集に戻る"; $("#kzBar").hidden=false;
+  // Excelの画面と同じ：列は1文字7px（元の改善シートの図形から実測）、行はpt×4/3。写真はExcelに書くときと同じ計算（kzPlace）で置く
+  const X=[0], Y=[0]; D.cols.forEach(w=>X.push(X[X.length-1]+kzColPx(w))); D.rows.forEach(hh=>Y.push(Y[Y.length-1]+kzRowPx(hh)));
+  const kz=K.kind==="kaizen", cA=1, cB=kz?17:11, rA=kz?1:0, rB=kz?44:46, W=X[cB]-X[cA], H=Y[rB]-Y[rA];
+  const Wv=Math.min(880,$("#kz").clientWidth-24), s=Wv/W, px=v=>(v*s).toFixed(1)+"px";
+  const at=(c,r)=>[X[c]-X[cA],Y[r]-Y[rA]];
+  const box=(c0,r0,c1,r1,txt,pt,o="")=>{ const [x,y]=at(c0,r0), [x2,y2]=at(c1+1,r1+1); return `<div class="c" style="left:${px(x)};top:${px(y)};width:${px(x2-x)};height:${px(y2-y)};font-size:${px(pt*4/3)};${o}">${esc(txt||"")}</div>`; };
+  const txt=(c,r,t,pt,o="")=>{ const [x,y]=at(c,r); return `<div class="t" style="left:${px(x+3)};top:${px(y+1)};font-size:${px(pt*4/3)};${o}">${esc(t||"")}</div>`; };
+  const imgs=(L,P)=>P.map((q,i)=>{ const x=X[q.a.nativeCol]-X[cA]+q.a.nativeColOff/9525, y=Y[q.a.nativeRow]-Y[rA]+q.a.nativeRowOff/9525; return `<img src="${L[i].data}" style="left:${px(x)};top:${px(y)};width:${px(q.w)};height:${px(q.h)}">`; }).join("");
+  const mid="display:flex;align-items:center;", ctr="display:flex;align-items:center;justify-content:center;text-align:center;";
+  let h="";
+  if(kz){ const fit=(t,c0,c1,r0,r1)=>{ const g=kzGeo(D,c0,c1,r0,r1); return kzFit(t,g.W-24,g.H-6,[12,11,10,9,8]); }, G=(c0,c1)=>kzGeo(D,c0,c1,0,1).W;
+    h+=box(1,1,3,4,(f.bumon?f.bumon+"\n　　":"")+"改善シート",f.bumon?16:18,mid+"font-weight:bold;padding-left:8px")
+      +box(4,1,9,4,"",12)+txt(4,1,"改善テーマ",9)+box(4,2,9,4,f.theme,kzFit1(f.theme,G(4,10)-20,18,10),ctr+"outline:none")
+      +box(10,1,12,4,"",12)+txt(11,1,f.tanto,kzFit1(f.tanto,G(11,13)-16,18,10),"top:"+px(Y[2]-Y[rA]))+txt(10,4,"担当",12)
+      +box(13,1,16,4,"",12)+txt(13,1,"職場名",9)+txt(14,2,f.shokuba,kzFit1(f.shokuba,G(14,17)-10,12,8))+txt(13,3,"工程名",9)+txt(14,4,f.kotei,kzFit1(f.kotei,G(14,17)-10,12,8))
+      +box(1,5,16,5,"",12)+box(1,6,8,30,"",12)+txt(1,6,"改善前",20,"font-weight:bold")+box(9,6,16,30,"",12)+txt(9,6,"改善後",20,"font-weight:bold")+box(1,31,16,31,"",12)
+      +box(1,32,1,37,"問\n題\n点",16,ctr+"font-weight:bold;line-height:1.15")+box(2,32,8,37,f.mondai,fit(f.mondai,2,9,32,38),mid+"padding-left:8px")
+      +box(1,38,1,43,"改\n善\n内\n容",16,ctr+"font-weight:bold;line-height:1.15")+box(2,38,8,43,f.naiyo,fit(f.naiyo,2,9,38,44),mid+"padding-left:8px")
+      +box(9,32,9,43,"改\n善\n効\n果",16,ctr+"font-weight:bold;line-height:1.15")+box(10,32,16,43,f.kouka,fit(f.kouka,10,17,32,44),mid+"padding-left:8px")
+      +imgs(K.before,kzPlace(K.before,kzGeo(D,1,9,8,31),12))+imgs(K.after,kzPlace(K.after,kzGeo(D,9,17,8,31),12));
+  }else{ const G=(c0,c1)=>kzGeo(D,c0,c1,0,1).W, plan=kzOpPlan(K,D), d=s=>(s||"").replace(/^(\d+)-(\d+)-(\d+)$/,(m,y,mo,da)=>`${y}/${+mo}/${+da}`);
+    h+=`<div class="t" style="left:0;top:${px(4)};width:${px(W)};text-align:center;font-size:${px(32*4/3)}">ワンポイントシート</div>`
+      +box(1,2,1,3,"作業名",14,ctr)+box(2,2,6,3,f.sagyo,kzFit1(f.sagyo,G(2,7)-16,18,9),ctr)+box(7,2,7,3,"機種名",14,ctr)+box(8,2,10,3,f.kishu,kzFit1(f.kishu,G(8,11)-16,22,9),ctr)
+      +box(1,4,10,41,"",12)+txt(7,4,"[＊：確認　●：ポイント　■：規格]",11)+imgs(K.photos,plan.P);
+    plan.lines.L.forEach((ln,i)=>{ const r=plan.r-1+i; if(r>41) return; h+=txt(1,r,ln.t,plan.lines.pt,`left:${px(X[1]-X[cA]+12)};white-space:pre;line-height:${px(kzRowPx(D.rows[r]))};${ln.m==="●"?"font-weight:bold;":""}color:${ln.m==="■"?"#1f4e9a":ln.m==="＊"?"#9c2a00":"#000"}`); });
+    h+=box(1,42,1,42,"改定日",12,ctr)+box(2,42,5,42,"改定内容",12,ctr)+box(6,42,6,42,"改定者",12,ctr)+box(7,42,8,42,"作成日",12,ctr)+box(9,42,9,42,"作成者",12,ctr)+box(10,42,10,42,"承認",12,ctr)
+      +box(7,43,8,44,d(f.sdate),12,ctr)+box(9,43,9,44,f.author,kzFit1(f.author,G(9,10)-6,14,7),ctr)+box(10,43,10,44,"",12)+box(7,45,7,45,"No.",12,ctr)+box(8,45,10,45,f.no,12,ctr);
+    for(let i=0;i<3;i++){ const r=K.revs[i]||{}; h+=box(1,43+i,1,43+i,d(r.d),10,ctr)+box(2,43+i,5,43+i,r.t,10,mid)+box(6,43+i,6,43+i,r.p,10,ctr); }
+  }
+  $("#kzMain").innerHTML=`<p class="kzHint">Excelに出力したときのイメージです（文字の大きさは自動で調整します）。</p><div class="kzPv" style="width:${px(W)};height:${px(H)}">${h}</div>`;
+}
+/* ---------- AIに下書きしてもらう ---------- */
+function kzAiPhotos(){ const K=KZ; return K.kind==="kaizen"?K.before.map((p,j)=>({p,lab:"改善前"+"①②③④"[j]})).concat(K.after.map((p,j)=>({p,lab:"改善後"+"①②③④"[j]}))):K.photos.map((p,j)=>({p,lab:"写真"+"①②③"[j]})); }
+function kzPrompt(){
+  const K=KZ, f=K.f, ph=kzAiPhotos(), eff=kzEff().replace(/<[^>]+>/g,"");
+  const imgs=ph.length?`添付の画像は${ph.map(x=>x.lab).join("・")}の写真です（左上にラベルがあります）。写真もよく見てください。`:"（今回は写真はありません。）";
+  if(K.kind==="kaizen") return `あなたは機械組立工場の「改善シート」作りを手伝います。
+${imgs}
+下のメモと写真から、改善シートの文章の下書きを作ってください。
+
+【いま入っている内容】（空の所は作り、入っている所は分かりやすく直してください）
+改善テーマ：${f.theme||"（空）"}
+問題点：${f.mondai||"（空）"}
+改善内容：${f.naiyo||"（空）"}
+改善効果：${f.kouka||"（空）"}
+【作業時間】${eff||"（未入力）"}
+【メモ】
+${f.memo||"（なし）"}
+
+【ルール】
+1. theme（改善テーマ）は20字以内。何をどう良くしたかが分かる名前（例：○○の高さ出し改善）。
+2. mondai（問題点）・naiyo（改善内容）は「・」で始まる短い文を2〜3つ。それぞれ全体で120字以内。現場の人が読んで分かる言葉で。
+3. kouka（改善効果）は、作業時間があればその数字をそのまま使い「改善前 ○分 → 改善後 ○分」「○分の短縮（○%減）」の形で。数字はメモと作業時間にあるものだけを使い、勝手に作らないこと。時間が無ければ、品質・安全・やりやすさなどの効果を文で（120字以内）。
+4. 写真に吹き出しで入れると分かりやすい短い言葉（12字以内）があれば callouts に、どの写真か（ラベル）と一緒に。無理に作らなくてよい。
+5. 写真やメモから分からない所、確認してほしい所は comments に。
+6. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
+{"theme":"","mondai":"","naiyo":"","kouka":"","callouts":[{"photo":"改善前①","text":""}],"comments":[""]}`;
+  return `あなたは機械組立工場の「ワンポイントシート」作りを手伝います。ワンポイントシートは、作業のコツや注意点を写真1〜2枚と短い箇条書きで伝える1枚のシートです。
+${imgs}
+下のメモと写真から、下書きを作ってください。
+
+【いま入っている内容】
+作業名：${f.sagyo||"（空）"}
+機種名：${f.kishu||"（空）"}
+ポイント：
+${K.items.filter(x=>x.t.trim()).map(x=>x.m+" "+x.t).join("\n")||"（空）"}
+【メモ】
+${f.memo||"（なし）"}
+
+【ルール】
+1. sagyo（作業名）は15字以内（例：ボールねじの挿入）。入っていればそのままか、少し整える程度に。
+2. items は箇条書き。mark は次の3つから選ぶ。
+   ●＝ポイント（コツ・やり方・気をつけること）　＊＝確認（作業のあとに確かめること）　■＝規格（寸法・トルク・すきまなどの数値）
+3. 1つの text は35字以内。全部で3〜7個。●を中心に、確認・規格があれば加える。
+4. 数値（寸法・トルクなど）はメモにあるものだけを使い、勝手に作らないこと。分からなければ comments に「○○の規格値を確認してください」と書く。
+5. 写真に吹き出しで入れると分かりやすい短い言葉（12字以内）があれば callouts に。無理に作らなくてよい。
+6. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
+{"sagyo":"","items":[{"mark":"●","text":""}],"callouts":[{"photo":"写真①","text":""}],"comments":[""]}`;
+}
+async function kzMakeImgs(){ const out=[];
+  for(const {p,lab} of kzAiPhotos()){ try{ const im=await loadImg(p.data), s=Math.min(1,1280/Math.max(im.naturalWidth,im.naturalHeight)), c=document.createElement("canvas");
+    c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s); const g=c.getContext("2d"); g.drawImage(im,0,0,c.width,c.height);
+    const fs=Math.max(22,Math.round(c.width/22)); g.font=`bold ${fs}px sans-serif`; const tw=g.measureText(lab).width; g.fillStyle="rgba(0,0,0,.72)"; g.fillRect(0,0,tw+fs*.8,fs*1.5); g.fillStyle="#fff"; g.textBaseline="middle"; g.fillText(lab,fs*.4,fs*.75);
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.85)); out.push(new File([blob],`${lab}.jpg`,{type:"image/jpeg"})); }catch(_){} }
+  return out; }
+function kzAiScr(){
+  const K=KZ; $("#kzTitle").textContent="AIに下書きしてもらう"; $("#kzBack").textContent="‹ 編集に戻る"; $("#kzBar").hidden=true;
+  const n=kzAiPhotos().length;
+  $("#kzMain").innerHTML=`<div class="kzCard">
+    <p class="kzHint">社内で使っているAI（Claudeなど）に頼みます。下の 1→2→3 をやるだけです。数字はメモにあるものだけを使うように指示します。</p>
+    ${!K.f.memo.trim()?`<div class="kzCm">💡 メモが空です。編集画面の「メモ」に、何をどう変えたか・困っていたことを一言でも書くと、下書きがぐっと良くなります。</div>`:""}
+    <div class="kzAiSt"><span class="badge">1</span><div style="flex:1"><button class="primary" id="kzCopy">AIへの依頼文をコピー${n?"＋写真の画像を作る":""}</button><div id="kzCopied" class="kzHint"></div><div id="kzImgs"></div></div></div>
+    <div class="kzAiSt"><span class="badge">2</span><div>AIの画面に依頼文を<b>貼り付け</b>${n?"、写真の画像を<b>添付</b>":""}して送信します。</div></div>
+    <div class="kzAiSt"><span class="badge">3</span><div style="flex:1">返ってきた答えを<b>全部コピー</b>して、<br><button class="primary" id="kzPaste" style="margin:6px 0">📋 貼り付けて読み込む</button>
+      <textarea id="kzAiIn" rows="3" style="width:100%;box-sizing:border-box;font-size:15px" placeholder="うまくいかない時は、ここに長押しで貼り付けて「結果を読み込む」"></textarea><button id="kzRead" style="margin-top:6px">結果を読み込む</button></div></div></div>
+    <div id="kzRv"></div>`;
+  $("#kzCopy").onclick=async()=>{ const ok=await copyText(kzPrompt()); $("#kzCopied").textContent=ok?"✓ 依頼文をコピーしました":"依頼文をコピーできませんでした";
+    if(!n) return; $("#kzImgs").innerHTML=`<p class="kzHint">写真の画像を作っています…</p>`; kzAiFiles=await kzMakeImgs();
+    const can=!!(navigator.canShare&&(()=>{ try{ return navigator.canShare({files:kzAiFiles}); }catch(_){ return false; } })());
+    $("#kzImgs").innerHTML=`<p class="kzHint">✓ 写真の画像が${kzAiFiles.length}枚できました。</p><div class="kzPhOps">${can?`<button class="primary" id="kzShare">📤 画像をAIアプリに送る</button>`:""}<button id="kzSaveImg">💾 画像を保存する</button></div>`;
+    if(can) $("#kzShare").onclick=async()=>{ try{ await navigator.share({files:kzAiFiles,title:"シートの写真"}); }catch(e){ if(e.name!=="AbortError") alert(`送れませんでした（${e.name}）。「画像を保存する」から保存して添付してください。`); } };
+    $("#kzSaveImg").onclick=()=>kzAiFiles.forEach((f,i)=>setTimeout(()=>dlA(f,f.name),i*400)); };
+  $("#kzRead").onclick=()=>kzRead($("#kzAiIn").value);
+  $("#kzPaste").onclick=async()=>{ let t=""; try{ t=await navigator.clipboard.readText(); }catch(_){}
+    if(!t.trim()){ $("#kzAiIn").focus(); return alert("コピーした文字を読み取れませんでした。\n下の欄を長押しして「ペースト」で貼り付け、「結果を読み込む」を押してください。"); }
+    kzRead(t); };
+}
+function kzParse(t){ t=String(t||"").trim(); const m=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(m) t=m[1]; const i=t.indexOf("{"), j=t.lastIndexOf("}"); if(i<0||j<i) throw new Error("JSONが見つかりません"); return JSON.parse(t.slice(i,j+1)); }
+function kzRead(t){
+  let d; try{ d=kzParse(t); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーしてください。"); }
+  const K=KZ, rows=[];
+  if(K.kind==="kaizen"){ [["theme","改善テーマ"],["mondai","問題点"],["naiyo","改善内容"],["kouka","改善効果"]].forEach(([k,lab])=>{ if(typeof d[k]==="string"&&d[k].trim()&&d[k].trim()!==String(K.f[k]||"").trim()) rows.push({k,lab,old:K.f[k]||"",nw:d[k].trim()}); }); }
+  else{ if(typeof d.sagyo==="string"&&d.sagyo.trim()&&d.sagyo.trim()!==K.f.sagyo.trim()) rows.push({k:"sagyo",lab:"作業名",old:K.f.sagyo,nw:d.sagyo.trim()});
+    const it=(Array.isArray(d.items)?d.items:[]).map(x=>({m:KZ_MARK[x.mark]?x.mark:(/規格/.test(x.mark)?"■":/確認/.test(x.mark)?"＊":"●"),t:String(x.text||"").trim()})).filter(x=>x.t);
+    const cur=K.items.filter(x=>x.t.trim()), str=L=>L.map(x=>x.m+" "+x.t).join("\n");
+    if(it.length&&str(it)!==str(cur)) rows.push({k:"items",lab:"ポイント",old:str(cur),nw:str(it),val:it}); }
+  const cos=(Array.isArray(d.callouts)?d.callouts:[]).map(c=>({lab:String(c.photo||""),t:String(c.text||"").trim()})).filter(c=>c.t&&kzAiPhotos().some(x=>x.lab===c.lab));
+  const cm=(Array.isArray(d.comments)?d.comments:[]).map(String).filter(x=>x.trim());
+  kzAI={rows,cos,cm}; $("#kzAiIn").value="";
+  $("#kzRv").innerHTML=`<div class="kzCard"><h3>AIの下書き<span style="flex:1"></span><button class="primary sm" id="kzApply">チェックしたものを反映</button></h3>
+    ${rows.length?"":`<p class="kzHint">変えるところはありませんでした。</p>`}
+    ${rows.map((r,i)=>`<div class="kzRv"><label class="h"><input type="checkbox" data-ar="${i}" checked> ${r.lab}</label><div class="b">${r.old?lineDiff(r.old,r.nw):`<ins>${esc(r.nw)}</ins>`}</div></div>`).join("")}
+    ${cos.length?`<div class="kzRv"><div class="h">写真に入れる吹き出しの案（反映すると写真の左上に入ります。あとで動かせます）</div><div class="b">${cos.map((c,i)=>`<label style="display:block"><input type="checkbox" data-ac="${i}"> ${esc(c.lab)}：「${esc(c.t)}」</label>`).join("")}</div></div>`:""}
+    ${cm.length?`<div class="kzCm"><b>AIからのコメント</b>${cm.map(c=>`<div>・${esc(c)}</div>`).join("")}</div>`:""}</div>`;
+  $("#kzApply").onclick=kzApply; $("#kzRv").scrollIntoView({block:"start"});
+}
+async function kzApply(){ const K=KZ, A=kzAI; if(!A) return; let n=0;
+  $$("[data-ar]").forEach(cb=>{ if(!cb.checked) return; const r=A.rows[+cb.dataset.ar]; if(r.k==="items") K.items=r.val.map(x=>({...x})); else K.f[r.k]=r.nw; n++; });
+  const ph=kzAiPhotos();
+  for(const cb of $$("[data-ac]")){ if(!cb.checked) continue; const c=A.cos[+cb.dataset.ac], x=ph.find(y=>y.lab===c.lab); if(!x) continue;
+    try{ const p=x.p, re=!!(p.src&&p.ed), base=await loadImg(re?p.src:p.data), W=base.naturalWidth, H=base.naturalHeight, adj=re?p.ed.adj:{b:0,c:0};
+      const fs=Math.max(18,Math.max(W,H)/24), s={type:"text",x1:W*.04,y1:H*.06+fs*.7,x2:W*.04,y2:H*.06+fs*.7,color:"#e53935",w:Math.max(W,H)/300,fs,text:c.t};
+      const shapes=(re?p.ed.shapes:[]).concat([s]), cv=bakeWith(base,adj,shapes), src=re?p.src:p.data;
+      Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(shapes))}}); n++; }catch(_){} }
+  kzAI=null; kzPersist(); await kzSaveNow(); kzToast(`✓ ${n}か所に反映しました`); kzGo("edit"); }
+/* ---------- 保存・送る（.json） ---------- */
+function kzSaveJson(){ kzSaveNow(); const K=KZ; const txt=JSON.stringify({app:"kaizen-sheet",ver:1,doc:K});
+  download(new Blob([txt],{type:"application/json"}),`${KZ_KIND[K.kind]}データ_${kzTitle(K)}.json`.replace(/[\\/:*?"<>|]/g,"_")); }
+async function kzImport(j){ const d=j.doc; if(!d||!KZ_KIND[d.kind]) throw new Error("形式が違います");
+  d.id=uid(); d.updated=Date.now(); await kzSaveNow(); KZ=d; await kzSaveNow();
+  $("#kz").hidden=false; document.body.classList.add("kzOn"); kzGo("edit"); alert(`「${kzTitle(d)}」（${KZ_KIND[d.kind]}）を取り込みました。`); }
+/* ---------- 起動 ---------- */
+$("#kzBack").onclick=()=>{ if(kzScr==="list") return kzClose(); if(kzScr==="edit"){ kzSaveNow(); KZ=null; return kzGo("list"); } kzGo("edit"); };
+$("#kzViewB").onclick=()=>kzGo("view");
+$("#kzXlsx").onclick=()=>kzExcel().catch(e=>alert("Excelを作れませんでした："+e.message));
+$("#kzSaveB").onclick=kzSaveJson;
+$("#fmKz").onclick=kzOpen; $("#bKz").onclick=()=>{ $("#fileMenu").hidden=true; kzOpen(); };
+
 </script>
 <script>
 /* アプリ（PWA）：一度開けば電波がなくても動くように */
