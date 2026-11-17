@@ -5770,9 +5770,10 @@ function kzGeo(D,c0,c1,r0,r1){ // D＝{cols,rows}。0始まり。c1・r1は含�
   return {W:cx[cx.length-1],H:ry[ry.length-1],cx,ry,col:x=>at(cx,c0,x),row:y=>at(ry,r0,y),
     anchor:(x,y)=>{ const [c,co]=nat(cx,c0,x), [r,ro]=nat(ry,r0,y); return {nativeCol:c,nativeColOff:co,nativeRow:r,nativeRowOff:ro}; }}; }
 function kzPlace(photos,g,pad,top){ const R=kzLayout(photos.map(kzAsp),g.W-pad*2,g.H-pad*2,8), dy=top&&R.length?Math.min(...R.map(x=>x.y)):0;
-  return R.map(r=>({a:g.anchor(pad+r.x,pad+r.y-dy),w:Math.round(r.w),h:Math.round(r.h),bottom:pad+r.y-dy+r.h})); }
+  return R.map(r=>({a:g.anchor(pad+r.x,pad+r.y-dy),b:g.anchor(pad+r.x+r.w,pad+r.y-dy+r.h),w:Math.round(r.w),h:Math.round(r.h),bottom:pad+r.y-dy+r.h})); }
 function kzPutPhotos(wb,ws,photos,P){ photos.forEach((p,i)=>{ const id=wb.addImage({base64:p.data,extension:/^data:image\/png/.test(p.data)?"png":"jpeg"});
-    ws.addImage(id,{tl:P[i].a,ext:{width:P[i].w,height:P[i].h},editAs:"oneCell"}); }); }
+    // tl＋br の2点指定（twoCellAnchor）。oneCellAnchor に editAs を付けると Excel が「問題が見つかりました」と修復してしまう
+    ws.addImage(id,{tl:P[i].a,br:P[i].b,editAs:"oneCell"}); }); }
 /* ワンポイント：写真の場所とポイントを書き始める行（Excelとできあがりで共通） */
 function kzOpPlan(K,D){ const items=K.items.filter(x=>String(x.t||"").trim()), area=kzGeo(D,1,11,5,42), lines=kzOpLines(items,area.W,K.photos.length?22:35);
   let r=6, P=[];
@@ -5803,6 +5804,10 @@ async function kzExcel(){
       c.font={name:"HG丸ｺﾞｼｯｸM-PRO",size:lines.pt,bold:ln.m==="●",color:{argb:ln.m==="■"?"FF1F4E9A":ln.m==="＊"?"FF9C2A00":"FF000000"}};
       c.alignment={wrapText:false,vertical:"middle",horizontal:"left",indent:1}; r++; });
   }
+  // 印刷範囲：ExcelJSは読み込んだ範囲を「$A1:$R46」の形で書き戻すので、正しい「$A$1:$R$46」になるよう指定し直す
+  ws.pageSetup.printArea=K.kind==="kaizen"?"A$1:R$46":"A$1:L$46";
+  // ExcelJSはシート設定を「ページ設定→アウトライン」の順で書くが、Excelは逆順しか受け付けない（修復エラーになる）。アウトライン設定は既定値なので消す
+  if(ws.properties) delete ws.properties.outlineProperties;
   const buf=await wb.xlsx.writeBuffer(); const name=`${KZ_KIND[K.kind]}_${kzTitle(K)}.xlsx`.replace(/[\\/:*?"<>|]/g,"_");
   download(new Blob([buf],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),name); kzToast("📄 Excelを作りました");
 }
