@@ -911,6 +911,12 @@ details.fold>summary::before{color:var(--accent)}
 
 /* 改善シートの画面を開いている間は、手順書のガイドを出さない */
 body.kzOn #gdTip,body.kzOn #gdRing{display:none!important}
+
+#kz div.kzF{margin:0 0 10px;font-size:13px;color:#556}
+#kz .kzRow>*{min-width:0}
+#kz .kzTm{display:flex;align-items:center;gap:4px;margin-top:4px}
+#kz .kzTm input{flex:1 1 0;min-width:0;width:auto;box-sizing:border-box;margin:0;font-size:16px;padding:9px 8px;border:1px solid #c9d3df;border-radius:9px;text-align:right;background:#fff;color:#111;font-family:inherit}
+#kz .kzTm span{flex:none;font-size:14px;color:#445}
 </style>
 </head>
 <body>
@@ -5723,15 +5729,21 @@ async function kzList(){
   $("#kzImp").onclick=()=>$("#fOpen").click();
 }
 /* 入力欄 */
+const kzTm=(k,lab)=>`<div class="kzF">${lab}<div class="kzTm"><input data-k="${k}" size="4" inputmode="decimal" value="${esc(KZ.f[k]||"")}" placeholder="0"><span>分</span><input data-k="${k}s" size="4" inputmode="decimal" value="${esc(KZ.f[k+"s"]||"")}" placeholder="0"><span>秒</span></div></div>`;
 const kzIn=(k,lab,ph,area)=>`<label class="kzF">${lab}${area?`<textarea data-k="${k}" placeholder="${ph||""}" rows="${area}">${esc(KZ.f[k]||"")}</textarea>`:`<input data-k="${k}" value="${esc(KZ.f[k]||"")}" placeholder="${ph||""}">`}</label>`;
 function kzPhotos(key,lab,max){ const L=KZ[key];
   return `<div class="kzPh" data-ph="${key}">${L.map((p,j)=>`<div class="p${kzPhSel&&kzPhSel.k===key&&kzPhSel.j===j?" sel":""}" data-pj="${j}"><img src="${p.data}"><span class="lb">${lab}${"①②③④"[j]}</span></div>`).join("")}
     ${L.length<max?`<label class="add">📷 写真を追加<br><small>（${max}枚まで）</small><input type="file" accept="image/*" multiple hidden data-addph="${key}"></label>`:""}</div>
     ${kzPhSel&&kzPhSel.k===key?`<div class="kzPhOps"><button class="sm primary" data-pe="edit">✏️ 書き込み（矢印・文字・丸・手書き）</button><button class="sm" data-pe="left">◀</button><button class="sm" data-pe="right">▶</button><button class="sm" data-pe="del">🗑 外す</button></div>`:""}`; }
-function kzEff(){ const b=parseFloat(KZ.f.tb), a=parseFloat(KZ.f.ta); if(!(b>0)||!(a>=0)) return "";
-  const d=b-a; return `改善前 ${b}分 → 改善後 ${a}分　<b>${d>=0?`${d}分の短縮（${Math.round(d/b*100)}%減）`:`${-d}分の増加`}</b>`; }
-function kzEffText(){ const b=parseFloat(KZ.f.tb), a=parseFloat(KZ.f.ta); if(!(b>0)||!(a>=0)) return "";
-  const h=m=>m>=60&&m%30===0?`（${m/60}H）`:""; return `改善前\n${b}分${h(b)}\n改善後\n${a}分${h(a)}\n\n${b-a}分の短縮（${Math.round((b-a)/b*100)}%減）`; }
+/* 作業時間：分（tb/ta）＋秒（tbs/tas）。秒だけ・分だけでもよい。中では秒にそろえて計算する */
+function kzSec(m,s){ const M=parseFloat(m), S=parseFloat(s); if(!(M>=0)&&!(S>=0)) return NaN; return Math.round(((M>=0?M:0)*60+(S>=0?S:0))*10)/10; }
+function kzTime(t){ t=Math.round(t*10)/10; if(t<60) return `${t}秒`; const m=Math.floor(t/60), s=Math.round((t-m*60)*10)/10; return s?`${m}分${s}秒`:`${m}分`; }
+function kzTimes(){ const b=kzSec(KZ.f.tb,KZ.f.tbs), a=kzSec(KZ.f.ta,KZ.f.tas); return (b>0&&a>=0)?{b,a,d:Math.round((b-a)*10)/10,r:Math.round((b-a)/b*100)}:null; }
+function kzEff(){ const T=kzTimes(); if(!T) return "";
+  return `改善前 ${kzTime(T.b)} → 改善後 ${kzTime(T.a)}　<b>${T.d>=0?`${kzTime(T.d)}の短縮（${T.r}%減）`:`${kzTime(-T.d)}の増加`}</b>`; }
+function kzEffText(){ const T=kzTimes(); if(!T) return "";
+  const h=t=>t>=3600&&t%1800===0?`（${t/3600}H）`:"";
+  return `改善前\n${kzTime(T.b)}${h(T.b)}\n改善後\n${kzTime(T.a)}${h(T.a)}\n\n${T.d>=0?`${kzTime(T.d)}の短縮（${T.r}%減）`:`${kzTime(-T.d)}の増加`}`; }
 function kzEdit(){
   const K=KZ, kz=K.kind==="kaizen";
   $("#kzTitle").textContent=KZ_KIND[K.kind]; $("#kzBack").textContent="‹ 一覧"; $("#kzBar").hidden=false;
@@ -5746,7 +5758,7 @@ function kzEdit(){
       <b style="font-size:14px;display:block;margin-top:12px">改善後</b>${kzPhotos("after","改善後",4)}</div>
     <div class="kzCard"><h3><span class="no">3</span>メモ・作業時間</h3>
       ${kzIn("memo","AIへのメモ（箇条書き・話し言葉でOK）","例：前は治具を下から叩いて高さを合わせていた。調整がカンコツで3〜10時間かかった。アルミフレームの治具を作って載せるだけで高さが決まるようにした。",4)}
-      <div class="kzRow">${kzIn("tb","改善前の作業時間（分）","例：600")}${kzIn("ta","改善後の作業時間（分）","例：120")}</div>
+      <div class="kzRow">${kzTm("tb","改善前の作業時間")}${kzTm("ta","改善後の作業時間")}</div>
       <div class="kzEff" id="kzEff"${kzEff()?"":" hidden"}>${kzEff()}</div></div>
     <div class="kzCard"><h3><span class="no">4</span>シートの文章</h3>
       <button class="kzBig primary" id="kzAiGo"><i>🤖</i><span><b>AIに下書きしてもらう</b><small>写真とメモから、テーマ・問題点・改善内容・改善効果を作ります</small></span></button>
@@ -5769,7 +5781,7 @@ function kzEdit(){
   // 入力
   $$("[data-k]",$("#kzMain")).forEach(el=>el.oninput=()=>{ K.f[el.dataset.k]=el.value;
     if(["tanto","shokuba","author","bumon"].includes(el.dataset.k)) kzSetDef({[el.dataset.k]:el.value});
-    if(el.dataset.k==="tb"||el.dataset.k==="ta"){ const e=$("#kzEff"); e.innerHTML=kzEff(); e.hidden=!kzEff(); }
+    if(/^t[ab]s?$/.test(el.dataset.k)){ const e=$("#kzEff"); e.innerHTML=kzEff(); e.hidden=!kzEff(); }
     kzPersist(); });
   // 写真
   $$("[data-addph]",$("#kzMain")).forEach(inp=>inp.onchange=async()=>{ const key=inp.dataset.addph, max=key==="photos"?3:4;
@@ -5784,7 +5796,7 @@ function kzEdit(){
     if(a==="right"&&j<L.length-1){ [L[j+1],L[j]]=[L[j],L[j+1]]; kzPhSel.j=j+1; }
     kzPersist(); kzEdit(); });
   $("#kzAiGo").onclick=()=>kzGo("ai");
-  if(kz){ $("#kzKouka").onclick=()=>{ const t=kzEffText(); if(!t) return alert("先に改善前・改善後の作業時間（分）を入れてください");
+  if(kz){ $("#kzKouka").onclick=()=>{ const t=kzEffText(); if(!t) return alert("先に改善前・改善後の作業時間（分・秒）を入れてください");
       if(K.f.kouka.trim()&&!confirm("今の改善効果の文を置き換えますか？")) return; K.f.kouka=t; kzPersist(); kzEdit(); }; }
   else { kzItemsUI(); kzRevsUI(); $$("[data-addit]").forEach(b=>b.onclick=()=>{ K.items.push({m:b.dataset.addit,t:""}); kzPersist(); kzItemsUI(true); }); }
 }
@@ -5936,7 +5948,7 @@ ${f.memo||"（なし）"}
 【ルール】
 1. theme（改善テーマ）は20字以内。何をどう良くしたかが分かる名前（例：○○の高さ出し改善）。
 2. mondai（問題点）・naiyo（改善内容）は「・」で始まる短い文を2〜3つ。それぞれ全体で120字以内。現場の人が読んで分かる言葉で。
-3. kouka（改善効果）は、作業時間があればその数字をそのまま使い「改善前 ○分 → 改善後 ○分」「○分の短縮（○%減）」の形で。数字はメモと作業時間にあるものだけを使い、勝手に作らないこと。時間が無ければ、品質・安全・やりやすさなどの効果を文で（120字以内）。
+3. kouka（改善効果）は、作業時間があればその数字をそのまま使い「改善前 ○分○秒 → 改善後 ○分○秒」「○分○秒の短縮（○%減）」の形で（作業時間に書かれた単位のまま。秒が無ければ分だけ）。数字はメモと作業時間にあるものだけを使い、勝手に作らないこと。時間が無ければ、品質・安全・やりやすさなどの効果を文で（120字以内）。
 4. 写真に吹き出しで入れると分かりやすい短い言葉（12字以内）があれば callouts に、どの写真か（ラベル）と一緒に。無理に作らなくてよい。
 5. 写真やメモから分からない所、確認してほしい所は comments に。
 6. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
