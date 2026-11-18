@@ -917,6 +917,16 @@ body.kzOn #gdTip,body.kzOn #gdRing{display:none!important}
 #kz .kzTm{display:flex;align-items:center;gap:4px;margin-top:4px}
 #kz .kzTm input{flex:1 1 0;min-width:0;width:auto;box-sizing:border-box;margin:0;font-size:16px;padding:9px 8px;border:1px solid #c9d3df;border-radius:9px;text-align:right;background:#fff;color:#111;font-family:inherit}
 #kz .kzTm span{flex:none;font-size:14px;color:#445}
+
+#kz .kzMode{display:flex;flex-direction:column;gap:6px;background:#f3f7fc;border:1px solid #d6e2f0;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px}
+#kz .kzMode label{display:flex;align-items:center;gap:8px}
+#kz .kzMk{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:6px}
+#kz .kzMk .c{display:flex;flex-direction:column;gap:4px;border:1px solid #d6dde6;border-radius:9px;padding:6px;background:#fff}
+#kz .kzMk canvas{width:100%;height:auto;border-radius:6px;background:#eee}
+#kz .kzMk span{font-size:13px;line-height:1.4} #kz .kzMk small{display:block;color:#667;font-size:12px}
+#kz .kzMk span input{display:inline-block;width:auto;margin:0 6px 0 0;vertical-align:middle;transform:scale(1.2)}
+#kz .kzMk span{display:block;text-align:left}
+#kz .kzMode input{width:auto;display:inline-block;margin:0;flex:none;transform:scale(1.2)} #kz .kzMode label{justify-content:flex-start;text-align:left;font-size:15px;color:#223;padding:4px 0}
 </style>
 </head>
 <body>
@@ -5687,7 +5697,7 @@ const KZ_DIM={kaizen:{cols:[9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9],rows:[14,14,14.
   onepoint:{cols:[1.59,10.59,10.59,8.72,8.72,8.72,13.59,14.25,8.59,9.85,9.99,1.59,8.85,8.85,8.85,8.85,8.85,8.85],rows:[36.75,16.5,18,16.5,16.5,16.15,16.15,16.15,17.25,17.25,18,18,18,17.25,17.25,16.15,16.15,16.15,16.15,17.25,16.15,16.15,16.15,18,17.25,17.25,18,16.15,16.15,18,17.25,17.25,18,16.15,16.15,15,17.25,18,19.15,19.15,27.4,19.15,19.15,19.15,19.15,19.15,3.75]}};
 const kzDims=ws=>({cols:[...Array(18)].map((_,i)=>ws.getColumn(i+1).width),rows:[...Array(47)].map((_,i)=>ws.getRow(i+1).height)});
 const KZ_MARK={"●":"ポイント","＊":"確認","■":"規格"};
-let KZ=null, kzScr="list", kzTimer=null, kzAI=null, kzAiFiles=[], kzPhSel=null;
+let KZ=null, kzScr="list", kzTimer=null, kzAI=null, kzAiFiles=[], kzPhSel=null, kzAiMode="all";
 const kzDefs=()=>{ try{ return JSON.parse(localStorage.getItem("kzDef")||"{}"); }catch(_){ return {}; } };
 const kzSetDef=o=>{ try{ localStorage.setItem("kzDef",JSON.stringify(Object.assign(kzDefs(),o))); }catch(_){} };
 function kzToast(t){ const el=$("#kzToast"); if(!el) return; el.textContent=t; el.hidden=false; clearTimeout(kzToast.t); kzToast.t=setTimeout(()=>el.hidden=true,2600); }
@@ -5929,9 +5939,37 @@ function kzView(){
 }
 /* ---------- AIに下書きしてもらう ---------- */
 function kzAiPhotos(){ const K=KZ; return K.kind==="kaizen"?K.before.map((p,j)=>({p,lab:"改善前"+"①②③④"[j]})).concat(K.after.map((p,j)=>({p,lab:"改善後"+"①②③④"[j]}))):K.photos.map((p,j)=>({p,lab:"写真"+"①②③"[j]})); }
-function kzPrompt(){
+/* 写真への書き込み（言葉・丸・矢印・線）をAIに頼むときの決まり */
+function kzMarkRule(){ const kz=KZ.kind==="kaizen";
+  return `【写真への書き込み（marks）】
+${kz?"改善前の写真は「何が問題か」、改善後の写真は「どこをどう良くしたか」":"ポイント（●＊■）の場所"}が、写真を見ただけで分かるように、赤い書き込みを考えてください。
+- 写真1枚につき1〜3個。すでに赤い書き込みがある写真は、足りないものだけ（足りていれば入れない）。
+- 位置は、その写真の左上を0・右下を100とした%（x＝横、y＝縦）。写真の下と右のふちにある目盛り（10ごと）を見て、なるべく正確に。
+- type は次の4つから選ぶ。
+  note＝短い言葉（12字以内）。x,y は文字の左端・高さの真ん中。部品や手に重ならない、空いている所に置く。指したい所があれば tx,ty（矢印の先）も入れる。
+  circle＝大事な所を丸で囲む。x,y が中心、r が半径（写真の横幅の%、5〜25）。
+  arrow＝動きや向きを示す矢印。x1,y1（根元）→ x2,y2（先）。
+  line＝基準線（高さや位置をそろえて比べる線）。x1,y1 → x2,y2。
+- 言葉は、シートの文章と同じ言い方で短く（例：目で見て調整、当てるだけで決まる）。`; }
+const KZ_MARK_FMT=`"marks":[{"photo":"PH","type":"note","text":"","x":40,"y":15,"tx":55,"ty":45},{"photo":"PH","type":"circle","x":50,"y":60,"r":12}]`;
+function kzPrompt(mode){
   const K=KZ, f=K.f, ph=kzAiPhotos(), eff=kzEff().replace(/<[^>]+>/g,"");
-  const imgs=ph.length?`添付の画像は${ph.map(x=>x.lab).join("・")}の写真です（左上にラベルがあります）。写真もよく見てください。`:"（今回は写真はありません。）";
+  const imgs=ph.length?`添付の画像は${ph.map(x=>x.lab).join("・")}の写真です（左上にラベル、下と右のふちに位置の目盛りがあります）。写真もよく見てください。`:"（今回は写真はありません。）";
+  const fmt=KZ_MARK_FMT.replace(/PH/g,ph[0]?ph[0].lab:"写真①");
+  if(mode==="marks"&&ph.length){ const body=K.kind==="kaizen"
+      ?`改善テーマ：${f.theme||"（空）"}\n問題点：\n${f.mondai||"（空）"}\n改善内容：\n${f.naiyo||"（空）"}\n改善効果：\n${f.kouka||"（空）"}${f.memo?`\nメモ：${f.memo}`:""}`
+      :`作業名：${f.sagyo||"（空）"}\nポイント：\n${K.items.filter(x=>x.t.trim()).map(x=>x.m+" "+x.t).join("\n")||"（空）"}${f.memo?`\nメモ：${f.memo}`:""}`;
+    return `あなたは機械組立工場の「${KZ_KIND[K.kind]}」作りを手伝います。
+${imgs}
+下のシートの文章と写真を見て、写真に入れる書き込み（言葉・丸・矢印・線）を考えてください。文章は変えません。
+
+【シートの文章】
+${body}
+
+${kzMarkRule()}
+
+【答え方】次のJSONだけを \`\`\`json で囲んで返してください。気になる所があれば comments に。
+{${fmt},"comments":[""]}`; }
   if(K.kind==="kaizen") return `あなたは機械組立工場の「改善シート」作りを手伝います。
 ${imgs}
 下のメモと写真から、改善シートの文章の下書きを作ってください。
@@ -5949,10 +5987,10 @@ ${f.memo||"（なし）"}
 1. theme（改善テーマ）は20字以内。何をどう良くしたかが分かる名前（例：○○の高さ出し改善）。
 2. mondai（問題点）・naiyo（改善内容）は「・」で始まる短い文を2〜3つ。それぞれ全体で120字以内。現場の人が読んで分かる言葉で。
 3. kouka（改善効果）は、作業時間があればその数字をそのまま使い「改善前 ○分○秒 → 改善後 ○分○秒」「○分○秒の短縮（○%減）」の形で（作業時間に書かれた単位のまま。秒が無ければ分だけ）。数字はメモと作業時間にあるものだけを使い、勝手に作らないこと。時間が無ければ、品質・安全・やりやすさなどの効果を文で（120字以内）。
-4. 写真に吹き出しで入れると分かりやすい短い言葉（12字以内）があれば callouts に、どの写真か（ラベル）と一緒に。無理に作らなくてよい。
-5. 写真やメモから分からない所、確認してほしい所は comments に。
-6. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
-{"theme":"","mondai":"","naiyo":"","kouka":"","callouts":[{"photo":"改善前①","text":""}],"comments":[""]}`;
+4. 写真やメモから分からない所、確認してほしい所は comments に。
+${ph.length?kzMarkRule()+"\n":""}
+5. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
+{"theme":"","mondai":"","naiyo":"","kouka":""${ph.length?","+fmt:""},"comments":[""]}`;
   return `あなたは機械組立工場の「ワンポイントシート」作りを手伝います。ワンポイントシートは、作業のコツや注意点を写真1〜2枚と短い箇条書きで伝える1枚のシートです。
 ${imgs}
 下のメモと写真から、下書きを作ってください。
@@ -5971,28 +6009,40 @@ ${f.memo||"（なし）"}
    ●＝ポイント（コツ・やり方・気をつけること）　＊＝確認（作業のあとに確かめること）　■＝規格（寸法・トルク・すきまなどの数値）
 3. 1つの text は35字以内。全部で3〜7個。●を中心に、確認・規格があれば加える。
 4. 数値（寸法・トルクなど）はメモにあるものだけを使い、勝手に作らないこと。分からなければ comments に「○○の規格値を確認してください」と書く。
-5. 写真に吹き出しで入れると分かりやすい短い言葉（12字以内）があれば callouts に。無理に作らなくてよい。
-6. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
-{"sagyo":"","items":[{"mark":"●","text":""}],"callouts":[{"photo":"写真①","text":""}],"comments":[""]}`;
+${ph.length?kzMarkRule()+"\n":""}
+5. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
+{"sagyo":"","items":[{"mark":"●","text":""}]${ph.length?","+fmt:""},"comments":[""]}`;
 }
+/* AIが位置を答えやすいように、写真の下と右のふちに 10% ごとの目盛りを入れる */
+function kzTicks(g,W,H){ const fs=Math.max(14,Math.round(Math.max(W,H)/58)), tl=fs*.8; g.save(); g.font=`bold ${fs}px sans-serif`; g.lineWidth=Math.max(2,fs/7);
+  const mk=(x1,y1,x2,y2,t,tx,ty,al,bl)=>{ g.strokeStyle="#000"; g.lineWidth=Math.max(4,fs/3.5); g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
+    g.strokeStyle="#ffeb3b"; g.lineWidth=Math.max(2,fs/7); g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
+    g.textAlign=al; g.textBaseline=bl; g.lineWidth=Math.max(3,fs/4); g.strokeStyle="#000"; g.strokeText(t,tx,ty); g.fillStyle="#ffeb3b"; g.fillText(t,tx,ty); };
+  for(let k=1;k<10;k++){ const x=W*k/10, y=H*k/10;
+    mk(x,H,x,H-tl,String(k*10),x,H-tl-2,"center","bottom");
+    mk(W,y,W-tl,y,String(k*10),W-tl-4,y,"right","middle"); }
+  g.restore(); }
 async function kzMakeImgs(){ const out=[];
   for(const {p,lab} of kzAiPhotos()){ try{ const im=await loadImg(p.data), s=Math.min(1,1280/Math.max(im.naturalWidth,im.naturalHeight)), c=document.createElement("canvas");
     c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s); const g=c.getContext("2d"); g.drawImage(im,0,0,c.width,c.height);
+    kzTicks(g,c.width,c.height);
     const fs=Math.max(22,Math.round(c.width/22)); g.font=`bold ${fs}px sans-serif`; const tw=g.measureText(lab).width; g.fillStyle="rgba(0,0,0,.72)"; g.fillRect(0,0,tw+fs*.8,fs*1.5); g.fillStyle="#fff"; g.textBaseline="middle"; g.fillText(lab,fs*.4,fs*.75);
     const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",.85)); cvFree(c); if(!blob) continue; out.push(new File([blob],`${lab}.jpg`,{type:"image/jpeg"})); }catch(_){} }
   return out; }
 function kzAiScr(){
-  const K=KZ; $("#kzTitle").textContent="AIに下書きしてもらう"; $("#kzBack").textContent="‹ 編集に戻る"; $("#kzBar").hidden=true;
+  const K=KZ; kzAiMode="all"; $("#kzTitle").textContent="AIに下書きしてもらう"; $("#kzBack").textContent="‹ 編集に戻る"; $("#kzBar").hidden=true;
   const n=kzAiPhotos().length;
   $("#kzMain").innerHTML=`<div class="kzCard">
     <p class="kzHint">社内で使っているAI（Claudeなど）に頼みます。下の 1→2→3 をやるだけです。数字はメモにあるものだけを使うように指示します。</p>
     ${!K.f.memo.trim()?`<div class="kzCm">💡 メモが空です。編集画面の「メモ」に、何をどう変えたか・困っていたことを一言でも書くと、下書きがぐっと良くなります。</div>`:""}
+    ${n?`<div class="kzMode"><b>何を頼む？</b><label><input type="radio" name="kzm" value="all"${kzAiMode!=="marks"?" checked":""}> 文章の下書き＋写真への書き込み</label><label><input type="radio" name="kzm" value="marks"${kzAiMode==="marks"?" checked":""}> 写真への書き込みだけ（文章はそのまま）</label></div>`:""}
     <div class="kzAiSt"><span class="badge">1</span><div style="flex:1"><button class="primary" id="kzCopy">AIへの依頼文をコピー${n?"＋写真の画像を作る":""}</button><div id="kzCopied" class="kzHint"></div><div id="kzImgs"></div></div></div>
     <div class="kzAiSt"><span class="badge">2</span><div>AIの画面に依頼文を<b>貼り付け</b>${n?"、写真の画像を<b>添付</b>":""}して送信します。</div></div>
     <div class="kzAiSt"><span class="badge">3</span><div style="flex:1">返ってきた答えを<b>全部コピー</b>して、<br><button class="primary" id="kzPaste" style="margin:6px 0">📋 貼り付けて読み込む</button>
       <textarea id="kzAiIn" rows="3" style="width:100%;box-sizing:border-box;font-size:15px" placeholder="うまくいかない時は、ここに長押しで貼り付けて「結果を読み込む」"></textarea><button id="kzRead" style="margin-top:6px">結果を読み込む</button></div></div></div>
     <div id="kzRv"></div>`;
-  $("#kzCopy").onclick=async()=>{ const ok=await copyText(kzPrompt()); $("#kzCopied").textContent=ok?"✓ 依頼文をコピーしました":"依頼文をコピーできませんでした";
+  $$('[name="kzm"]').forEach(r=>r.onchange=()=>{ kzAiMode=r.value; $("#kzCopied").textContent=""; });
+  $("#kzCopy").onclick=async()=>{ const ok=await copyText(kzPrompt(n?kzAiMode:"all")); $("#kzCopied").textContent=ok?"✓ 依頼文をコピーしました":"依頼文をコピーできませんでした";
     if(!n) return; $("#kzImgs").innerHTML=`<p class="kzHint">写真の画像を作っています…</p>`; kzAiFiles=await kzMakeImgs();
     const can=!!(navigator.canShare&&(()=>{ try{ return navigator.canShare({files:kzAiFiles}); }catch(_){ return false; } })());
     $("#kzImgs").innerHTML=`<p class="kzHint">✓ 写真の画像が${kzAiFiles.length}枚できました。</p><div class="kzPhOps">${can?`<button class="primary" id="kzShare">📤 画像をAIアプリに送る</button>`:""}<button id="kzSaveImg">💾 画像を保存する</button></div>`;
@@ -6003,6 +6053,28 @@ function kzAiScr(){
     if(!t.trim()){ $("#kzAiIn").focus(); return alert("コピーした文字を読み取れませんでした。\n下の欄を長押しして「ペースト」で貼り付け、「結果を読み込む」を押してください。"); }
     kzRead(t); };
 }
+/* AIの書き込み案 → 写真編集の図形（言葉・丸・矢印・線）。あとから写真の「書き込み」で動かせる */
+const kzMeasure=(()=>{ let g=null; return (t,fs)=>{ if(!g) g=document.createElement("canvas").getContext("2d");
+  g.font=`bold ${fs}px "Meiryo","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif`; return g.measureText(t).width; }; })();
+function kzMarks(d){ const ph=kzAiPhotos(), num=v=>v!==undefined&&v!==null&&v!==""&&isFinite(+v), P=v=>Math.max(0,Math.min(100,+v)), out=new Map();
+  const add=(lab,m)=>{ const x=ph.find(y=>y.lab===lab); if(!x) return; if(!out.has(lab)) out.set(lab,{lab,p:x.p,L:[]}); out.get(lab).L.push(m); };
+  for(const m of (Array.isArray(d.marks)?d.marks:[])){ if(!m) continue; const lab=String(m.photo||""), ty=String(m.type||"").toLowerCase(), t=String(m.text||"").trim();
+    if(ty==="note"&&t&&num(m.x)&&num(m.y)) add(lab,{type:"note",t,x:P(m.x),y:P(m.y),...(num(m.tx)&&num(m.ty)?{tx:P(m.tx),ty:P(m.ty)}:{})});
+    else if(ty==="circle"&&num(m.x)&&num(m.y)) add(lab,{type:"circle",x:P(m.x),y:P(m.y),r:Math.max(3,Math.min(40,num(m.r)?+m.r:10))});
+    else if((ty==="arrow"||ty==="line")&&[m.x1,m.y1,m.x2,m.y2].every(num)) add(lab,{type:ty,x1:P(m.x1),y1:P(m.y1),x2:P(m.x2),y2:P(m.y2)}); }
+  for(const c of (Array.isArray(d.callouts)?d.callouts:[])){ const t=String(c&&c.text||"").trim(); if(t) add(String(c.photo||""),{type:"note",t,x:4,y:7}); }   // 古い形（位置なし）
+  return [...out.values()]; }
+function kzMarkShapes(W,H,L){ const M=Math.max(W,H), FS=Math.max(18,M/24), lw=Math.max(3,M/200), col="#ff1a1a", X=v=>v/100*W, Y=v=>v/100*H, sh=[], tx=[];
+  for(const m of L){
+    if(m.type==="note"){ let fs=FS, bw=kzMeasure(m.t,fs)+fs*.6; if(bw>W*.92){ fs=fs*W*.92/bw; bw=W*.92; } const bh=fs*1.4;
+      const x=Math.max(4,Math.min(W-bw-4,X(m.x))), y=Math.max(bh/2+4,Math.min(H-bh/2-4,Y(m.y)));
+      if(m.tx!=null){ const ax=X(m.tx), ay=Y(m.ty), cx=Math.max(x,Math.min(x+bw,ax)), cy=Math.max(y-bh/2,Math.min(y+bh/2,ay)), d=Math.hypot(ax-cx,ay-cy);
+        if(d>fs*.8){ const ux=(ax-cx)/d, uy=(ay-cy)/d; sh.push({type:"arrow",x1:cx+ux*fs*.15,y1:cy+uy*fs*.15,x2:ax-ux*fs*.1,y2:ay-uy*fs*.1,color:col,w:lw,fs}); } }
+      tx.push({type:"text",x1:x,y1:y,x2:x,y2:y,color:col,w:lw,fs,text:m.t}); }
+    else if(m.type==="circle"){ const r=m.r/100*W; sh.push({type:"ellipse",x1:X(m.x)-r,y1:Y(m.y)-r,x2:X(m.x)+r,y2:Y(m.y)+r,color:col,w:lw,fs:FS}); }
+    else sh.push({type:m.type,x1:X(m.x1),y1:Y(m.y1),x2:X(m.x2),y2:Y(m.y2),color:col,w:lw,fs:FS}); }
+  return sh.concat(tx); }      // 言葉はいちばん上に
+const KZ_MK_NAME={note:"言葉",circle:"丸",arrow:"矢印",line:"線"};
 function kzParse(t){ t=String(t||"").trim(); const m=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(m) t=m[1]; const i=t.indexOf("{"), j=t.lastIndexOf("}"); if(i<0||j<i) throw new Error("JSONが見つかりません"); return JSON.parse(t.slice(i,j+1)); }
 function kzRead(t){
   let d; try{ d=kzParse(t); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーしてください。"); }
@@ -6012,24 +6084,29 @@ function kzRead(t){
     const it=(Array.isArray(d.items)?d.items:[]).map(x=>({m:KZ_MARK[x.mark]?x.mark:(/規格/.test(x.mark)?"■":/確認/.test(x.mark)?"＊":"●"),t:String(x.text||"").trim()})).filter(x=>x.t);
     const cur=K.items.filter(x=>x.t.trim()), str=L=>L.map(x=>x.m+" "+x.t).join("\n");
     if(it.length&&str(it)!==str(cur)) rows.push({k:"items",lab:"ポイント",old:str(cur),nw:str(it),val:it}); }
-  const cos=(Array.isArray(d.callouts)?d.callouts:[]).map(c=>({lab:String(c.photo||""),t:String(c.text||"").trim()})).filter(c=>c.t&&kzAiPhotos().some(x=>x.lab===c.lab));
+  const mk=kzMarks(d);
   const cm=(Array.isArray(d.comments)?d.comments:[]).map(String).filter(x=>x.trim());
-  kzAI={rows,cos,cm}; $("#kzAiIn").value="";
+  kzAI={rows,mk,cm}; $("#kzAiIn").value="";
   $("#kzRv").innerHTML=`<div class="kzCard"><h3>AIの下書き<span style="flex:1"></span><button class="primary sm" id="kzApply">チェックしたものを反映</button></h3>
-    ${rows.length?"":`<p class="kzHint">変えるところはありませんでした。</p>`}
+    ${rows.length||mk.length?"":`<p class="kzHint">変えるところはありませんでした。</p>`}
     ${rows.map((r,i)=>`<div class="kzRv"><label class="h"><input type="checkbox" data-ar="${i}" checked> ${r.lab}</label><div class="b">${r.old?lineDiff(r.old,r.nw):`<ins>${esc(r.nw)}</ins>`}</div></div>`).join("")}
-    ${cos.length?`<div class="kzRv"><div class="h">写真に入れる吹き出しの案（反映すると写真の左上に入ります。あとで動かせます）</div><div class="b">${cos.map((c,i)=>`<label style="display:block"><input type="checkbox" data-ac="${i}"> ${esc(c.lab)}：「${esc(c.t)}」</label>`).join("")}</div></div>`:""}
+    ${mk.length?`<div class="kzRv"><div class="h">写真への書き込みの案（赤い言葉・丸・矢印・線）</div><p class="kzHint" style="margin:4px 10px">付けたあとも、写真の「✏️ 書き込み」で動かしたり消したりできます。</p>
+      <div class="kzMk">${mk.map((g,i)=>`<label class="c"><canvas data-mc="${i}"></canvas><span><input type="checkbox" data-am="${i}" checked> ${esc(g.lab)}<small>${g.L.map(m=>m.type==="note"?`「${esc(m.t)}」`:KZ_MK_NAME[m.type]).join("・")}</small></span></label>`).join("")}</div></div>`:""}
     ${cm.length?`<div class="kzCm"><b>AIからのコメント</b>${cm.map(c=>`<div>・${esc(c)}</div>`).join("")}</div>`:""}</div>`;
-  $("#kzApply").onclick=kzApply; $("#kzRv").scrollIntoView({block:"start"});
+  $("#kzApply").onclick=()=>busyRun("✏️ 反映しています…",kzApply); $("#kzRv").scrollIntoView({block:"start"});
+  kzMarkPreview(mk);
 }
+/* 書き込み案を、写真の上に描いて見せる（確認用なので小さく） */
+async function kzMarkPreview(mk){ for(const [i,g] of mk.entries()){ try{ const c=$(`canvas[data-mc="${i}"]`); if(!c) continue;
+  const im=await loadImg(g.p.data), W=im.naturalWidth, H=im.naturalHeight, q=Math.min(1,480/Math.max(W,H));
+  c.width=Math.round(W*q); c.height=Math.round(H*q); const x=cv2d(c); x.scale(q,q); x.drawImage(im,0,0); kzMarkShapes(W,H,g.L).forEach(s=>drawShape(x,s)); }catch(_){} } }
 async function kzApply(){ const K=KZ, A=kzAI; if(!A) return; let n=0;
   $$("[data-ar]").forEach(cb=>{ if(!cb.checked) return; const r=A.rows[+cb.dataset.ar]; if(r.k==="items") K.items=r.val.map(x=>({...x})); else K.f[r.k]=r.nw; n++; });
-  const ph=kzAiPhotos();
-  for(const cb of $$("[data-ac]")){ if(!cb.checked) continue; const c=A.cos[+cb.dataset.ac], x=ph.find(y=>y.lab===c.lab); if(!x) continue;
-    try{ const p=x.p, re=!!(p.src&&p.ed), base=await loadImg(re?p.src:p.data), W=base.naturalWidth, H=base.naturalHeight, adj=re?p.ed.adj:{b:0,c:0};
-      const fs=Math.max(18,Math.max(W,H)/24), s={type:"text",x1:W*.04,y1:H*.06+fs*.7,x2:W*.04,y2:H*.06+fs*.7,color:"#e53935",w:Math.max(W,H)/300,fs,text:c.t};
-      const shapes=(re?p.ed.shapes:[]).concat([s]), cv=bakeWith(base,adj,shapes), src=re?p.src:p.data;
+  for(const cb of $$("[data-am]")){ if(!cb.checked) continue; const g=A.mk[+cb.dataset.am]; if(!g) continue;
+    try{ const p=g.p, re=!!(p.src&&p.ed), base=await loadImg(re?p.src:p.data), W=base.naturalWidth, H=base.naturalHeight, adj=re?p.ed.adj:{b:0,c:0};
+      const shapes=(re?p.ed.shapes:[]).concat(kzMarkShapes(W,H,g.L)), cv=bakeWith(base,adj,shapes), src=re?p.src:p.data;
       Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(shapes))}}); cvFree(cv); n++; }catch(_){} }
+  $$("canvas[data-mc]").forEach(c=>cvFree(c));
   kzAI=null; kzPersist(); await kzSaveNow(); kzToast(`✓ ${n}か所に反映しました`); kzGo("edit"); }
 /* ---------- 保存・送る（.json） ---------- */
 function kzSaveJson(){ kzSaveNow(); const K=KZ; const txt=JSON.stringify({app:"kaizen-sheet",ver:1,doc:K});
