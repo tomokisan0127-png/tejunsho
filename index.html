@@ -856,6 +856,8 @@ details.fold>summary::before{color:var(--accent)}
 #busyOv i{width:34px;height:34px;border-radius:50%;border:4px solid #d7e2f0;border-top-color:#1f5fae;animation:bsp 1s linear infinite}
 #busyOv b{font-size:15px;color:#1d2733} #busyOv small{color:#667;font-size:12px} #busyOv button{margin-top:6px}
 @keyframes bsp{to{transform:rotate(360deg)}}
+.balMk{display:flex;align-items:flex-start;gap:6px;font-size:13px;color:#333;margin:2px 0 6px;line-height:1.4}
+.balMk input{width:auto;margin:2px 0 0;flex:none;transform:scale(1.15)}
 /* ===== 改善シート・ワンポイントシート（手順書とは別の画面） ===== */
 #kz{position:fixed;inset:0;background:#f2f4f7;z-index:125;overflow-y:auto;font-size:16px;-webkit-tap-highlight-color:transparent;overscroll-behavior:contain}
 #kz[hidden]{display:none}
@@ -4038,7 +4040,7 @@ function renderAiFlow(){
   const tg=$("#aiTg");
   let th="";
   if(cur==="gen"&&C.list.length) th=`<div class="tgH">この工程を書いてもらいます（押すと工程を開きます・✕で今回は外す）</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)} <small>${GEN_WHY[x.why]}${x.s.photos&&x.s.photos.length?"":"・写真なし"}</small></a><button type="button" data-off="${x.i}" title="今回は外す">✕</button></span>`).join("");
-  if(cur==="balloon"&&C.list.length) th=`<div class="tgH">風船を描く工程</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)}</a></span>`).join("")+`<div><button type="button" class="sm" id="afSkip">風船は描かないで ③ へ進む</button></div>`;
+  if(cur==="balloon"&&C.list.length) th=`<label class="afPh"><input type="checkbox" id="afMk"${S.meta.balMk!=="0"?" checked":""}> 風船といっしょに、図示（矢印・丸・短い言葉）も頼む</label><div class="tgH">風船を描く工程</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)}</a></span>`).join("")+`<div><button type="button" class="sm" id="afSkip">風船は描かないで ③ へ進む</button></div>`;
   if(cur==="check") th=`<div class="tgH">全部の工程（${S.steps.filter(s=>!stEmpty(s)).length}工程）を見てもらいます</div>`+(hasPh?`<label class="afPh"><input type="checkbox" id="aiPh"${aiPhOn?" checked":""}> 写真もいっしょに送る（写真と文章が合っているかも見てもらう）</label>`:"");
   tg.innerHTML=th; tg.hidden=!th;
   $$("[data-af]",box).forEach(b=>b.onclick=()=>{ aiSel=b.dataset.af; if(aiSel==="balloon"&&S.meta.balSkip==="1"){ S.meta.balSkip=""; persist(); } renderAiFlow(); });
@@ -4046,6 +4048,7 @@ function renderAiFlow(){
   $$("[data-off]",tg).forEach(b=>b.onclick=()=>{ const st=S.steps[+b.dataset.off], w=genWhy(st);
     if(w==="added") st._finParts=partsInStep(st).filter(p=>p.b).map(p=>p.b); else st._genOff=w+"|"+st.title+"|"+st.body;
     persist(); renderAiFlow(); });
+  const mkc=$("#afMk"); if(mkc) mkc.onchange=()=>{ S.meta.balMk=mkc.checked?"":"0"; persist(); $("#aiCopied").textContent=""; };
   const sk=$("#afSkip"); if(sk) sk.onclick=()=>{ S.meta.balSkip="1"; aiSel=null; persist(); renderAiFlow(); };
   const pc=$("#aiPh"); if(pc) pc.onchange=()=>{ aiPhOn=pc.checked; renderAiFlow(); };
 
@@ -4086,7 +4089,7 @@ async function aiMakeImages(bal,list){
       for(const ph of s.photos.slice(0,3)){
         try{ const im=await loadImg(ph.data); const sc=Math.min(bw/im.naturalWidth,PH/im.naturalHeight), w=im.naturalWidth*sc, h=im.naturalHeight*sc, px=x+(bw-w)/2, py=y+HEAD+(PH-h)/2;
           g.drawImage(im,px,py,w,h);
-          if(bal){ g.strokeStyle="#888"; g.lineWidth=2; g.strokeRect(px,py,w,h); const lb=`${stepNo(i+1)}-${s.photos.indexOf(ph)+1}`;
+          if(bal){ g.strokeStyle="#888"; g.lineWidth=2; g.strokeRect(px,py,w,h); drawTicks(g,px,py,w,h); const lb=`${stepNo(i+1)}-${s.photos.indexOf(ph)+1}`;
             g.font="bold 30px sans-serif"; const tw=g.measureText(lb).width+20; g.fillStyle="#1f5fae"; g.fillRect(px,py,tw,42); g.fillStyle="#fff"; g.textBaseline="middle"; g.fillText(lb,px+10,py+22); }
         }catch(_){}
         if(!bal){ g.strokeStyle="#c9d1dc"; g.lineWidth=2; g.strokeRect(x,y+HEAD,bw,PH); } x+=bw+12;
@@ -4199,7 +4202,7 @@ function balTargets(){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&
 /* 風船を頼む工程：まだ風船が無い工程だけ（全部付いていたら、全部をやり直し） */
 function balWork(){ const L=balLeft(); return L.length?L:balTargets(); }
 function aiBalloonPrompt(){
-  const L=balWork();
+  const L=balWork(), mk=S.meta.balMk!=="0";      // 図示（矢印・丸・言葉）もいっしょに頼む（既定は頼む）
   return `あなたは製造現場（機械組立）の作業手順書の写真に、部品の風船番号を付ける担当です。
 添付した画像には、各工程の写真が並んでいます。写真の左上に「③-1」のような［工程番号-写真番号］のラベルがあり、写真のまわりに灰色の枠があります。
 下の【工程と部品】を見て、それぞれの写真の中で、その部品がどこに写っているかを探してください。
@@ -4210,16 +4213,60 @@ function aiBalloonPrompt(){
 3. 1枚の写真に同じ部品が何個も写っている場合は、いちばん分かりやすい1か所だけにしてください。
 4. 同じ工程に写真が何枚かあるときは、その部品がいちばんよく見える写真を選んでください（同じ部品を何枚にも付けなくてよい）。
 5. 自信の度合いを conf に「高」「中」「低」で書いてください。
-6. 写真や文章の内容は変えません。答えるのは位置だけです。
-
+6. 写真や文章の内容は変えません。答えるのは位置${mk?"と図示":""}だけです。
+7. 灰色の枠の下と右のふちに、位置の目盛り（10ごと）があります。位置を答えるときの目安にしてください。
+${mk?`
+【図示（marks）もお願いします】
+風船のほかに、その工程の作業が写真を見ただけで分かるように、赤い図示を写真1枚につき0〜2個入れてください（無理に入れなくてよい）。
+例：差し込む・動かす・回す向き → arrow、気をつける所 → circle、そろえる位置・高さ → line、短い説明 → note。
+- 位置は風船と同じく、その写真の灰色の枠の左上0・右下100の%。風船を付ける場所と重ならないように。
+- すでに赤い書き込みがある写真は、足りないものだけ。
+- 言葉（note）は、工程の文章と同じ言い方で短く（例：奥まで差し込む、向きに注意）。
+${MK_TYPES}
+`:""}
 【返し方】
 次の形式の JSON だけを \`\`\`json のコードブロック1つで返してください（説明文は不要です）。
 no は工程番号（数字）、photo は写真番号（数字）、b は風船番号（文字）です。
-{"balloons":[{"no":3,"photo":1,"b":"052","x":40,"y":60,"conf":"高"}],"comments":[{"no":3,"text":"気になる点"}]}
+{"balloons":[{"no":3,"photo":1,"b":"052","x":40,"y":60,"conf":"高"}]${mk?`,"marks":[{"no":3,"photo":1,"type":"arrow","x1":30,"y1":75,"x2":30,"y2":55},{"no":3,"photo":1,"type":"note","text":"奥まで差し込む","x":55,"y":12,"tx":42,"ty":45}]`:""},"comments":[{"no":3,"text":"気になる点"}]}
 
 【工程と部品】
-${L.map(({s,i})=>`工程${i+1}（${stepNo(i+1)}・写真${s.photos.length}枚）${s.title?"「"+s.title+"」":""}：${balParts(s).map(p=>`【${p.b}】${pName(p)||p.pn}`).join("、")}`).join("\n")}`;
+${L.map(({s,i})=>`工程${i+1}（${stepNo(i+1)}・写真${s.photos.length}枚）${s.title?"「"+s.title+"」":""}：${balParts(s).map(p=>`【${p.b}】${pName(p)||p.pn}`).join("、")}${mk&&s.body?`\n　内容：${String(s.body).replace(/\s*\n\s*/g,"／").slice(0,140)}`:""}`).join("\n")}`;
 }
+/* ---- AIの図示（言葉・丸・矢印・線）。手順書の風船と、改善シート・ワンポイントで共通 ---- */
+const MK_NAME={note:"言葉",circle:"丸",arrow:"矢印",line:"線"};
+const MK_TYPES=`- type は次の4つから選ぶ。
+  note＝短い言葉（12字以内）。x,y は文字の左端・高さの真ん中。部品や手に重ならない、空いている所に置く。指したい所があれば tx,ty（矢印の先）も入れる。
+  circle＝大事な所を丸で囲む。x,y が中心、r が半径（写真の横幅の%、5〜25）。
+  arrow＝動き・差し込む向き・回す向きなどを示す矢印。x1,y1（根元）→ x2,y2（先）。
+  line＝基準線（高さや位置をそろえる・比べる線）。x1,y1 → x2,y2。`;
+const mkMeasure=(()=>{ let g=null; return (t,fs)=>{ if(!g) g=document.createElement("canvas").getContext("2d");
+  g.font=`bold ${fs}px "Meiryo","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif`; return g.measureText(t).width; }; })();
+/* AIの答え1つ → 決まった形（位置のないもの・おかしなものは null） */
+function mkNorm(m){ if(!m) return null; const num=v=>v!==undefined&&v!==null&&v!==""&&isFinite(+v), P=v=>Math.max(0,Math.min(100,+v)), ty=String(m.type||"").toLowerCase(), t=String(m.text||"").trim();
+  if(ty==="note"&&t&&num(m.x)&&num(m.y)) return {type:"note",t,x:P(m.x),y:P(m.y),...(num(m.tx)&&num(m.ty)?{tx:P(m.tx),ty:P(m.ty)}:{})};
+  if(ty==="circle"&&num(m.x)&&num(m.y)) return {type:"circle",x:P(m.x),y:P(m.y),r:Math.max(3,Math.min(40,num(m.r)?+m.r:10))};
+  if((ty==="arrow"||ty==="line")&&[m.x1,m.y1,m.x2,m.y2].every(num)) return {type:ty,x1:P(m.x1),y1:P(m.y1),x2:P(m.x2),y2:P(m.y2)};
+  return null; }
+/* 決まった形 → 写真編集の図形（赤）。k：文字の大きさ＝写真の長い辺÷k。言葉はいちばん上に重ねる */
+function markShapes(W,H,L,k=24){ const M=Math.max(W,H), FS=Math.max(18,M/k), lw=Math.max(3,M/200), col="#ff1a1a", X=v=>v/100*W, Y=v=>v/100*H, sh=[], tx=[];
+  for(const m of L){
+    if(m.type==="note"){ let fs=FS, bw=mkMeasure(m.t,fs)+fs*.6; if(bw>W*.92){ fs=fs*W*.92/bw; bw=W*.92; } const bh=fs*1.4;
+      const x=Math.max(4,Math.min(W-bw-4,X(m.x))), y=Math.max(bh/2+4,Math.min(H-bh/2-4,Y(m.y)));
+      if(m.tx!=null){ const ax=X(m.tx), ay=Y(m.ty), cx=Math.max(x,Math.min(x+bw,ax)), cy=Math.max(y-bh/2,Math.min(y+bh/2,ay)), d=Math.hypot(ax-cx,ay-cy);
+        if(d>fs*.8){ const ux=(ax-cx)/d, uy=(ay-cy)/d; sh.push({type:"arrow",x1:cx+ux*fs*.15,y1:cy+uy*fs*.15,x2:ax-ux*fs*.1,y2:ay-uy*fs*.1,color:col,w:lw,fs}); } }
+      tx.push({type:"text",x1:x,y1:y,x2:x,y2:y,color:col,w:lw,fs,text:m.t}); }
+    else if(m.type==="circle"){ const r=m.r/100*W; sh.push({type:"ellipse",x1:X(m.x)-r,y1:Y(m.y)-r,x2:X(m.x)+r,y2:Y(m.y)+r,color:col,w:lw,fs:FS}); }
+    else sh.push({type:m.type,x1:X(m.x1),y1:Y(m.y1),x2:X(m.x2),y2:Y(m.y2),color:col,w:lw,fs:FS}); }
+  return {under:sh,top:tx}; }
+/* AIが位置を答えやすいように、写真の下と右のふちに 10% ごとの目盛り（x0,y0 から W×H の範囲） */
+function drawTicks(g,x0,y0,W,H){ const fs=Math.max(14,Math.round(Math.max(W,H)/58)), tl=fs*.8; g.save(); g.font=`bold ${fs}px sans-serif`;
+  const mk=(x1,y1,x2,y2,t,tx,ty,al,bl)=>{ g.strokeStyle="#000"; g.lineWidth=Math.max(4,fs/3.5); g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
+    g.strokeStyle="#ffeb3b"; g.lineWidth=Math.max(2,fs/7); g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
+    g.textAlign=al; g.textBaseline=bl; g.lineWidth=Math.max(3,fs/4); g.strokeStyle="#000"; g.strokeText(t,tx,ty); g.fillStyle="#ffeb3b"; g.fillText(t,tx,ty); };
+  for(let k=1;k<10;k++){ const x=x0+W*k/10, y=y0+H*k/10;
+    mk(x,y0+H,x,y0+H-tl,String(k*10),x,y0+H-tl-2,"center","bottom");
+    mk(x0+W,y,x0+W-tl,y,String(k*10),x0+W-tl-4,y,"right","middle"); }
+  g.restore(); }
 let BAL=null;
 /* AIの位置 → 写真編集の「風船」と同じ形（部品の点 x1,y1／丸 x2,y2） */
 function balShapes(W,H,items){
@@ -4235,36 +4282,43 @@ function balShapes(W,H,items){
 }
 function balGroups(){
   const G=new Map();
-  (BAL.balloons||[]).forEach(it=>{ const st=S.steps[(+it.no||0)-1]; if(!st) return; const ph=st.photos[(+it.photo||1)-1]; if(!ph) return;
-    const k=st.id+"|"+ph.id; if(!G.has(k)) G.set(k,{st,i:+it.no-1,j:(+it.photo||1)-1,ph,items:[]}); if(it.b!=null&&it.x!=null&&it.y!=null) G.get(k).items.push(it); });
-  return [...G.values()].filter(g=>g.items.length);
+  const grp=it=>{ const st=S.steps[(+it.no||0)-1]; if(!st) return null; const ph=st.photos[(+it.photo||1)-1]; if(!ph) return null;
+    const k=st.id+"|"+ph.id; if(!G.has(k)) G.set(k,{k,st,i:+it.no-1,j:(+it.photo||1)-1,ph,items:[],marks:[]}); return G.get(k); };
+  (BAL.balloons||[]).forEach(it=>{ const g=grp(it); if(g&&it.b!=null&&it.x!=null&&it.y!=null) g.items.push(it); });
+  (Array.isArray(BAL.marks)?BAL.marks:[]).forEach(it=>{ const m=mkNorm(it); if(!m) return; const g=grp(it); if(g) g.marks.push(m); });
+  return [...G.values()].filter(g=>g.items.length||g.marks.length);
 }
+/* 1枚の写真に付ける図形：図示（下）＋風船＋図示の言葉（上）。図示を外した写真は風船だけ */
+function balShapesAll(W,H,g){ const b=balShapes(W,H,g.items).map(x=>{ delete x.conf; return x; });
+  if(!g.marks.length||(BAL.noMk&&BAL.noMk.includes(g.k))) return b; const m=markShapes(W,H,g.marks,18); return m.under.concat(b,m.top); }
 async function balRender(){
   if(!BAL) return;   // 片付けた後（③へ進んだ時など）
   const box=$("#aiReview"), Gs=balGroups(), cm=BAL.comments||[];
   $$("canvas[data-bc]",box).forEach(c=>cvFree(c));      // 前に描いた確認用の写真を返す
-  if(!Gs.length){ box.innerHTML=`<p class="hint">AIの返事に、風船の位置がありませんでした。</p>`; return; }
-  box.innerHTML=`<div class="aiTop"><b>AIが付けた風船（写真${Gs.length}枚）</b><span style="flex:1"></span>
+  if(!Gs.length){ box.innerHTML=`<p class="hint">AIの返事に、風船・図示の位置がありませんでした。</p>`; return; }
+  box.innerHTML=`<div class="aiTop"><b>AIが付けた風船${Gs.some(g=>g.marks.length)?"・図示":""}（写真${Gs.length}枚）</b><span style="flex:1"></span>
     <button class="primary sm" id="balAll">まだの写真に全部このまま付ける</button>${BAL.undo&&BAL.undo.length?`<button class="sm" id="balUndo">付けた風船を元に戻す</button>`:""}</div>
     <p class="hint">赤い丸の位置がずれていたら「✏️ 確かめて付ける」で、写真編集の中で指で動かして直せます。</p>
     <div class="balList">${Gs.map((g,k)=>`<div class="balCard${g.ph._balDone?" done":""}"><div class="balH">工程${stepNo(g.i+1)}・写真${g.j+1}　${g.items.map(it=>`【${esc(it.b)}】${it.conf?`<small>${esc(it.conf)}</small>`:""}`).join(" ")}</div>
+      ${g.marks.length&&!g.ph._balDone?`<label class="balMk"><input type="checkbox" data-bm="${k}"${BAL.noMk&&BAL.noMk.includes(g.k)?"":" checked"}> 図示も付ける：${g.marks.map(m=>m.type==="note"?`「${esc(m.t)}」`:MK_NAME[m.type]).join("・")}</label>`:""}
       <canvas data-bc="${k}"></canvas>${g.ph._balDone?`<div class="balDone">✓ 付けました</div>`:`<div class="balBtns"><button data-be="${k}">✏️ 確かめて付ける</button><button class="primary" data-ba="${k}">✓ このまま付ける</button></div>`}</div>`).join("")}</div>
     ${cm.length?`<div class="balCm"><b>AIからのコメント</b>${cm.map(c=>`<div>${c.no?`工程${stepNo(+c.no)}：`:""}${esc(c.text||"")}</div>`).join("")}</div>`:""}`;
   for(const [k,g] of Gs.entries()){ try{ const im=await loadImg(g.ph.data), W=im.naturalWidth,H=im.naturalHeight, c=$(`canvas[data-bc="${k}"]`); if(!c) continue;      // 写真の大きさは、元の写真と同じ
     const q=Math.min(1,720/Math.max(W,H)); c.width=Math.round(W*q); c.height=Math.round(H*q);      // 確認用なので小さく描く（元の大きさのままだと写真の枚数ぶんメモリを使う）
-    const x=cv2d(c); x.scale(q,q); x.drawImage(im,0,0); if(!g.ph._balDone) balShapes(W,H,g.items).forEach(sh=>drawShape(x,sh)); }catch(_){} }
+    const x=cv2d(c); x.scale(q,q); x.drawImage(im,0,0); if(!g.ph._balDone) balShapesAll(W,H,g).forEach(sh=>drawShape(x,sh)); }catch(_){} }
+  $$("[data-bm]",box).forEach(cb=>cb.onchange=()=>{ const g=Gs[+cb.dataset.bm]; BAL.noMk=(BAL.noMk||[]).filter(k=>k!==g.k); if(!cb.checked) BAL.noMk.push(g.k); balRender(); });
   $$("[data-ba]",box).forEach(b=>b.onclick=()=>balApply([Gs[+b.dataset.ba]]));
   $$("[data-be]",box).forEach(b=>b.onclick=async()=>{ const g=Gs[+b.dataset.be];
     const b4=stepSnap(g.st);
     await openEditor(g.st,g.j,()=>{ g.ph._balDone=true; histPush(g.st,b4); balSaved(); },"select");
-    E.shapes=E.shapes.concat(balShapes(iw(),ih(),g.items).map(x=>{ delete x.conf; return x; })); E.sel=null; edDraw(); edUI(); });
+    E.shapes=E.shapes.concat(balShapesAll(iw(),ih(),g)); E.sel=null; edDraw(); edUI(); });
   const all=$("#balAll"); if(all) all.onclick=()=>busyRun("🎈 風船を写真に付けています…",()=>balApply(Gs.filter(g=>!g.ph._balDone)));
   const un=$("#balUndo"); if(un) un.onclick=()=>{ BAL.undo.forEach(u=>{ Object.assign(u.ph,{data:u.data,w:u.w,h:u.h}); if(u.src) u.ph.src=u.src; else delete u.ph.src; if(u.ed) u.ph.ed=u.ed; else delete u.ph.ed; delete u.ph._balDone; }); BAL.undo=[]; balSaved(); fmToast?.("風船を付ける前に戻しました"); };
 }
 async function balApply(list){
   BAL.undo=BAL.undo||[];
   for(const g of list){ try{ const p=g.ph, re=!!(p.src&&p.ed), base=await loadImg(re?p.src:p.data), b4=stepSnap(g.st);
-    const adj=re?p.ed.adj:{b:0,c:0}, old=re?p.ed.shapes:[], add=balShapes(base.naturalWidth,base.naturalHeight,g.items).map(x=>{ delete x.conf; return x; });
+    const adj=re?p.ed.adj:{b:0,c:0}, old=re?p.ed.shapes:[], add=balShapesAll(base.naturalWidth,base.naturalHeight,g);
     BAL.undo.push({ph:p,data:p.data,w:p.w,h:p.h,src:p.src,ed:p.ed});
     const cv=bakeWith(base,adj,old.concat(add)); const src=re?p.src:p.data;
     Object.assign(p,toJpeg(cv,cv.width,cv.height),{src,ed:{adj:{...adj},shapes:JSON.parse(JSON.stringify(old.concat(add)))}}); cvFree(cv); p._balDone=true; histPush(g.st,b4); }catch(_){} }
@@ -4276,7 +4330,7 @@ function parseAi(text){
   const m=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(m) t=m[1];
   const i=t.indexOf("{"), j=t.lastIndexOf("}"); if(i<0||j<i) throw new Error("JSONが見つかりません");
   const d=JSON.parse(t.slice(i,j+1));
-  if(!Array.isArray(d.steps)&&!Array.isArray(d.balloons)) throw new Error("steps がありません");
+  if(!Array.isArray(d.steps)&&!Array.isArray(d.balloons)&&!Array.isArray(d.marks)) throw new Error("steps がありません");
   return d;
 }
 /* 行単位の差分（LCS） */
@@ -4295,7 +4349,7 @@ let AI=null, aiUndo=null;
 $("#bAiRead").onclick=()=>{
   let d; try{ d=parseAi($("#aiIn").value); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーして貼り付けてください。"); }
   $("#aiIn").value="";   // 読み込めたら空にする（次の段で貼り直しやすいように）
-  if(Array.isArray(d.balloons)&&!Array.isArray(d.steps)){ AI=null; BAL=d; balRender(); return aiShowTop(); }
+  if((Array.isArray(d.balloons)||Array.isArray(d.marks))&&!Array.isArray(d.steps)){ AI=null; BAL=d; if(!Array.isArray(BAL.balloons)) BAL.balloons=[]; balRender(); return aiShowTop(); }
   AI=d; BAL=null; renderAiReview(); aiShowTop();
 };
 /* 📋 貼り付けて読み込む：コピーしたAIの返事を、ボタン1つで貼り付け＋読み込み */
@@ -5945,11 +5999,7 @@ function kzMarkRule(){ const kz=KZ.kind==="kaizen";
 ${kz?"改善前の写真は「何が問題か」、改善後の写真は「どこをどう良くしたか」":"ポイント（●＊■）の場所"}が、写真を見ただけで分かるように、赤い書き込みを考えてください。
 - 写真1枚につき1〜3個。すでに赤い書き込みがある写真は、足りないものだけ（足りていれば入れない）。
 - 位置は、その写真の左上を0・右下を100とした%（x＝横、y＝縦）。写真の下と右のふちにある目盛り（10ごと）を見て、なるべく正確に。
-- type は次の4つから選ぶ。
-  note＝短い言葉（12字以内）。x,y は文字の左端・高さの真ん中。部品や手に重ならない、空いている所に置く。指したい所があれば tx,ty（矢印の先）も入れる。
-  circle＝大事な所を丸で囲む。x,y が中心、r が半径（写真の横幅の%、5〜25）。
-  arrow＝動きや向きを示す矢印。x1,y1（根元）→ x2,y2（先）。
-  line＝基準線（高さや位置をそろえて比べる線）。x1,y1 → x2,y2。
+${MK_TYPES}
 - 言葉は、シートの文章と同じ言い方で短く（例：目で見て調整、当てるだけで決まる）。`; }
 const KZ_MARK_FMT=`"marks":[{"photo":"PH","type":"note","text":"","x":40,"y":15,"tx":55,"ty":45},{"photo":"PH","type":"circle","x":50,"y":60,"r":12}]`;
 function kzPrompt(mode){
@@ -6013,15 +6063,7 @@ ${ph.length?kzMarkRule()+"\n":""}
 5. 答えは次のJSONだけを \`\`\`json で囲んで返してください。
 {"sagyo":"","items":[{"mark":"●","text":""}]${ph.length?","+fmt:""},"comments":[""]}`;
 }
-/* AIが位置を答えやすいように、写真の下と右のふちに 10% ごとの目盛りを入れる */
-function kzTicks(g,W,H){ const fs=Math.max(14,Math.round(Math.max(W,H)/58)), tl=fs*.8; g.save(); g.font=`bold ${fs}px sans-serif`; g.lineWidth=Math.max(2,fs/7);
-  const mk=(x1,y1,x2,y2,t,tx,ty,al,bl)=>{ g.strokeStyle="#000"; g.lineWidth=Math.max(4,fs/3.5); g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
-    g.strokeStyle="#ffeb3b"; g.lineWidth=Math.max(2,fs/7); g.beginPath(); g.moveTo(x1,y1); g.lineTo(x2,y2); g.stroke();
-    g.textAlign=al; g.textBaseline=bl; g.lineWidth=Math.max(3,fs/4); g.strokeStyle="#000"; g.strokeText(t,tx,ty); g.fillStyle="#ffeb3b"; g.fillText(t,tx,ty); };
-  for(let k=1;k<10;k++){ const x=W*k/10, y=H*k/10;
-    mk(x,H,x,H-tl,String(k*10),x,H-tl-2,"center","bottom");
-    mk(W,y,W-tl,y,String(k*10),W-tl-4,y,"right","middle"); }
-  g.restore(); }
+const kzTicks=(g,W,H)=>drawTicks(g,0,0,W,H);
 async function kzMakeImgs(){ const out=[];
   for(const {p,lab} of kzAiPhotos()){ try{ const im=await loadImg(p.data), s=Math.min(1,1280/Math.max(im.naturalWidth,im.naturalHeight)), c=document.createElement("canvas");
     c.width=Math.round(im.naturalWidth*s); c.height=Math.round(im.naturalHeight*s); const g=c.getContext("2d"); g.drawImage(im,0,0,c.width,c.height);
@@ -6053,28 +6095,14 @@ function kzAiScr(){
     if(!t.trim()){ $("#kzAiIn").focus(); return alert("コピーした文字を読み取れませんでした。\n下の欄を長押しして「ペースト」で貼り付け、「結果を読み込む」を押してください。"); }
     kzRead(t); };
 }
-/* AIの書き込み案 → 写真編集の図形（言葉・丸・矢印・線）。あとから写真の「書き込み」で動かせる */
-const kzMeasure=(()=>{ let g=null; return (t,fs)=>{ if(!g) g=document.createElement("canvas").getContext("2d");
-  g.font=`bold ${fs}px "Meiryo","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif`; return g.measureText(t).width; }; })();
-function kzMarks(d){ const ph=kzAiPhotos(), num=v=>v!==undefined&&v!==null&&v!==""&&isFinite(+v), P=v=>Math.max(0,Math.min(100,+v)), out=new Map();
-  const add=(lab,m)=>{ const x=ph.find(y=>y.lab===lab); if(!x) return; if(!out.has(lab)) out.set(lab,{lab,p:x.p,L:[]}); out.get(lab).L.push(m); };
-  for(const m of (Array.isArray(d.marks)?d.marks:[])){ if(!m) continue; const lab=String(m.photo||""), ty=String(m.type||"").toLowerCase(), t=String(m.text||"").trim();
-    if(ty==="note"&&t&&num(m.x)&&num(m.y)) add(lab,{type:"note",t,x:P(m.x),y:P(m.y),...(num(m.tx)&&num(m.ty)?{tx:P(m.tx),ty:P(m.ty)}:{})});
-    else if(ty==="circle"&&num(m.x)&&num(m.y)) add(lab,{type:"circle",x:P(m.x),y:P(m.y),r:Math.max(3,Math.min(40,num(m.r)?+m.r:10))});
-    else if((ty==="arrow"||ty==="line")&&[m.x1,m.y1,m.x2,m.y2].every(num)) add(lab,{type:ty,x1:P(m.x1),y1:P(m.y1),x2:P(m.x2),y2:P(m.y2)}); }
+/* AIの書き込み案 → 写真編集の図形（共通の mkNorm・markShapes を使う）。あとから写真の「書き込み」で動かせる */
+function kzMarks(d){ const ph=kzAiPhotos(), out=new Map();
+  const add=(lab,m)=>{ const x=ph.find(y=>y.lab===lab); if(!x||!m) return; if(!out.has(lab)) out.set(lab,{lab,p:x.p,L:[]}); out.get(lab).L.push(m); };
+  for(const m of (Array.isArray(d.marks)?d.marks:[])) if(m) add(String(m.photo||""),mkNorm(m));
   for(const c of (Array.isArray(d.callouts)?d.callouts:[])){ const t=String(c&&c.text||"").trim(); if(t) add(String(c.photo||""),{type:"note",t,x:4,y:7}); }   // 古い形（位置なし）
   return [...out.values()]; }
-function kzMarkShapes(W,H,L){ const M=Math.max(W,H), FS=Math.max(18,M/24), lw=Math.max(3,M/200), col="#ff1a1a", X=v=>v/100*W, Y=v=>v/100*H, sh=[], tx=[];
-  for(const m of L){
-    if(m.type==="note"){ let fs=FS, bw=kzMeasure(m.t,fs)+fs*.6; if(bw>W*.92){ fs=fs*W*.92/bw; bw=W*.92; } const bh=fs*1.4;
-      const x=Math.max(4,Math.min(W-bw-4,X(m.x))), y=Math.max(bh/2+4,Math.min(H-bh/2-4,Y(m.y)));
-      if(m.tx!=null){ const ax=X(m.tx), ay=Y(m.ty), cx=Math.max(x,Math.min(x+bw,ax)), cy=Math.max(y-bh/2,Math.min(y+bh/2,ay)), d=Math.hypot(ax-cx,ay-cy);
-        if(d>fs*.8){ const ux=(ax-cx)/d, uy=(ay-cy)/d; sh.push({type:"arrow",x1:cx+ux*fs*.15,y1:cy+uy*fs*.15,x2:ax-ux*fs*.1,y2:ay-uy*fs*.1,color:col,w:lw,fs}); } }
-      tx.push({type:"text",x1:x,y1:y,x2:x,y2:y,color:col,w:lw,fs,text:m.t}); }
-    else if(m.type==="circle"){ const r=m.r/100*W; sh.push({type:"ellipse",x1:X(m.x)-r,y1:Y(m.y)-r,x2:X(m.x)+r,y2:Y(m.y)+r,color:col,w:lw,fs:FS}); }
-    else sh.push({type:m.type,x1:X(m.x1),y1:Y(m.y1),x2:X(m.x2),y2:Y(m.y2),color:col,w:lw,fs:FS}); }
-  return sh.concat(tx); }      // 言葉はいちばん上に
-const KZ_MK_NAME={note:"言葉",circle:"丸",arrow:"矢印",line:"線"};
+function kzMarkShapes(W,H,L){ const m=markShapes(W,H,L,24); return m.under.concat(m.top); }
+const KZ_MK_NAME=MK_NAME;
 function kzParse(t){ t=String(t||"").trim(); const m=t.match(/```(?:json)?\s*([\s\S]*?)```/); if(m) t=m[1]; const i=t.indexOf("{"), j=t.lastIndexOf("}"); if(i<0||j<i) throw new Error("JSONが見つかりません"); return JSON.parse(t.slice(i,j+1)); }
 function kzRead(t){
   let d; try{ d=kzParse(t); }catch(e){ return alert("読み込めませんでした："+e.message+"\nAIの返事を最初から最後まで全部コピーしてください。"); }
