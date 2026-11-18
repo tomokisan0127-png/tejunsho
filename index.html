@@ -3981,7 +3981,7 @@ $("#bAiCopy").onclick=async()=>{
     $("#aiCopied").textContent=ok?`✓ 依頼文をコピーしました（対象：${L.length}工程）。続けて写真の画像を用意します…`:"依頼文をコピーできませんでした";
     return aiMakeImages(true,LP); }
   if(aiMode()==="balloon"){
-    if(!balTargets().length) return alert("写真があって、文章に風船番号の部品（【052】など）が入っている工程がありません。");
+    if(!balTargets().length) return alert(balMkOn()?"写真のある工程がありません。":"写真があって、文章に風船番号の部品（【052】など）が入っている工程がありません。\n「図示も頼む」にチェックすると、風船の部品が無い工程にも図示を描いてもらえます。");
     const ok=await copyText(aiBalloonPrompt()); $("#aiCopied").textContent=ok?"✓ 依頼文をコピーしました。続けて写真の画像を用意します…":"依頼文をコピーできませんでした";
     return aiMakeImages(true,balWork()); }
   if(!S.steps.some(s=>s.body||s.title)) return alert("先に工程の文章を入れてください");
@@ -3995,7 +3995,9 @@ $("#bAiCopy").onclick=async()=>{
 };
 /* ---- 仕上げの流れ：手順書の状態から「今やること」を決める ---- */
 let aiSel=null, aiPhOn=true, aiFlowDoc=null;
-function balLeft(){ return balTargets().filter(x=>!x.s.photos.some(p=>((p.ed&&p.ed.shapes)||[]).some(z=>z.type==="balloon"))); }
+/* まだの工程：風船の部品がある工程は風船が無いもの、図示だけの工程は書き込みが何も無いもの */
+function balLeft(){ return balTargets().filter(x=>{ const sh=x.s.photos.flatMap(p=>(p.ed&&p.ed.shapes)||[]);
+  return balParts(x.s).length?!sh.some(z=>z.type==="balloon"):!sh.length; }); }
 const GEN_WHY={photo:"写真だけ",memo:"風船メモ",added:"風船を追加"};
 function aiStages(){
   S.steps.forEach(notePartsBase);   // 今「風船なしの文章」の工程を覚えておく（あとで風船を足したら①の対象に）
@@ -4006,8 +4008,8 @@ function aiStages(){
   return [
     {k:"gen",n:"①",t:"✍ 説明文を書いてもらう",state:G.length?"todo":"none",list:G,
       sub:G.length?`${gs}${noPh?`（うち写真なし ${noPh}）`:""}`:"書いてもらう工程はありません（写真だけ・風船メモだけ・あとから風船を足した工程が対象）"},
-    {k:"balloon",n:"②",t:"📍 写真に風船を描いてもらう",state:!bT?"none":skip?"skip":bL?"opt":"done",list:bL&&!skip?balLeft():[],
-      sub:!bT?"写真と風船番号の部品がある工程がありません":skip?"スキップしました（押すと付けられます）":bL?`風船がまだ ${bL}工程・やらなくてもOK`:"風船を描きました"},
+    {k:"balloon",n:"②",t:balMkOn()?"📍 写真に風船・図示を描いてもらう":"📍 写真に風船を描いてもらう",state:!bT?"none":skip?"skip":bL?"opt":"done",list:bL&&!skip?balLeft():[],
+      sub:!bT?(balMkOn()?"写真のある工程がありません":"写真と風船番号の部品がある工程がありません（図示も頼むなら、押してチェック）"):skip?"スキップしました（押すと付けられます）":bL?`${balMkOn()?"風船・図示":"風船"}がまだ ${bL}工程・やらなくてもOK`:(balMkOn()?"風船・図示を描きました":"風船を描きました")},
     {k:"check",n:"③",t:"📝 全体の文章を整える（最後に1回）",state:S.meta.aiChkAt?"done":hasTxt?"todo":"none",list:[],
       sub:S.meta.aiChkAt?"チェック済み（直したら、もう一度どうぞ）":hasTxt?"誤字・表現・枠に収まるか"+(hasPh?"・写真と合っているか":""):"先に工程の文章を入れてください"},
   ];
@@ -4040,7 +4042,7 @@ function renderAiFlow(){
   const tg=$("#aiTg");
   let th="";
   if(cur==="gen"&&C.list.length) th=`<div class="tgH">この工程を書いてもらいます（押すと工程を開きます・✕で今回は外す）</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)} <small>${GEN_WHY[x.why]}${x.s.photos&&x.s.photos.length?"":"・写真なし"}</small></a><button type="button" data-off="${x.i}" title="今回は外す">✕</button></span>`).join("");
-  if(cur==="balloon"&&C.list.length) th=`<label class="afPh"><input type="checkbox" id="afMk"${S.meta.balMk!=="0"?" checked":""}> 風船といっしょに、図示（矢印・丸・短い言葉）も頼む</label><div class="tgH">風船を描く工程</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)}</a></span>`).join("")+`<div><button type="button" class="sm" id="afSkip">風船は描かないで ③ へ進む</button></div>`;
+  if(cur==="balloon") th=`<label class="afPh"><input type="checkbox" id="afMk"${balMkOn()?" checked":""}> 図示（矢印・丸・短い言葉）も頼む（風船の部品が無い工程にも描きます）</label>`+(C.list.length?`<div class="tgH">${balMkOn()?"風船・図示を描く工程":"風船を描く工程"}</div>`+C.list.map(x=>`<span class="tg"><a data-op="${x.s.id}">工程${stepNo(x.i+1)}${balParts(x.s).length?"":"<small>図示だけ</small>"}</a></span>`).join("")+`<div><button type="button" class="sm" id="afSkip">${balMkOn()?"風船・図示":"風船"}は描かないで ③ へ進む</button></div>`:"");
   if(cur==="check") th=`<div class="tgH">全部の工程（${S.steps.filter(s=>!stEmpty(s)).length}工程）を見てもらいます</div>`+(hasPh?`<label class="afPh"><input type="checkbox" id="aiPh"${aiPhOn?" checked":""}> 写真もいっしょに送る（写真と文章が合っているかも見てもらう）</label>`:"");
   tg.innerHTML=th; tg.hidden=!th;
   $$("[data-af]",box).forEach(b=>b.onclick=()=>{ aiSel=b.dataset.af; if(aiSel==="balloon"&&S.meta.balSkip==="1"){ S.meta.balSkip=""; persist(); } renderAiFlow(); });
@@ -4048,7 +4050,7 @@ function renderAiFlow(){
   $$("[data-off]",tg).forEach(b=>b.onclick=()=>{ const st=S.steps[+b.dataset.off], w=genWhy(st);
     if(w==="added") st._finParts=partsInStep(st).filter(p=>p.b).map(p=>p.b); else st._genOff=w+"|"+st.title+"|"+st.body;
     persist(); renderAiFlow(); });
-  const mkc=$("#afMk"); if(mkc) mkc.onchange=()=>{ S.meta.balMk=mkc.checked?"":"0"; persist(); $("#aiCopied").textContent=""; };
+  const mkc=$("#afMk"); if(mkc) mkc.onchange=()=>{ S.meta.balMk=mkc.checked?"":"0"; persist(); $("#aiCopied").textContent=""; renderAiFlow(); };
   const sk=$("#afSkip"); if(sk) sk.onclick=()=>{ S.meta.balSkip="1"; aiSel=null; persist(); renderAiFlow(); };
   const pc=$("#aiPh"); if(pc) pc.onchange=()=>{ aiPhOn=pc.checked; renderAiFlow(); };
 
@@ -4198,14 +4200,16 @@ ${hz.length?`【補材】${hz.join("、")}`:""}`;
 }
 /* ---- 写真に風船を付けてもらう：AIは場所（%）だけ答える → アプリが元の写真に描く ---- */
 function balParts(st){ return partsInStep(st).filter(p=>p.b); }
-function balTargets(){ return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&balParts(x.s).length); }
+function balMkOn(){ return S.meta.balMk!=="0"; }      // 図示（矢印・丸・言葉）もいっしょに頼む（既定は頼む）
+/* 風船・図示を頼む工程：写真があって、風船の部品がある工程。図示も頼むときは、風船の部品が無い工程も（図示だけ） */
+function balTargets(){ const mk=balMkOn(); return S.steps.map((s,i)=>({s,i})).filter(x=>x.s.photos&&x.s.photos.length&&(balParts(x.s).length||mk)); }
 /* 風船を頼む工程：まだ風船が無い工程だけ（全部付いていたら、全部をやり直し） */
 function balWork(){ const L=balLeft(); return L.length?L:balTargets(); }
 function aiBalloonPrompt(){
-  const L=balWork(), mk=S.meta.balMk!=="0";      // 図示（矢印・丸・言葉）もいっしょに頼む（既定は頼む）
-  return `あなたは製造現場（機械組立）の作業手順書の写真に、部品の風船番号を付ける担当です。
+  const L=balWork(), mk=balMkOn(), only=L.some(x=>!balParts(x.s).length);
+  return `あなたは製造現場（機械組立）の作業手順書の写真に、部品の風船番号${mk?"と、作業が分かる図示":""}を付ける担当です。
 添付した画像には、各工程の写真が並んでいます。写真の左上に「③-1」のような［工程番号-写真番号］のラベルがあり、写真のまわりに灰色の枠があります。
-下の【工程と部品】を見て、それぞれの写真の中で、その部品がどこに写っているかを探してください。
+下の【工程と部品】を見て、それぞれの写真の中で、その部品がどこに写っているかを探してください。${mk&&only?"\n「図示だけ」と書いた工程は、風船の部品が無いので、風船はいりません。図示だけを入れてください。":""}
 
 【ルール】
 1. 位置は、その写真の灰色の枠の左上を 0、右下を 100 とした x（横の%）と y（縦の%）で、部品の上の1点（部品の真ん中あたり）を答えてください。
@@ -4217,7 +4221,7 @@ function aiBalloonPrompt(){
 7. 灰色の枠の下と右のふちに、位置の目盛り（10ごと）があります。位置を答えるときの目安にしてください。
 ${mk?`
 【図示（marks）もお願いします】
-風船のほかに、その工程の作業が写真を見ただけで分かるように、赤い図示を写真1枚につき0〜2個入れてください（無理に入れなくてよい）。
+風船のほかに、その工程の作業が写真を見ただけで分かるように、赤い図示を写真1枚につき0〜2個入れてください（無理に入れなくてよい。「図示だけ」の工程は1〜2個）。
 例：差し込む・動かす・回す向き → arrow、気をつける所 → circle、そろえる位置・高さ → line、短い説明 → note。
 - 位置は風船と同じく、その写真の灰色の枠の左上0・右下100の%。風船を付ける場所と重ならないように。
 - すでに赤い書き込みがある写真は、足りないものだけ。
@@ -4230,7 +4234,7 @@ no は工程番号（数字）、photo は写真番号（数字）、b は風船
 {"balloons":[{"no":3,"photo":1,"b":"052","x":40,"y":60,"conf":"高"}]${mk?`,"marks":[{"no":3,"photo":1,"type":"arrow","x1":30,"y1":75,"x2":30,"y2":55},{"no":3,"photo":1,"type":"note","text":"奥まで差し込む","x":55,"y":12,"tx":42,"ty":45}]`:""},"comments":[{"no":3,"text":"気になる点"}]}
 
 【工程と部品】
-${L.map(({s,i})=>`工程${i+1}（${stepNo(i+1)}・写真${s.photos.length}枚）${s.title?"「"+s.title+"」":""}：${balParts(s).map(p=>`【${p.b}】${pName(p)||p.pn}`).join("、")}${mk&&s.body?`\n　内容：${String(s.body).replace(/\s*\n\s*/g,"／").slice(0,140)}`:""}`).join("\n")}`;
+${L.map(({s,i})=>`工程${i+1}（${stepNo(i+1)}・写真${s.photos.length}枚）${s.title?"「"+s.title+"」":""}：${balParts(s).map(p=>`【${p.b}】${pName(p)||p.pn}`).join("、")||"（風船の部品なし・図示だけ）"}${mk&&s.body?`\n　内容：${String(s.body).replace(/\s*\n\s*/g,"／").slice(0,140)}`:""}`).join("\n")}`;
 }
 /* ---- AIの図示（言葉・丸・矢印・線）。手順書の風船と、改善シート・ワンポイントで共通 ---- */
 const MK_NAME={note:"言葉",circle:"丸",arrow:"矢印",line:"線"};
