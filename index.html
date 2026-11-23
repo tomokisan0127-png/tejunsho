@@ -1058,7 +1058,7 @@ body.kzOn #gdTip,body.kzOn #gdRing{display:none!important}
         <div class="pAddT">＋ 部品を追加 <small>（Excelやデータにない部品）</small></div>
         <div class="pAddG">
           <label>風船<input id="paB" placeholder="例 058" inputmode="numeric"></label>
-          <label>子品番<input id="paPn" placeholder="例 L81-27099-60"></label>
+          <label>子品番<input id="paPn" placeholder="例 A00-12345-01"></label>
           <label class="w2">品名<input id="paName" placeholder="例 COVER"></label>
           <label class="w2">和名・備考<input id="paJp" placeholder="例 カバー（任意）"></label>
           <label>数量<input id="paQty" value="1" inputmode="numeric"></label>
@@ -4490,8 +4490,9 @@ $("#scanTorch").onclick=async()=>{ const b=$("#scanTorch"), on=!b.classList.cont
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&SC.stream) scanClose(); });
 /* 現品札の読み取りでエラーが出ても、黙って止まらないように画面に出す */
 async function tagSafe(box,fn){ try{ await fn(); }catch(e){ const m=$(box); if(m){ m.className="msg ng"; m.style.color=""; m.textContent="読み取りの途中でエラーが出ました："+(e&&e.message||e)+"　もう一度読むか、部品を一覧から選んでください。"; } } }
-/* 出庫現品札のQR：「Z＋8桁」のすぐ後ろが品番（例 Z12345678A001234501 → A00-12345-01） */
-function tagQrPn(text){ const m=String(text||"").toUpperCase().match(/Z\d{8}([A-Z]\d{2})(\d{5})(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:""; }
+/* 出庫現品札のQR：先頭が「英字1文字＋8桁」（Z12345678・B87654321 など。英字は札によって違う）、そのすぐ後ろが品番
+   例 Z12345678A001234501 → A00-12345-01、B87654321C001234502 → C00-12345-02 */
+function tagQrPn(text){ const m=String(text||"").toUpperCase().match(/[A-Z]\d{8}([A-Z]\d{2})(\d{5})(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:""; }
 function matchTag(text){
   const N=normPn(text); if(!N) return {hits:[],codes:[]};
   const qp=tagQrPn(text);
@@ -5834,7 +5835,7 @@ function kzEdit(){
       <button class="sm" id="kzKouka">⏱ 作業時間から改善効果の文を入れる</button></div>`
   :`
     <div class="kzCard"><h3><span class="no">1</span>作業名・機種名</h3>
-      <div class="kzRow">${kzIn("sagyo","作業名","例：ボールねじの挿入")}${kzIn("kishu","機種名","例：L81")}</div></div>
+      <div class="kzRow">${kzIn("sagyo","作業名","例：ボールねじの挿入")}${kzIn("kishu","機種名","例：○○○")}</div></div>
     <div class="kzCard"><h3><span class="no">2</span>写真</h3>
       <p class="kzHint">1〜2枚がおすすめです。タップすると矢印・丸・文字・手書きで書き込めます。</p>${kzPhotos("photos","写真",3)}</div>
     <div class="kzCard"><h3><span class="no">3</span>メモ</h3>
