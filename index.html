@@ -5891,6 +5891,9 @@ function kzLayout(asp,W,H,gap){ const n=asp.length; if(!n) return [];
   for(let cols=1;cols<=n;cols++){ const rows=Math.ceil(n/cols), cw=(W-gap*(cols-1))/cols, ch=(H-gap*(rows-1))/rows; let area=0; const S=[];
     for(let i=0;i<n;i++){ const a=asp[i], w=Math.min(cw,ch*a), h=w/a; area+=w*h; S.push({w,h}); }
     if(!best||area>best.area) best={area,cols,rows,S}; }
+  // 1列に高さをそろえて並べる案：縦長と横長が混ざっても上下がそろって見やすい。面積がほぼ同じならこちら
+  if(n>=2){ const sa=asp.reduce((a,b)=>a+b,0), h=Math.min(H,(W-gap*(n-1))/sa), area=asp.reduce((a,x)=>a+x*h*h,0);
+    if(area>=best.area*.85){ const R=[]; let x=(W-(sa*h+gap*(n-1)))/2; const y=(H-h)/2; asp.forEach(a=>{ R.push({x,y,w:a*h,h}); x+=a*h+gap; }); return R; } }
   // 行ごとに写真を詰めて並べ、全体を枠の真ん中に
   const {cols,rows,S}=best, R=[], rowH=[];
   for(let r=0;r<rows;r++) rowH.push(Math.max(...S.slice(r*cols,r*cols+cols).map(x=>x.h)));
@@ -5903,12 +5906,13 @@ const kzAsp=p=>(p.w&&p.h)?p.w/p.h:4/3;
 function kzLines(text,cpl){ return String(text||"").split("\n").reduce((n,l)=>{ let w=0; for(const ch of l) w+=/[\x20-\x7e]/.test(ch)?.55:1; return n+Math.max(1,Math.ceil(w/cpl)); },0); }
 function kzFit(text,Wpx,Hpx,sizes){ for(const pt of sizes){ const px=pt*4/3, cpl=Math.max(4,Math.floor((Wpx-8)/px)), lines=kzLines(text,cpl); if(lines*px*1.3<=Hpx-4) return pt; } return sizes[sizes.length-1]; }
 /* ワンポイントのポイントを、枠の幅で行に分ける（1行の高さに収まる大きさ：12pt→11→10） */
+function kzOpLinesAt(items,Wpx,pt){ const cpl=(Wpx-34)/(pt*4/3), L=[];
+  items.forEach((x,i)=>{ const head=x.m+" ", ind="　 "; let cur=head, w=kzVW(head);
+    for(const ch of String(x.t).replace(/\n/g," ")){ const cw=kzVW(ch); if(w+cw>cpl){ L.push({m:x.m,t:cur,i}); cur=ind+ch; w=kzVW(ind)+cw; } else { cur+=ch; w+=cw; } }
+    L.push({m:x.m,t:cur,i}); });
+  return {pt,L}; }
 function kzOpLines(items,Wpx,maxLines){
-  for(const pt of [12,11,10,9]){ const cpl=(Wpx-34)/(pt*4/3), L=[];
-    items.forEach(x=>{ const head=x.m+" ", ind="　 "; let cur=head, w=kzVW(head);
-      for(const ch of String(x.t).replace(/\n/g," ")){ const cw=kzVW(ch); if(w+cw>cpl){ L.push({m:x.m,t:cur}); cur=ind+ch; w=kzVW(ind)+cw; } else { cur+=ch; w+=cw; } }
-      L.push({m:x.m,t:cur}); });
-    if(L.length<=maxLines||pt===9) return {pt,L}; } }
+  for(const pt of [12,11,10,9]){ const r=kzOpLinesAt(items,Wpx,pt); if(r.L.length<=maxLines||pt===9) return r; } }
 /* ---------- Excel ---------- */
 const kzColPx=w=>Math.floor((w||8.38)*7+5), kzRowPx=h=>(h||13.5)*4/3;   // 列の幅：1文字7px（元の改善シートの図形の大きさから実測：幅9の列＝約66px）
 const kzVW=t=>{ let w=0; for(const ch of String(t||"")) w+=/[\x20-\x7e｡-ﾟ]/.test(ch)?.55:1; return w; };   // 見た目の幅（全角1）
@@ -5921,17 +5925,33 @@ function kzGeo(D,c0,c1,r0,r1){ // D＝{cols,rows}。0始まり。c1・r1は含�
   const nat=(arr,base,v)=>{ let i=0; while(i<arr.length-2&&v>arr[i+1]) i++; return [base+i,Math.round(Math.max(0,v-arr[i])*9525)]; };
   return {W:cx[cx.length-1],H:ry[ry.length-1],cx,ry,col:x=>at(cx,c0,x),row:y=>at(ry,r0,y),
     anchor:(x,y)=>{ const [c,co]=nat(cx,c0,x), [r,ro]=nat(ry,r0,y); return {nativeCol:c,nativeColOff:co,nativeRow:r,nativeRowOff:ro}; }}; }
-function kzPlace(photos,g,pad,top){ const R=kzLayout(photos.map(kzAsp),g.W-pad*2,g.H-pad*2,8), dy=top&&R.length?Math.min(...R.map(x=>x.y)):0;
-  return R.map(r=>({a:g.anchor(pad+r.x,pad+r.y-dy),b:g.anchor(pad+r.x+r.w,pad+r.y-dy+r.h),w:Math.round(r.w),h:Math.round(r.h),bottom:pad+r.y-dy+r.h})); }
+function kzPlace(photos,g,pad,top,H,oy=0){ const R=kzLayout(photos.map(kzAsp),g.W-pad*2,(H||g.H)-pad*2,8), dy=top&&R.length?Math.min(...R.map(x=>x.y)):0;
+  return R.map(r=>({a:g.anchor(pad+r.x,oy+pad+r.y-dy),b:g.anchor(pad+r.x+r.w,oy+pad+r.y-dy+r.h),w:Math.round(r.w),h:Math.round(r.h),bottom:oy+pad+r.y-dy+r.h})); }
 function kzPutPhotos(wb,ws,photos,P){ photos.forEach((p,i)=>{ const id=wb.addImage({base64:p.data,extension:/^data:image\/png/.test(p.data)?"png":"jpeg"});
     // tl＋br の2点指定（twoCellAnchor）。oneCellAnchor に editAs を付けると Excel が「問題が見つかりました」と修復してしまう
     ws.addImage(id,{tl:P[i].a,br:P[i].b,editAs:"oneCell"}); }); }
 /* ワンポイント：写真の場所とポイントを書き始める行（Excelとできあがりで共通） */
-function kzOpPlan(K,D){ const items=K.items.filter(x=>String(x.t||"").trim()), area=kzGeo(D,1,11,5,42), lines=kzOpLines(items,area.W,K.photos.length?22:35);
-  let r=6, P=[];
-  if(K.photos.length){ const g=kzGeo(D,1,11,5,Math.max(8,42-lines.L.length-1)); P=kzPlace(K.photos,g,10,true);
-    const bottom=Math.max(...P.map(x=>x.bottom))+6; let k=0; while(k<g.ry.length-1&&g.ry[k]<bottom) k++; r=Math.min(42-lines.L.length+1,6+k); }
-  return {P,lines,r:Math.max(6,r)}; }
+/* 枠（Excelの6〜42行目）の中に、写真とポイントの文をバランスよく置く。
+   ・文字は 14〜9pt で、写真が小さくならない範囲でいちばん大きく
+   ・余った行は、写真の上・写真と文の間・文の下に分けて、上にかたよらないように */
+function kzOpPlan(K,D){ const items=K.items.filter(x=>String(x.t||"").trim()), area=kzGeo(D,1,11,5,42), np=K.photos.length, maxL=np?22:35;
+  const rowsFor=(g,bottom)=>{ let k=0; while(k<g.ry.length-1&&g.ry[k]<bottom) k++; return k; };
+  const C=[];
+  for(const pt of [13,12,11,10,9]){ const lines=kzOpLinesAt(items,area.W,pt), n=lines.L.length; if(n>maxL&&pt>9) continue;
+    let P=[], k=0, a=0;
+    if(np){ const g=kzGeo(D,1,11,5,Math.max(8,42-n-1)); P=kzPlace(K.photos,g,10,true); k=rowsFor(g,Math.max(...P.map(x=>x.bottom))+6); a=P.reduce((s,x)=>s+x.w*x.h,0); }
+    C.push({pt,lines,n,k,a}); }
+  const amax=Math.max(...C.map(c=>c.a)), c=C.find(c=>c.a>=amax*.97&&c.n<=maxL)||C[C.length-1];
+  let free=Math.max(0,37-c.k-c.n-(np&&c.n?1:0));
+  // 行に余裕があれば、ポイントとポイントの間を1行あけて読みやすく
+  const ni=items.length; if(ni>1&&free>=ni-1+4){ const L=[]; c.lines.L.forEach((ln,j)=>{ if(j&&ln.i!==c.lines.L[j-1].i) L.push({m:"",t:"",i:-1}); L.push(ln); });
+    c.lines={pt:c.lines.pt,L}; free-=L.length-c.n; c.n=L.length; }
+  const top=np?Math.min(3,Math.floor(free*.25)):Math.floor(free*.15), mid=np&&c.n?Math.min(3,Math.floor(free*.25)):0;
+  let P=[], r=6+top;
+  if(np){ const g0=kzGeo(D,1,11,5,Math.max(8,42-c.n-1)), g=kzGeo(D,1,11,5,42), oy=g.ry[top]||0;
+    P=kzPlace(K.photos,g,10,true,g0.H,oy); r=6+rowsFor(g,Math.max(...P.map(x=>x.bottom))+6)+mid; }
+  r=Math.max(6,Math.min(42-c.n+1,r));
+  return {P,lines:c.lines,r}; }
 function kzB64(s){ const b=atob(s), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u.buffer; }
 const kzOwn=c=>{ c.style=JSON.parse(JSON.stringify(c.style||{})); return c; };   // テンプレートのセルは書式を共有している → 自分の分を複製してから変える
 const kzFont=(c,sz,name)=>{ kzOwn(c); c.font=Object.assign({},c.font||{},{size:sz},name?{name}:{}); };
@@ -5953,7 +5973,7 @@ async function kzExcel(){
     K.revs.slice(0,3).forEach((r,i)=>{ setT("B"+(44+i),d(r.d),11); setT("C"+(44+i),r.t,11); setT("G"+(44+i),r.p,11); });
     // 写真は上に寄せ、ポイントは写真のすぐ下から。ポイントは自分で行に分けて、B列に1行ずつ書く（セルを結合しない＝罫線にさわらない）
     const plan=kzOpPlan(K,D), lines=plan.lines; let r=plan.r; kzPutPhotos(wb,ws,K.photos,plan.P);
-    lines.L.forEach(ln=>{ if(r>42) return; const c=kzOwn(ws.getCell(r,2)); c.value=ln.t;
+    lines.L.forEach(ln=>{ if(r>42) return; if(!ln.t){ r++; return; } const c=kzOwn(ws.getCell(r,2)); c.value=ln.t;
       c.font={name:"HG丸ｺﾞｼｯｸM-PRO",size:lines.pt,bold:ln.m==="●",color:{argb:ln.m==="■"?"FF1F4E9A":ln.m==="＊"?"FF9C2A00":"FF000000"}};
       c.alignment={wrapText:false,vertical:"middle",horizontal:"left",indent:1}; r++; });
   }
