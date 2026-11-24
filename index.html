@@ -929,6 +929,8 @@ body.kzOn #gdTip,body.kzOn #gdRing{display:none!important}
 #kz .kzMk span input{display:inline-block;width:auto;margin:0 6px 0 0;vertical-align:middle;transform:scale(1.2)}
 #kz .kzMk span{display:block;text-align:left}
 #kz .kzMode input{width:auto;display:inline-block;margin:0;flex:none;transform:scale(1.2)} #kz .kzMode label{justify-content:flex-start;text-align:left;font-size:15px;color:#223;padding:4px 0}
+#kz .kzBar button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;padding:5px 2px;white-space:nowrap;min-width:0}
+#kz .kzBar button i{font-style:normal;font-size:19px;line-height:1}
 </style>
 </head>
 <body>
@@ -1550,7 +1552,7 @@ body.kzOn #gdTip,body.kzOn #gdRing{display:none!important}
 <div id="kz" hidden>
   <div class="kzTop"><button id="kzBack">‹ 戻る</button><b id="kzTitle">改善シート・ワンポイントシート</b></div>
   <div class="kzBody" id="kzMain"></div>
-  <div class="kzBar" id="kzBar" hidden><button id="kzViewB">👁 できあがり</button><button class="primary" id="kzXlsx">📄 Excel</button><button id="kzSaveB">💾 保存・送る</button></div>
+  <div class="kzBar" id="kzBar" hidden><button id="kzViewB"><i>👁</i>できあがり</button><button class="primary" id="kzXlsx"><i>📄</i>Excel</button><button id="kzPdfB"><i>🖨</i>印刷用PDF</button><button id="kzSaveB"><i>💾</i>保存・送る</button></div>
   <div id="kzToast" hidden style="position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:9;background:#1d2733;color:#fff;padding:10px 16px;border-radius:99px;font-size:14px;max-width:90vw"></div>
 </div>
 <div id="dlRes" class="modal"><div class="box" style="max-width:520px">
@@ -5964,11 +5966,17 @@ async function kzExcel(){
 }
 /* ---------- できあがり（Excelのイメージをそのまま縮小表示） ---------- */
 function kzView(){
-  const K=KZ, f=K.f, D=KZ_DIM[K.kind]; $("#kzTitle").textContent="できあがり"; $("#kzBack").textContent="‹ 編集に戻る"; $("#kzBar").hidden=false;
+  $("#kzTitle").textContent="できあがり"; $("#kzBack").textContent="‹ 編集に戻る"; $("#kzBar").hidden=false;
+  const v=kzViewHTML(Math.min(880,$("#kz").clientWidth-24));
+  $("#kzMain").innerHTML=`<p class="kzHint">Excelに出力したときのイメージです（文字の大きさは自動で調整します）。印刷するときは下の「🖨 PDF」が便利です。</p>${v.html}`;
+}
+/* できあがりの絵（Excelと同じ位置）を作る。Wv＝絵の横幅(px)。画面の確認とPDFで共通 */
+function kzViewHTML(Wv){
+  const K=KZ, f=K.f, D=KZ_DIM[K.kind];
   // Excelの画面と同じ：列は1文字7px（元の改善シートの図形から実測）、行はpt×4/3。写真はExcelに書くときと同じ計算（kzPlace）で置く
   const X=[0], Y=[0]; D.cols.forEach(w=>X.push(X[X.length-1]+kzColPx(w))); D.rows.forEach(hh=>Y.push(Y[Y.length-1]+kzRowPx(hh)));
   const kz=K.kind==="kaizen", cA=1, cB=kz?17:11, rA=kz?1:0, rB=kz?44:46, W=X[cB]-X[cA], H=Y[rB]-Y[rA];
-  const Wv=Math.min(880,$("#kz").clientWidth-24), s=Wv/W, px=v=>(v*s).toFixed(1)+"px";
+  const s=Wv/W, px=v=>(v*s).toFixed(1)+"px";
   const at=(c,r)=>[X[c]-X[cA],Y[r]-Y[rA]];
   const box=(c0,r0,c1,r1,txt,pt,o="")=>{ const [x,y]=at(c0,r0), [x2,y2]=at(c1+1,r1+1); return `<div class="c" style="left:${px(x)};top:${px(y)};width:${px(x2-x)};height:${px(y2-y)};font-size:${px(pt*4/3)};${o}">${esc(txt||"")}</div>`; };
   const txt=(c,r,t,pt,o="")=>{ const [x,y]=at(c,r); return `<div class="t" style="left:${px(x+3)};top:${px(y+1)};font-size:${px(pt*4/3)};${o}">${esc(t||"")}</div>`; };
@@ -5994,7 +6002,59 @@ function kzView(){
       +box(7,43,8,44,d(f.sdate),12,ctr)+box(9,43,9,44,f.author,kzFit1(f.author,G(9,10)-6,14,7),ctr)+box(10,43,10,44,"",12)+box(7,45,7,45,"No.",12,ctr)+box(8,45,10,45,f.no,12,ctr);
     for(let i=0;i<3;i++){ const r=K.revs[i]||{}; h+=box(1,43+i,1,43+i,d(r.d),10,ctr)+box(2,43+i,5,43+i,r.t,10,mid)+box(6,43+i,6,43+i,r.p,10,ctr); }
   }
-  $("#kzMain").innerHTML=`<p class="kzHint">Excelに出力したときのイメージです（文字の大きさは自動で調整します）。</p><div class="kzPv" style="width:${px(W)};height:${px(H)}">${h}</div>`;
+  return {html:`<div class="kzPv" style="width:${px(W)};height:${px(H)}">${h}</div>`,W:W*s,H:H*s};
+}
+/* ---------- 印刷用PDF：できあがりの絵を大きく描いて、A4 1枚のPDFにする（改善シート＝横、ワンポイント＝縦） ---------- */
+async function kzPdf(){
+  const K=KZ, land=K.kind==="kaizen";
+  await DBT(kzSaveNow(),5000).catch(()=>{});
+  const v=kzViewHTML(land?3200:2300), host=document.createElement("div");
+  host.style.cssText=`position:absolute;left:-300000px;top:0;width:${Math.ceil(v.W)+10}px;pointer-events:none`; host.innerHTML=v.html; $("#kz").appendChild(host);
+  let c=null;
+  try{
+    await Promise.all([...host.querySelectorAll("img")].map(im=>im.decode?im.decode().catch(()=>{}):null));
+    try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(_){}
+    await paint();
+    const pv=host.querySelector(".kzPv"), R0=pv.getBoundingClientRect(); c=document.createElement("canvas");
+    const lw=Math.max(1.5,R0.width/1400), pd=Math.ceil(lw*3);      // ふちの線が切れないように少し余白
+    c.width=Math.round(R0.width)+pd*2; c.height=Math.round(R0.height)+pd*2; const g=cv2d(c);
+    g.fillStyle="#fff"; g.fillRect(0,0,c.width,c.height); g.translate(pd,pd);
+    for(const el of pv.children){ const r=el.getBoundingClientRect(), x=r.left-R0.left, y=r.top-R0.top;
+      if(el.tagName==="IMG"){ const iw=el.naturalWidth, ih=el.naturalHeight; if(!iw) continue; const k=Math.min(r.width/iw,r.height/ih);
+        g.drawImage(el,x+(r.width-iw*k)/2,y+(r.height-ih*k)/2,iw*k,ih*k); continue; }
+      if(el.classList.contains("c")){ g.strokeStyle="#000"; g.lineWidth=lw; g.strokeRect(x,y,r.width,r.height); }
+      kzDrawText(g,el,R0,r); }
+    const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",.92)); if(!blob) throw new Error("画像を作れませんでした（メモリ不足）");
+    const pdf=kzPdfBlob(new Uint8Array(await blob.arrayBuffer()),c.width,c.height,land);
+    download(pdf,`${KZ_KIND[K.kind]}_${kzTitle(K)}.pdf`.replace(/[\\/:*?"<>|]/g,"_"));
+  } finally { cvFree(c); host.remove(); }
+}
+/* 画面に並んだ文字を、1文字ずつ同じ位置・同じ字体でキャンバスに描く（折り返しも画面と同じになる） */
+function kzDrawText(g,el,R0,box){
+  const tw=document.createTreeWalker(el,NodeFilter.SHOW_TEXT), rg=document.createRange(); let n;
+  while((n=tw.nextNode())){ const cs=getComputedStyle(n.parentElement), t=n.data;
+    g.font=`${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`; g.fillStyle=cs.color; g.textBaseline="middle"; g.textAlign="left";
+    for(let i=0;i<t.length;){ const cp=t.codePointAt(i), L=cp>0xffff?2:1, ch=t.substr(i,L); i+=L; if(/\s/.test(ch)) continue;
+      rg.setStart(n,i-L); rg.setEnd(n,i); const q=rg.getClientRects()[0]; if(!q||!q.width) continue;
+      const cx=(q.left+q.right)/2, cy=(q.top+q.bottom)/2; if(cx<box.left||cx>box.right||cy<box.top||cy>box.bottom) continue;      // 枠からはみ出して隠れている文字は描かない
+      g.fillText(ch,q.left-R0.left,cy-R0.top); } }
+}
+/* JPEG 1枚を A4 の真ん中に置いたPDFを作る（ライブラリなし） */
+function kzPdfBlob(jpg,iw,ih,land){
+  const PW=land?841.89:595.28, PH=land?595.28:841.89, m=14, k=Math.min((PW-2*m)/iw,(PH-2*m)/ih), w=iw*k, h=ih*k, x=(PW-w)/2, y=(PH-h)/2, f=v=>v.toFixed(2);
+  const enc=new TextEncoder(), parts=[], off=[]; let len=0;
+  const put=b=>{ if(typeof b==="string") b=enc.encode(b); parts.push(b); len+=b.length; };
+  const obj=(i,body)=>{ off[i]=len; put(`${i} 0 obj\n`); body(); put("\nendobj\n"); };
+  put("%PDF-1.4\n%\u00e2\u00e3\u00cf\u00d3\n");
+  obj(1,()=>put("<</Type/Catalog/Pages 2 0 R>>"));
+  obj(2,()=>put("<</Type/Pages/Kids[3 0 R]/Count 1>>"));
+  obj(3,()=>put(`<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${f(PW)} ${f(PH)}]/Resources<</XObject<</Im0 4 0 R>>>>/Contents 5 0 R>>`));
+  obj(4,()=>{ put(`<</Type/XObject/Subtype/Image/Width ${iw}/Height ${ih}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${jpg.length}>>stream\n`); put(jpg); put("\nendstream"); });
+  const cs=`q ${f(w)} 0 0 ${f(h)} ${f(x)} ${f(y)} cm /Im0 Do Q`;
+  obj(5,()=>put(`<</Length ${cs.length}>>stream\n${cs}\nendstream`));
+  const xr=len; put("xref\n0 6\n0000000000 65535 f \n"+[1,2,3,4,5].map(i=>String(off[i]).padStart(10,"0")+" 00000 n \n").join(""));
+  put(`trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n${xr}\n%%EOF\n`);
+  return new Blob(parts,{type:"application/pdf"});
 }
 /* ---------- AIに下書きしてもらう ---------- */
 function kzAiPhotos(){ const K=KZ; return K.kind==="kaizen"?K.before.map((p,j)=>({p,lab:"改善前"+"①②③④"[j]})).concat(K.after.map((p,j)=>({p,lab:"改善後"+"①②③④"[j]}))):K.photos.map((p,j)=>({p,lab:"写真"+"①②③"[j]})); }
@@ -6150,6 +6210,7 @@ async function kzImport(j){ const d=j.doc; if(!d||!KZ_KIND[d.kind]) throw new Er
 /* ---------- 起動 ---------- */
 $("#kzBack").onclick=()=>{ if(kzScr==="list") return kzClose(); if(kzScr==="edit"){ kzSaveNow(); KZ=null; return kzGo("list"); } kzGo("edit"); };
 $("#kzViewB").onclick=()=>kzGo("view");
+$("#kzPdfB").onclick=()=>busyRun("🖨 印刷用PDFを作っています…",()=>kzPdf().catch(e=>alert("PDFを作れませんでした："+e.message)));
 $("#kzXlsx").onclick=()=>busyRun("📄 Excelを作っています…",()=>kzExcel().catch(e=>alert("Excelを作れませんでした："+e.message)));
 $("#kzSaveB").onclick=kzSaveJson;
 $("#fmKz").onclick=kzOpen; $("#bKz").onclick=()=>{ $("#fileMenu").hidden=true; kzOpen(); };
