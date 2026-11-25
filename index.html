@@ -5598,8 +5598,15 @@ function addHozaiSheet(wb){
 const inLine=()=>/\bLine\//i.test(navigator.userAgent);
 /* iPhoneは「共有」→「"ファイル"に保存」。古いiOSでは共有が失敗したり、失敗のあとのダウンロードが（タップ扱いでないため）黙って止まることがあるので、
    失敗したら「保存のしかた」画面を出して、もう一度タップしてもらう */
+/* Android：2回目からのダウンロードや、作るのに時間がかかった時は、ブラウザが「勝手なダウンロード」として黙って止めることがある
+   （ホーム画面から起動したアプリだと確認も出ない → アプリを開き直すまで保存できない）。
+   → そういう時は「端末に保存する」ボタンを出して、押してもらった瞬間にダウンロードする */
+let _dlN=0;
+const isAndroid=()=>/Android/i.test(navigator.userAgent);
 function download(blob,name){
-  if(isIOS()&&Date.now()-_lastTap>2500) return dlRescue(blob,name,null,true);      // 作るのに時間がかかった → 「共有」はもう一度押してもらう（押した直後でないとiPhoneは共有を開けない）
+  const late=Date.now()-_lastTap>2500;
+  if(isIOS()&&late) return dlRescue(blob,name,null,true);      // 作るのに時間がかかった → 「共有」はもう一度押してもらう（押した直後でないとiPhoneは共有を開けない）
+  if(isAndroid()&&!inLine()&&(_dlN++>0||late)) return dlReady(blob,name);
   if(isIOS()||inLine()){
     let f=null; try{ f=new File([blob],name,{type:blob.type||"application/octet-stream"}); }catch(_){}
     let can=false; try{ can=!!(f&&navigator.canShare&&navigator.canShare({files:[f]})); }catch(_){}
@@ -5608,7 +5615,17 @@ function download(blob,name){
   }
   dlA(blob,name);
 }
+function dlReady(blob,name){
+  dlRescue(blob,name,null,true);
+  $("#dlResMsg").innerHTML="ファイルができました。<b>「端末に保存する」</b>を押してください。";
+  const d=$("#dlResDl"), s=$("#dlResShare"); d.textContent="📥 端末に保存する（ダウンロード）"; d.className="primary";
+  s.textContent="📤 共有で送る（LINE・メールなど）"; s.className=""; $("#dlResTxt").hidden=true; $("#dlResTab").hidden=true;
+  d.parentNode.insertBefore(d,d.parentNode.firstChild);
+  d.onclick=()=>{ dlA(blob,name); $("#dlRes").classList.remove("show"); try{ uiToast("📥 保存しました（ダウンロード）"); }catch(_){} };
+}
 function dlRescue(blob,name,err,ready){
+  { const B=$(".dlResBtns"), d=$("#dlResDl"); B.append($("#dlResShare"),$("#dlResTxt"),d,$("#dlResTab")); $("#dlResShare").className="primary"; d.className="";      // dlReady で変えた分を元に戻す
+    d.textContent="③ ダウンロードで保存（「ファイル」→ダウンロード に入ります）"; $("#dlResTab").hidden=false; }
   const m=$("#dlRes"), mb=(blob.size/1048576).toFixed(1), ios=(navigator.userAgent.match(/OS (\d+)_(\d+)/)||[]).slice(1).join(".");
   $("#dlResMsg").innerHTML=ready?"ファイルの準備ができました。<b>①</b>を押して、LINE・メールなどを選んでください。":"この端末では、そのままでは保存できませんでした。<b>上から順に</b>試してください。";
   $("#dlResShare").textContent=ready?"① 「共有」で送る・保存する":"① もう一度「共有」→「\"ファイル\"に保存」";
