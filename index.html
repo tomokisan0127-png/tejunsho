@@ -1563,6 +1563,7 @@ body.kzOn #gdTip,body.kzOn #gdRing{display:none!important}
     <button id="dlResTxt">② 文字ファイルとして「共有」→「"ファイル"に保存」</button>
     <button id="dlResDl">③ ダウンロードで保存（「ファイル」→ダウンロード に入ります）</button>
     <button id="dlResTab">④ 新しいタブで開く → 共有ボタン →「"ファイル"に保存」</button>
+    <button id="dlResReload" hidden>🔄 押しても保存が始まらない時：アプリを読み込み直して保存</button>
   </div>
   <p class="hint" style="margin-top:10px">保存できたら、このファイルを「手順書を開く」で読み込めます。どれもだめな時は、下の「くわしい情報」を作った人に伝えてください。</p>
   <p class="hint" id="dlResErr" style="font-size:12px;word-break:break-all"></p>
@@ -1963,9 +1964,10 @@ function busyMsg(t){ const el=document.getElementById("busyOv"); if(el) el.query
 function busyShow(t){ let el=document.getElementById("busyOv");
   if(!el){ el=document.createElement("div"); el.id="busyOv"; el.innerHTML=`<div class="bx"><i></i><b></b><small>そのままお待ちください</small><button type="button" hidden>閉じる</button></div>`; document.body.appendChild(el);
     el.querySelector("button").onclick=()=>{ _busy=0; el.classList.remove("show"); }; }
-  busyMsg(t); el.querySelector("button").hidden=true; el.classList.add("show");
+  busyMsg(t); el.querySelector("button").hidden=true; el.classList.add("show"); try{ busyVer(); }catch(_){}
   clearTimeout(el._t); el._t=setTimeout(()=>{ el.querySelector("button").hidden=false; el.querySelector("small").textContent="時間がかかっています。終わらないときは［閉じる］"; },25000); }
 function busyHide(){ const el=document.getElementById("busyOv"); if(el){ clearTimeout(el._t); el.classList.remove("show"); el.querySelector("small").textContent="そのままお待ちください"; } }
+function busyVer(){ const el=document.getElementById("busyOv"); if(el&&!el.querySelector("em")){ const e=document.createElement("em"); e.style.cssText="font-size:10px;color:#99a;font-style:normal"; e.textContent=verTxt(); el.querySelector(".bx").appendChild(e); } }
 async function busyRun(msg,fn){
   if(_busy) return; _busy=1; busyShow(msg); await paint();
   try{ return await fn(); } finally{ _busy=0; busyHide(); } }
@@ -5602,6 +5604,7 @@ const inLine=()=>/\bLine\//i.test(navigator.userAgent);
    （ホーム画面から起動したアプリだと確認も出ない → アプリを開き直すまで保存できない）。
    → そういう時は「端末に保存する」ボタンを出して、押してもらった瞬間にダウンロードする */
 let _dlN=0;
+const APP_VER="fab23cfa", verTxt=()=>APP_VER.startsWith("__")?"開発版":"版 "+APP_VER;
 const isAndroid=()=>/Android/i.test(navigator.userAgent);
 function download(blob,name){
   const late=Date.now()-_lastTap>2500;
@@ -5621,10 +5624,14 @@ function dlReady(blob,name){
   const d=$("#dlResDl"), s=$("#dlResShare"); d.textContent="📥 端末に保存する（ダウンロード）"; d.className="primary";
   s.textContent="📤 共有で送る（LINE・メールなど）"; s.className=""; $("#dlResTxt").hidden=true; $("#dlResTab").hidden=true;
   d.parentNode.insertBefore(d,d.parentNode.firstChild);
-  d.onclick=()=>{ dlA(blob,name); $("#dlRes").classList.remove("show"); try{ uiToast("📥 保存しました（ダウンロード）"); }catch(_){} };
+  d.onclick=()=>{ dlA(blob,name); try{ uiToast("📥 保存を始めました（画面の下や通知に出ます）"); }catch(_){} };
+  /* それでも始まらない時（ブラウザがこのアプリのダウンロードを止めたまま）：ファイルをとっておいて読み込み直す → 読み込み直した直後の1回目は必ず保存できる */
+  const rl=$("#dlResReload"); rl.hidden=false;
+  rl.onclick=async()=>{ rl.disabled=true; rl.textContent="読み込み直しています…"; try{ await DB.set("pendingDl",{name,blob,t:Date.now()}); }catch(e){ rl.disabled=false; return alert("とっておけませんでした："+e.message); } location.reload(); };
+  $("#dlResErr").textContent=verTxt();
 }
 function dlRescue(blob,name,err,ready){
-  { const B=$(".dlResBtns"), d=$("#dlResDl"); B.append($("#dlResShare"),$("#dlResTxt"),d,$("#dlResTab")); $("#dlResShare").className="primary"; d.className="";      // dlReady で変えた分を元に戻す
+  { const B=$(".dlResBtns"), d=$("#dlResDl"); B.append($("#dlResShare"),$("#dlResTxt"),d,$("#dlResTab"),$("#dlResReload")); $("#dlResShare").className="primary"; d.className=""; $("#dlResReload").hidden=true; $("#dlResReload").disabled=false; $("#dlResReload").textContent="🔄 押しても保存が始まらない時：アプリを読み込み直して保存";      // dlReady で変えた分を元に戻す
     d.textContent="③ ダウンロードで保存（「ファイル」→ダウンロード に入ります）"; $("#dlResTab").hidden=false; }
   const m=$("#dlRes"), mb=(blob.size/1048576).toFixed(1), ios=(navigator.userAgent.match(/OS (\d+)_(\d+)/)||[]).slice(1).join(".");
   $("#dlResMsg").innerHTML=ready?"ファイルの準備ができました。<b>①</b>を押して、LINE・メールなどを選んでください。":"この端末では、そのままでは保存できませんでした。<b>上から順に</b>試してください。";
@@ -5762,6 +5769,10 @@ window.addEventListener("resize",schedulePreview);
   }catch(e){ console.error(e); }
   docId=uid(); load(blankState()); showDocName();
 })();
+/* 読み込み直して保存：とっておいたファイルを出す（読み込み直した直後なので保存できる） */
+setTimeout(async()=>{ try{ if(!DB.db) await DB.open(); const pd=await DB.get("pendingDl"); if(!pd) return; await DB.del("pendingDl");
+  if(!pd.blob||Date.now()-pd.t>15*60000) return;
+  dlReady(pd.blob,pd.name); $("#dlResReload").hidden=true; $("#dlResMsg").innerHTML="読み込み直しました。<b>「端末に保存する」</b>を押してください。"; }catch(_){} },900);
 window.__app={get S(){return S;},get E(){return E;},balMemo,get docId(){return docId;},saveNow,openDoc,newDoc,getIndex,load,exportXlsx,sheetSpec,pages,renderPreview};
 /* =====================================================================
    改善シート・ワンポイントシート（手順書とは別の画面・別の保存場所）
